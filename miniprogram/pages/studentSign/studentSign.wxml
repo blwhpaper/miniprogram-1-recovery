@@ -1,0 +1,37 @@
+<view class="box">
+  <view class="title">学生签到</view>
+
+  <!-- 假条已上传提示 -->
+  <view wx:if="{{hasSubmittedLeave}}" class="leave-tip">✅ 假条已上传</view>
+
+  <view wx:if="{{shouldGoRegister}}" class="register-box">
+    <view class="register-tip">当前用户尚未绑定，先绑定后再参加本次签到</view>
+    <button class="register-btn" type="primary" bindtap="goRegister">
+      去绑定当前签到
+    </button>
+  </view>
+
+  <view wx:if="{{!signSuccess && !hasSubmittedLeave && !shouldGoRegister}}">
+    <view class="input">
+      <view>当前学生：{{name}}</view>
+      <view>学号：{{studentId}}</view>
+    </view>
+    <button type="primary" bindtap="submitSign">确认签到</button>
+
+    <view class="leave-box">
+      <text class="tip">无法签到？为当前绑定学生上传假条</text>
+      <button class="leave-btn" bindtap="applyLeave">上传假条</button>
+    </view>
+  </view>
+
+  <view wx:if="{{signSuccess}}" class="success">✅ 签到成功</view>
+</view>
+
+<!-- 退出登录按钮 -->
+<button 
+  bindtap="logout" 
+  type="warn" 
+  style="margin-top:60rpx;"
+>
+  退出登录
+</button>

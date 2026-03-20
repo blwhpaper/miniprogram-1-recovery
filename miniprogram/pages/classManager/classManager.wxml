@@ -1,0 +1,12 @@
+<view class="box">
+  <view class="title">班级管理</view>
+
+  <button bindtap="addClass" type="primary">+ 新建班级</button>
+
+  <view class="item" wx:for="{{classList}}" wx:key="id">
+    <view class="name" bindtap="enterClass" data-id="{{item.id}}">
+      {{item.name}}
+    </view>
+    <button size="mini" type="warn" bindtap="deleteClass" data-id="{{item.id}}">删除</button>
+  </view>
+</view>

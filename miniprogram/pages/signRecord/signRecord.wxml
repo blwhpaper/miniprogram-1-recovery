@@ -1,0 +1,43 @@
+
+<view class="page">
+  <view class="stats-fixed">
+    <view class="stat-item" bindtap="jumpTo" data-type="signed">
+      <text class="num">{{signCount}}</text>
+      <text class="label">已签到</text>
+    </view>
+    <view class="stat-item" bindtap="jumpTo" data-type="unsigned">
+      <text class="num">{{unsignCount}}</text>
+      <text class="label">未签到</text>
+    </view>
+    <view class="stat-item" bindtap="jumpTo" data-type="absent">
+      <text class="num">{{absentCount}}</text>
+      <text class="label">旷课</text>
+    </view>
+    <view class="stat-item" bindtap="jumpTo" data-type="leave_wait">
+      <text class="num">{{waitCount}}</text>
+      <text class="label">查看假条</text>
+    </view>
+    <view class="stat-item" bindtap="jumpTo" data-type="leave_agree">
+      <text class="num">{{leaveCount}}</text>
+      <text class="label">已请假</text>
+    </view>
+  </view>
+
+  <view class="list-container">
+    <view class="card" wx:for="{{list}}" wx:key="studentId" wx:for-item="item" wx:for-index="index" id="item-{{index}}">
+      <view class="info">
+        <text class="name">学生姓名：{{item.name}}</text>
+      </view>
+
+      <view class="sub">
+        <text>学号：{{item.studentId || '-'}}</text>
+      </view>
+
+      <view class="sub">
+        <text>状态：{{item.status === 'signed' ? '已签到' : '未签到'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{list.length === 0}}" class="empty">暂无学生</view>
+  </view>
+</view>

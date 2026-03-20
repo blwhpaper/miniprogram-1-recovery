@@ -1,0 +1,36 @@
+<view class="container">
+  <view class="title">学生身份绑定</view>
+
+  <view class="input-item">
+    <text>姓名</text>
+    <input placeholder="请输入您的姓名" bindinput="inputName" />
+  </view>
+
+  <view class="input-item">
+    <text>学号</text>
+    <input placeholder="请输入您的学号" bindinput="inputPwd" />
+  </view>
+
+  <view class="input-item">
+    <text>确认学号</text>
+    <input placeholder="请再次输入您的学号" bindinput="inputPwd2" />
+  </view>
+
+  <view>
+    <text>lessonId: {{lessonId}}</text>
+  </view>
+  <view>
+    <text>studentId: {{studentId}}</text>
+  </view>
+  <view>
+    <text>name: {{name}}</text>
+  </view>
+  <view>
+    <text>debugInfo: {{debugInfo.lessonId}} | {{debugInfo.studentId}} | {{debugInfo.name}} | {{debugInfo.pendingLessonId}}</text>
+  </view>
+  <view>
+    <text>launchEntryOptions: {{debugInfo.launchEntryOptions}}</text>
+  </view>
+
+  <button class="btn-register" bindtap="doRegister" type="primary">绑定</button>
+</view>

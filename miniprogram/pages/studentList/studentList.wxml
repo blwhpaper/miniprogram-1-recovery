@@ -1,0 +1,12 @@
+<view>
+  <view>学生名单管理</view>
+
+  <button bindtap="uploadCSV">上传学生名单</button>
+
+  <view>当前班级人数：{{studentCount}}</view>
+
+  <!-- 上传完点这里去看签到情况 -->
+  <button bindtap="goSignRecord" type="primary">
+    进入签到情况管理
+  </button>
+</view>
