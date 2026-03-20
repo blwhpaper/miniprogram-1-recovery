@@ -22,51 +22,37 @@
     "miniprogram": {
       "list": [
         {
-          "name": "pages/classManager/classManager",
-          "pathName": "pages/classManager/classManager",
-          "query": "",
-          "scene": null,
-          "launchMode": "default"
-        },
-        {
-          "name": "pages/register/register",
-          "pathName": "pages/register/register",
-          "query": "",
-          "launchMode": "default",
-          "scene": null
-        },
-        {
-          "name": "pages/studentSign/studentSign",
-          "pathName": "pages/studentSign/studentSign",
-          "query": "lessonId=93abbbd769bb462e00b7f10a26f7b936",
-          "launchMode": "default",
-          "scene": null
-        },
-        {
-          "name": "pages/studentSign/studentSign",
-          "pathName": "pages/studentSign/studentSign",
-          "query": "",
-          "launchMode": "default",
-          "scene": null
-        },
-        {
-          "name": "pages/signRecord/signRecord",
-          "pathName": "pages/signRecord/signRecord",
-          "query": "",
-          "launchMode": "default",
-          "scene": null
-        },
-        {
-          "name": "pages/classHome/classHome",
+          "name": "生成签到码",
           "pathName": "pages/classHome/classHome",
           "query": "",
           "launchMode": "default",
           "scene": null
         },
         {
-          "name": "pages/example/index",
-          "pathName": "pages/example/index",
+          "name": "签到记录",
+          "pathName": "pages/signRecord/signRecord",
           "query": "",
+          "launchMode": "default",
+          "scene": null
+        },
+        {
+          "name": "学生签到",
+          "pathName": "pages/studentSign/studentSign",
+          "query": "lessonId=93abbbd769bb462e00b7f10a26f7b936",
+          "launchMode": "default",
+          "scene": null
+        },
+        {
+          "name": "学生身份绑定",
+          "pathName": "pages/register/register",
+          "query": "",
+          "launchMode": "default",
+          "scene": null
+        },
+        {
+          "name": "班级管理",
+          "pathName": "pages/classManager/classManager",
+          "query": "id=C2",
           "launchMode": "default",
           "scene": null
         },

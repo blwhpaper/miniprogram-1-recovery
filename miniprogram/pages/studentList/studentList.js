@@ -38,9 +38,23 @@ Page({
     }
   },
 
-  refreshCount() {
-    let list = wx.getStorageSync("students_" + this.data.classId) || []
-    this.setData({ studentCount: list.length })
+  async refreshCount() {
+    const classId = String(this.data.classId || "").trim()
+    if (!classId) {
+      this.setData({ studentCount: 0 })
+      return
+    }
+
+    try {
+      const db = wx.cloud.database()
+      const res = await db.collection("classes").doc(classId).get()
+      const roster = Array.isArray(res.data?.roster) ? res.data.roster : []
+      this.setData({ studentCount: roster.length })
+    } catch (err) {
+      const list = wx.getStorageSync("students_" + classId) || []
+      this.setData({ studentCount: list.length })
+      console.error("[studentList] refresh cloud count failed", err)
+    }
   },
 
   syncRosterToCloud(roster) {
@@ -61,6 +75,12 @@ Page({
     wx.chooseMessageFile({
       type: "file",
       success: (res) => {
+        const classId = String(this.data.classId || "").trim()
+        if (!classId) {
+          wx.showToast({ title: "班级ID无效", icon: "none" })
+          return
+        }
+
         const fs = wx.getFileSystemManager()
         fs.readFile({
           filePath: res.tempFiles[0].path,
@@ -88,25 +108,24 @@ Page({
             wx.showLoading({ title: "同步名单中...", mask: true })
 
             try {
-              wx.setStorageSync("students_" + this.data.classId, arr)
-
               const syncRes = await this.syncRosterToCloud(arr)
               console.log("[studentList] sync roster result", syncRes.result)
               if (!syncRes.result || !syncRes.result.success) {
                 throw new Error(syncRes.result?.msg || "云端同步失败")
               }
 
-              this.refreshCount()
-              wx.hideLoading()
+              wx.setStorageSync("students_" + classId, arr)
+              await this.refreshCount()
               wx.showToast({ title: "上传并同步成功", icon: "success" })
             } catch (err) {
-              wx.hideLoading()
               console.error("同步学生名单失败：", err)
               wx.showModal({
                 title: "同步失败",
-                content: err.message || "本地保存成功，但云端同步失败",
+                content: err.message || "云端同步失败，请稍后重试",
                 showCancel: false
               })
+            } finally {
+              wx.hideLoading()
             }
           }
         })
