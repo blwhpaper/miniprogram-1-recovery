@@ -11,6 +11,7 @@ Page({
     baseRosterList: [],
     stats: [],
     currentStats: null,
+    statsLoading: false,
     list: [], // 最终展示的混合列表
     signCount: 0,
     unsignCount: 0,
@@ -148,25 +149,40 @@ Page({
   },
 
   async loadStats() {
+    const classId = String(this.data.classId || "").trim();
+    const lessonId = String(this.data.lessonId || this.data.selectedLessonId || "").trim();
+    if (!classId) return;
+
+    this.setData({ statsLoading: true });
     try {
       const res = await wx.cloud.callFunction({
         name: "getLessonStatsByClass",
-        data: { classId: this.data.classId }
+        data: { classId }
       });
 
       if (res.result && res.result.success) {
-        const stats = res.result.stats || [];
-        this.setData({ stats });
+        const stats = Array.isArray(res.result.stats) ? res.result.stats : [];
+        const currentStats =
+          stats.find(item => String(item.lessonId || "").trim() === lessonId) || null;
 
-        const current = stats.find(item => item.lessonId === this.data.lessonId);
-        if (current) {
-          this.setData({ currentStats: current });
-        } else {
-          this.setData({ currentStats: null });
-        }
+        this.setData({
+          stats,
+          currentStats
+        });
+      } else {
+        this.setData({
+          stats: [],
+          currentStats: null
+        });
       }
     } catch (err) {
       console.error("[signRecord] loadStats failed", err);
+      this.setData({
+        stats: [],
+        currentStats: null
+      });
+    } finally {
+      this.setData({ statsLoading: false });
     }
   },
 
@@ -295,6 +311,7 @@ Page({
 
     await this.fetchAttendanceOnce(nextLessonId);
     this.startAttendancePolling(nextLessonId);
+    await this.loadStats();
   },
 
   onSelectLesson(e) {
