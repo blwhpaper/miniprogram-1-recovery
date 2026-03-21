@@ -37,8 +37,39 @@
   display:block; font-size:20rpx; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .lesson-empty { font-size:22rpx; color:#999; padding:12rpx 0; }
+.lesson-stats-section { margin-bottom:20rpx; }
+.lesson-stats-list { display:flex; flex-direction:column; gap:16rpx; }
+.lesson-stats-item {
+  background:#f7f8fa;
+  border-radius:16rpx;
+  padding:18rpx 20rpx;
+}
+.lesson-stats-item.active {
+  background:#eaf2ff;
+  border:1rpx solid #b8d1ff;
+}
+.lesson-stats-top {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.lesson-stats-name {
+  font-size:24rpx;
+  font-weight:600;
+  color:#333;
+}
+.lesson-stats-attend {
+  font-size:24rpx;
+  font-weight:600;
+  color:#2f77ff;
+}
+.lesson-stats-bottom {
+  margin-top:8rpx;
+  font-size:22rpx;
+  color:#666;
+}
 
-.list-container { padding-top:450rpx; padding-bottom:40rpx; }
+.list-container { padding-top:700rpx; padding-bottom:40rpx; }
 
 .card {
   background:#fff; border-radius:20rpx; margin:0 20rpx 20rpx; padding:30rpx;

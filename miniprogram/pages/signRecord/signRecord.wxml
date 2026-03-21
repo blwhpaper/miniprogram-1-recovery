@@ -32,6 +32,29 @@
 
       <view wx:else class="lesson-empty">暂无历史课次</view>
     </view>
+
+    <view wx:if="{{stats.length > 0}}" class="lesson-stats-section">
+      <view class="lesson-header">
+        <text class="lesson-title">历史课次统计</text>
+      </view>
+
+      <view class="lesson-stats-list">
+        <view
+          wx:for="{{stats}}"
+          wx:key="lessonId"
+          wx:for-index="index"
+          class="lesson-stats-item {{selectedLessonId === item.lessonId ? 'active' : ''}}"
+        >
+          <view class="lesson-stats-top">
+            <text class="lesson-stats-name">课次{{index + 1}}</text>
+            <text class="lesson-stats-attend">{{item.signedCount}} / {{item.rosterCount}}</text>
+          </view>
+          <view class="lesson-stats-bottom">
+            <text>未到：{{item.unsignedCount}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
   </view>
 
   <view class="list-container">
