@@ -35,16 +35,22 @@ Page({
 
     try {
       // 第一步：在云端创建一节“课”（Lesson），获取唯一 ID
+      console.log("[classHome] createLesson classId =", classId)
       const lessonRes = await wx.cloud.callFunction({
         name: "createLesson",
         data: { classId }
       })
+      console.log("[classHome] createLesson result =", lessonRes)
+      console.log("[classHome] returned lessonId =", lessonRes.result?.lessonId)
 
       if (!lessonRes.result || !lessonRes.result.success) {
         throw new Error(lessonRes.result?.msg || "创建课程失败")
       }
 
-      const lessonId = lessonRes.result.lessonId
+      const lessonId = String(lessonRes.result?.lessonId || "").trim()
+      if (!lessonId) {
+        throw new Error("创建课程成功但未返回 lessonId")
+      }
       console.log("[classHome] created lessonId", lessonId)
       wx.setStorageSync(`LATEST_LESSON_${classId}`, lessonId)
       this.setData({ lessonId })
@@ -86,8 +92,12 @@ Page({
 
   // 跳转到学生名单管理（修复：带上 classId）
   goToStudentList() {
+    const classId = String(this.data.classId || "").trim()
+    const latestLessonId = String(
+      this.data.lessonId || wx.getStorageSync(`LATEST_LESSON_${classId}`) || ""
+    ).trim()
     wx.navigateTo({
-      url: `/pages/studentList/studentList?id=${this.data.classId}&lessonId=${this.data.lessonId || ""}`
+      url: `/pages/studentList/studentList?id=${classId}&lessonId=${latestLessonId}`
     })
   }
 })

@@ -17,11 +17,13 @@ Page({
   },
 
   onLoad(options) {
-    const classId = options.id
+    console.log("[studentList] options =", options)
+    const classId = String(options.id || "").trim()
     const latestLessonId = String(wx.getStorageSync(`LATEST_LESSON_${classId}`) || "").trim()
+    const incomingLessonId = String(options.lessonId || "").trim()
     this.setData({
       classId,
-      lessonId: options.lessonId || latestLessonId || ""
+      lessonId: latestLessonId || incomingLessonId || ""
     })
     this.refreshCount()
   },
@@ -138,6 +140,7 @@ Page({
   // ======================
   goSignRecord() {
     const latestLessonId = this.getLatestLessonId()
+    console.log("[studentList] goSignRecord classId =", this.data.classId, "lessonId =", this.getLatestLessonId())
     const lessonId = latestLessonId || this.data.lessonId
 
     if (!lessonId) {

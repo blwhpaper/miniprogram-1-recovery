@@ -1,25 +1,56 @@
 
 <view class="page">
+  <view wx:if="{{currentStats}}" style="padding: 12px; background: #f5f5f5; margin-bottom: 12px; border-radius: 8px;">
+    <text style="font-size: 16px; font-weight: bold;">
+      出勤：{{currentStats.signedCount}} / {{currentStats.rosterCount}}
+    </text>
+  </view>
+
   <view class="stats-fixed">
-    <view class="stat-item" bindtap="jumpTo" data-type="signed">
-      <text class="num">{{signCount}}</text>
-      <text class="label">已签到</text>
+    <view class="lesson-section">
+      <view class="lesson-header">
+        <text class="lesson-title">历史课次</text>
+      </view>
+
+      <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="lesson-list">
+          <view
+            wx:for="{{lessons}}"
+            wx:key="_id"
+            class="lesson-item {{selectedLessonId === item._id ? 'active' : ''}}"
+            bindtap="onSelectLesson"
+            data-lesson-id="{{item._id}}"
+          >
+            <text class="lesson-item-title">课次 {{index + 1}}</text>
+            <text class="lesson-item-id">{{item._id}}</text>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view wx:else class="lesson-empty">暂无历史课次</view>
     </view>
-    <view class="stat-item" bindtap="jumpTo" data-type="unsigned">
-      <text class="num">{{unsignCount}}</text>
-      <text class="label">未签到</text>
-    </view>
-    <view class="stat-item" bindtap="jumpTo" data-type="absent">
-      <text class="num">{{absentCount}}</text>
-      <text class="label">旷课</text>
-    </view>
-    <view class="stat-item" bindtap="jumpTo" data-type="leave_wait">
-      <text class="num">{{waitCount}}</text>
-      <text class="label">查看假条</text>
-    </view>
-    <view class="stat-item" bindtap="jumpTo" data-type="leave_agree">
-      <text class="num">{{leaveCount}}</text>
-      <text class="label">已请假</text>
+
+    <view class="stats-row">
+      <view class="stat-item" bindtap="jumpTo" data-type="signed">
+        <text class="num">{{signCount}}</text>
+        <text class="label">已签到</text>
+      </view>
+      <view class="stat-item" bindtap="jumpTo" data-type="unsigned">
+        <text class="num">{{unsignCount}}</text>
+        <text class="label">未签到</text>
+      </view>
+      <view class="stat-item" bindtap="jumpTo" data-type="absent">
+        <text class="num">{{absentCount}}</text>
+        <text class="label">旷课</text>
+      </view>
+      <view class="stat-item" bindtap="jumpTo" data-type="leave_wait">
+        <text class="num">{{waitCount}}</text>
+        <text class="label">查看假条</text>
+      </view>
+      <view class="stat-item" bindtap="jumpTo" data-type="leave_agree">
+        <text class="num">{{leaveCount}}</text>
+        <text class="label">已请假</text>
+      </view>
     </view>
   </view>
 

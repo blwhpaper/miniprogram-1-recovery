@@ -5,6 +5,12 @@ Page({
   data: {
     classId: "",
     lessonId: "",
+    lessons: [],
+    selectedLessonId: "",
+    lessonsLoading: false,
+    baseRosterList: [],
+    stats: [],
+    currentStats: null,
     list: [], // 最终展示的混合列表
     signCount: 0,
     unsignCount: 0,
@@ -33,6 +39,10 @@ Page({
       status: "unsigned",
       img: ""
     };
+  },
+
+  cloneBaseRosterList() {
+    return (this.data.baseRosterList || []).map((item) => ({ ...item }));
   },
 
   mergeAttendanceIntoList(baseList, docs = []) {
@@ -75,19 +85,26 @@ Page({
 
   onLoad(options) {
     // 从上一页（classHome 或 studentList）传入的参数
-    const lessonId = options.lessonId || "";
-    const classId = options.classId || "";
+    const lessonId = String(options.lessonId || "").trim();
+    const classId = String(options.classId || "").trim();
 
-    this.setData({ lessonId, classId });
-
-    // 1. 先加载花名册（基础数据）
-    // 2. 成功后拉取签到记录并启动轮询
-    this.initData();
+    this.setData({
+      lessonId,
+      classId,
+      selectedLessonId: lessonId
+    }, () => {
+      // 1. 先加载花名册（基础数据）
+      // 2. 成功后拉取签到记录并启动轮询
+      this.initData();
+    });
   },
 
   onShow() {
-    this.fetchAttendanceOnce(this.data.lessonId);
-    this.startAttendancePolling(this.data.lessonId);
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    if (!lessonId) return;
+
+    this.fetchAttendanceOnce(lessonId);
+    this.startAttendancePolling(lessonId);
   },
 
   onUnload() {
@@ -110,10 +127,46 @@ Page({
     wx.showLoading({ title: "加载中..." });
     try {
       await this.loadRoster();
-      await this.fetchAttendanceOnce(this.data.lessonId);
-      this.startAttendancePolling(this.data.lessonId);
+      const lessons = await this.loadLessons();
+      const initialLessonId = this.resolveInitialLessonId(lessons);
+
+      if (initialLessonId) {
+        await this.switchLesson(initialLessonId);
+      } else {
+        const list = this.cloneBaseRosterList();
+        this.setData({
+          lessonId: "",
+          selectedLessonId: "",
+          list
+        });
+        this.refreshStats();
+      }
+      await this.loadStats();
     } finally {
       wx.hideLoading();
+    }
+  },
+
+  async loadStats() {
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "getLessonStatsByClass",
+        data: { classId: this.data.classId }
+      });
+
+      if (res.result && res.result.success) {
+        const stats = res.result.stats || [];
+        this.setData({ stats });
+
+        const current = stats.find(item => item.lessonId === this.data.lessonId);
+        if (current) {
+          this.setData({ currentStats: current });
+        } else {
+          this.setData({ currentStats: null });
+        }
+      }
+    } catch (err) {
+      console.error("[signRecord] loadStats failed", err);
     }
   },
 
@@ -152,12 +205,102 @@ Page({
         .map((student) => this.normalizeRosterItem(student))
         .filter((item) => item.name);
       console.log("[signRecord] final roster list count", list.length);
-      this.setData({ list });
+      const baseRosterList = list.map((item) => ({ ...item }));
+      this.setData({
+        baseRosterList,
+        list: baseRosterList.map((item) => ({ ...item }))
+      });
       this.refreshStats();
     } catch (err) {
       console.error("加载花名册失败：", err);
       wx.showToast({ title: "加载名单失败", icon: "none" });
     }
+  },
+
+  async loadLessons() {
+    const classId = String(this.data.classId || "").trim();
+    if (!classId) {
+      this.setData({
+        lessons: [],
+        lessonsLoading: false
+      });
+      return [];
+    }
+
+    console.log("[signRecord] query classId =", classId);
+    this.setData({ lessonsLoading: true });
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "getLessonsByClass",
+        data: { classId }
+      });
+      const lessons = res.result?.success ? (res.result.lessons || []) : [];
+      console.log("[signRecord] lessons result count =", lessons.length);
+      this.setData({ lessons });
+      console.log("[signRecord] lessons count", lessons.length);
+      return lessons;
+    } catch (err) {
+      console.error("[signRecord] load lessons failed", {
+        classId,
+        err
+      });
+      this.setData({ lessons: [] });
+      return [];
+    } finally {
+      this.setData({ lessonsLoading: false });
+    }
+  },
+
+  resolveInitialLessonId(lessons = []) {
+    const currentLessonId = String(this.data.lessonId || "").trim();
+    const selectedLessonId = String(this.data.selectedLessonId || "").trim();
+    const candidateLessonId = selectedLessonId || currentLessonId;
+
+    if (candidateLessonId) {
+      const matched = lessons.some((lesson) => String(lesson._id || "").trim() === candidateLessonId);
+      if (matched || lessons.length === 0) {
+        return candidateLessonId;
+      }
+    }
+
+    return String(lessons[0]?._id || "").trim();
+  },
+
+  async switchLesson(lessonId) {
+    const nextLessonId = String(lessonId || "").trim();
+    if (!nextLessonId) {
+      this.clearAttendancePolling();
+      const list = this.cloneBaseRosterList();
+      this.setData({
+        lessonId: "",
+        selectedLessonId: "",
+        currentStats: null,
+        list
+      });
+      this.refreshStats();
+      return;
+    }
+
+    this.clearAttendancePolling();
+
+    const baseList = this.cloneBaseRosterList();
+    this.setData({
+      lessonId: nextLessonId,
+      selectedLessonId: nextLessonId,
+      currentStats: (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null,
+      list: baseList
+    });
+    this.refreshStats();
+
+    await this.fetchAttendanceOnce(nextLessonId);
+    this.startAttendancePolling(nextLessonId);
+  },
+
+  onSelectLesson(e) {
+    const lessonId = String(e.currentTarget.dataset.lessonId || "").trim();
+    if (!lessonId || lessonId === this.data.selectedLessonId) return;
+    this.switchLesson(lessonId);
   },
 
   async fetchAttendanceOnce(targetLessonId = "") {
@@ -232,12 +375,13 @@ Page({
   },
 
   async refreshAttendance() {
-    await this.fetchAttendanceOnce(this.data.lessonId);
+    await this.fetchAttendanceOnce(this.data.selectedLessonId || this.data.lessonId);
   },
 
   // 将签到数据同步到当前列表
   syncAttendance(docs) {
-    const list = this.mergeAttendanceIntoList(this.data.list, docs);
+    const baseList = this.cloneBaseRosterList();
+    const list = this.mergeAttendanceIntoList(baseList, docs);
     console.log("[signRecord] merged list count", list.length);
     this.setData({ list });
     this.refreshStats();

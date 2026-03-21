@@ -6,6 +6,7 @@ const db = cloud.database()
 exports.main = async (event, context) => {
   const { classId } = event
   const { OPENID } = cloud.getWXContext()
+  console.log("[createLesson] classId =", classId)
 
   if (!classId) {
     return {
@@ -15,7 +16,8 @@ exports.main = async (event, context) => {
   }
 
   try {
-    const result = await db.collection('lessons').add({
+    console.log("[createLesson] input classId =", classId)
+    const addRes = await db.collection('lessons').add({
       data: {
         classId: classId,
         teacherOpenid: OPENID,
@@ -23,10 +25,12 @@ exports.main = async (event, context) => {
         status: 'active'
       }
     })
+    console.log("[createLesson] add result =", addRes)
+    console.log("[createLesson] return lessonId =", addRes._id)
 
     return {
       success: true,
-      lessonId: result._id,
+      lessonId: addRes._id,
       msg: 'Lesson started successfully'
     }
   } catch (err) {
