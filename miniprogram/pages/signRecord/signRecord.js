@@ -186,6 +186,51 @@ Page({
     }
   },
 
+  escapeCsv(value) {
+    const text = String(value ?? "");
+    if (!/[",\n\r]/.test(text)) return text;
+    return `"${text.replace(/"/g, '""')}"`;
+  },
+
+  copyCsvToClipboard(csvText, successTitle) {
+    wx.setClipboardData({
+      data: `\uFEFF${csvText}`,
+      success: () => {
+        wx.showToast({
+          title: successTitle,
+          icon: "none"
+        });
+      },
+      fail: (err) => {
+        console.error("[signRecord] copy csv failed", err);
+        wx.showToast({
+          title: "导出失败，请稍后重试",
+          icon: "none"
+        });
+      }
+    });
+  },
+
+  getLessonOrderLabel(lessonId) {
+    const targetLessonId = String(lessonId || "").trim();
+    if (!targetLessonId) return "";
+
+    const lessons = Array.isArray(this.data.lessons) ? this.data.lessons : [];
+    const lessonIndex = lessons.findIndex(
+      (item) => String(item?._id || item?.lessonId || "").trim() === targetLessonId
+    );
+
+    if (lessonIndex >= 0) {
+      return `第${lessonIndex + 1}次课`;
+    }
+
+    return "";
+  },
+
+  getSignStatusLabel(status) {
+    return status === "signed" ? "已签到" : "未签到";
+  },
+
   async exportLessonStatsCsv() {
     let stats = Array.isArray(this.data.stats) ? this.data.stats : [];
 
@@ -208,15 +253,91 @@ Page({
     });
     const csvText = [header, ...rows].join("\n");
 
-    wx.setClipboardData({
-      data: csvText,
-      success: () => {
+    this.copyCsvToClipboard(csvText, "统计CSV已复制，可直接粘贴到表格");
+  },
+
+  async exportLessonDetailCsv() {
+    const classId = String(this.data.classId || "").trim();
+    const lessonId = String(this.data.lessonId || this.data.selectedLessonId || "").trim();
+    const roster = Array.isArray(this.data.baseRosterList) ? this.data.baseRosterList : [];
+
+    if (!classId || !lessonId) {
+      wx.showToast({
+        title: "缺少班级或课次信息",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (roster.length === 0) {
+      wx.showToast({
+        title: "暂无学生数据",
+        icon: "none"
+      });
+      return;
+    }
+
+    let detailList = Array.isArray(this.data.list) ? this.data.list : [];
+
+    if (detailList.length === 0) {
+      try {
+        const res = await db.collection("attendance")
+          .where({ lessonId })
+          .get();
+        const attendanceList = res.data || [];
+        const signedSet = new Set(
+          attendanceList
+            .map(item => String(item.studentId || "").trim())
+            .filter(Boolean)
+        );
+
+        detailList = roster.map((student) => {
+          const studentId = String(student.studentId || student.id || "").trim();
+          const name = String(student.name || student.studentName || "").trim();
+          return {
+            studentId,
+            name,
+            status: signedSet.has(studentId) ? "signed" : "unsigned"
+          };
+        });
+      } catch (err) {
+        console.error("[signRecord] exportLessonDetailCsv failed to build detail list", err);
         wx.showToast({
-          title: "统计CSV已复制，可直接粘贴到表格",
+          title: "导出失败，请稍后重试",
           icon: "none"
         });
+        return;
       }
+    }
+
+    if (detailList.length === 0) {
+      wx.showToast({
+        title: "当前名单为空，无法导出",
+        icon: "none"
+      });
+      return;
+    }
+
+    const lessonLabel = this.getLessonOrderLabel(lessonId) || lessonId;
+    const header = "班级ID,课次,学号,姓名,签到状态";
+    const rows = detailList.map((item) => {
+      const studentId = String(item?.studentId || item?.id || "").trim();
+      const name = String(item?.name || item?.studentName || "").trim();
+      const status = String(item?.status || "unsigned").trim() || "unsigned";
+
+      return [
+        this.escapeCsv(classId),
+        this.escapeCsv(lessonLabel),
+        this.escapeCsv(studentId),
+        this.escapeCsv(name),
+        this.escapeCsv(this.getSignStatusLabel(status))
+      ].join(",");
     });
+
+    const csvText = [header, ...rows].join("\n");
+    const fileName = `签到明细_${lessonLabel || lessonId}.csv`;
+    console.log("[signRecord] export lesson detail fileName =", fileName);
+    this.copyCsvToClipboard(csvText, "明细CSV已复制，可直接粘贴到表格");
   },
 
   /**
