@@ -8,6 +8,12 @@
   padding:20rpx;
   margin-bottom:20rpx;
 }
+.attendance-summary-top {
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16rpx;
+}
 .attendance-summary-title {
   display:block;
   font-size:30rpx;
@@ -19,6 +25,13 @@
   margin-top:8rpx;
   font-size:24rpx;
   color:#666;
+}
+.export-btn {
+  margin:0;
+  background:#2f77ff;
+  color:#fff;
+  border-radius:999rpx;
+  line-height:1.6;
 }
 .lesson-section { margin-bottom:20rpx; }
 .lesson-header { margin-bottom:12rpx; }

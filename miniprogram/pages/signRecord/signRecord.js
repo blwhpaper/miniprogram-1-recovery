@@ -186,6 +186,39 @@ Page({
     }
   },
 
+  async exportLessonStatsCsv() {
+    let stats = Array.isArray(this.data.stats) ? this.data.stats : [];
+
+    if (stats.length === 0) {
+      await this.loadStats();
+      stats = Array.isArray(this.data.stats) ? this.data.stats : [];
+    }
+
+    const header = "classId,lessonId,startTime,rosterCount,signedCount,unsignedCount";
+    const rows = stats.map((item) => {
+      const startTime = item?.startTime ? JSON.stringify(item.startTime).replace(/^"|"$/g, "") : "";
+      return [
+        this.data.classId,
+        String(item?.lessonId || ""),
+        startTime,
+        String(item?.rosterCount ?? ""),
+        String(item?.signedCount ?? ""),
+        String(item?.unsignedCount ?? "")
+      ].join(",");
+    });
+    const csvText = [header, ...rows].join("\n");
+
+    wx.setClipboardData({
+      data: csvText,
+      success: () => {
+        wx.showToast({
+          title: "统计CSV已复制，可直接粘贴到表格",
+          icon: "none"
+        });
+      }
+    });
+  },
+
   /**
    * 加载班级花名册
    * 从 classes 集合获取 roster 数组，构建初始列表
