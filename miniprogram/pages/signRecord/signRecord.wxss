@@ -37,12 +37,8 @@
   display:block; font-size:20rpx; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
 .lesson-empty { font-size:22rpx; color:#999; padding:12rpx 0; }
-.stats-row { display:flex; }
-.stat-item { flex:1; text-align:center; }
-.num { display:block; font-size:36rpx; font-weight:bold; }
-.label { font-size:22rpx; color:#666; }
 
-.list-container { padding-top:320rpx; padding-bottom:40rpx; }
+.list-container { padding-top:450rpx; padding-bottom:40rpx; }
 
 .card {
   background:#fff; border-radius:20rpx; margin:0 20rpx 20rpx; padding:30rpx;

@@ -32,29 +32,6 @@
 
       <view wx:else class="lesson-empty">暂无历史课次</view>
     </view>
-
-    <view class="stats-row">
-      <view class="stat-item" bindtap="jumpTo" data-type="signed">
-        <text class="num">{{signCount}}</text>
-        <text class="label">已签到</text>
-      </view>
-      <view class="stat-item" bindtap="jumpTo" data-type="unsigned">
-        <text class="num">{{unsignCount}}</text>
-        <text class="label">未签到</text>
-      </view>
-      <view class="stat-item" bindtap="jumpTo" data-type="absent">
-        <text class="num">{{absentCount}}</text>
-        <text class="label">旷课</text>
-      </view>
-      <view class="stat-item" bindtap="jumpTo" data-type="leave_wait">
-        <text class="num">{{waitCount}}</text>
-        <text class="label">查看假条</text>
-      </view>
-      <view class="stat-item" bindtap="jumpTo" data-type="leave_agree">
-        <text class="num">{{leaveCount}}</text>
-        <text class="label">已请假</text>
-      </view>
-    </view>
   </view>
 
   <view class="list-container">
