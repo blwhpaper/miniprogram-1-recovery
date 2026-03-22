@@ -20,6 +20,9 @@
 
     <view class="interaction-card">
       <view class="interaction-title">课堂互动</view>
+      <view class="interaction-current">
+        <text>当前轮次：第{{currentRound}}轮</text>
+      </view>
       <button class="export-btn" size="mini" bindtap="onTapRandomRollcall">随机点名</button>
       <view class="interaction-current">
         <text wx:if="{{currentCalledStudent}}">

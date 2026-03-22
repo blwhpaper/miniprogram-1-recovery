@@ -20,6 +20,9 @@ Page({
     lessonEvents: [],
     lessonEventsLoading: false,
     interactionScoreOptions: [1, 2, 3, 5],
+    currentRound: 1,
+    currentRoundCalledIds: [],
+    pendingScoreLock: false,
     signCount: 0,
     unsignCount: 0,
     absentCount: 0,
@@ -259,6 +262,21 @@ Page({
     return signedStudents[index] || null;
   },
 
+  getStudentUniqueId(student = {}) {
+    return String(
+      student.studentId ||
+      student.id ||
+      student.openid ||
+      student._openid ||
+      student.name ||
+      ""
+    ).trim();
+  },
+
+  getWeightedCandidates(candidateList = []) {
+    return candidateList;
+  },
+
   getLessonEventTypeLabel(type) {
     const map = {
       rollcall: "随机点名",
@@ -275,9 +293,83 @@ Page({
       studentName: String(item.studentName || "").trim(),
       type: String(item.type || "").trim(),
       score: item.score ?? "",
+      round: Number(item.round || 0),
       displayType: this.getLessonEventTypeLabel(item.type),
       displayTime: this.formatSimpleDateTime(item.createdAt)
     };
+  },
+
+  rebuildRollcallState(lessonEvents = []) {
+    const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
+    const signedIdSet = new Set(
+      signedStudents
+        .map((item) => this.getStudentUniqueId(item))
+        .filter(Boolean)
+    );
+    const rollcallEvents = lessonEvents
+      .filter((item) => item.type === "rollcall")
+      .sort((a, b) => {
+        const timeA = new Date(a.createdAt || 0).getTime();
+        const timeB = new Date(b.createdAt || 0).getTime();
+        return timeA - timeB;
+      });
+
+    const roundCalledMap = new Map();
+    let maxRound = 0;
+
+    rollcallEvents.forEach((item) => {
+      const round = Number(item.round || 1);
+      const studentKey = this.getStudentUniqueId(item);
+      if (!studentKey) return;
+      maxRound = Math.max(maxRound, round);
+      if (!roundCalledMap.has(round)) {
+        roundCalledMap.set(round, new Set());
+      }
+      roundCalledMap.get(round).add(studentKey);
+    });
+
+    const activeRound = maxRound || 1;
+    const activeCalledSet = roundCalledMap.get(activeRound) || new Set();
+    const currentRoundCalledIds = Array.from(activeCalledSet).filter((id) => !signedIdSet.size || signedIdSet.has(id));
+    const latestRollcall = rollcallEvents[rollcallEvents.length - 1] || null;
+    const latestRollcallStudentKey = latestRollcall
+      ? this.getStudentUniqueId(latestRollcall)
+      : "";
+    const matchedAnswerScore = latestRollcall
+      ? lessonEvents.find((item) => (
+        item.type === "answer_score" &&
+        Number(item.round || 0) === Number(latestRollcall.round || 0) &&
+        this.getStudentUniqueId(item) === latestRollcallStudentKey
+      ))
+      : null;
+    const hasPendingRollcall = !!(
+      latestRollcall &&
+      !matchedAnswerScore
+    );
+    const currentCalledStudent = hasPendingRollcall
+      ? {
+        studentId: String(latestRollcall.studentId || "").trim(),
+        name: String(latestRollcall.studentName || "").trim()
+      }
+      : null;
+    const pendingScoreLock = hasPendingRollcall;
+
+    if (signedIdSet.size > 0 && currentRoundCalledIds.length >= signedIdSet.size) {
+      this.setData({
+        currentRound: activeRound + 1,
+        currentRoundCalledIds: [],
+        pendingScoreLock,
+        currentCalledStudent
+      });
+      return;
+    }
+
+    this.setData({
+      currentRound: activeRound,
+      currentRoundCalledIds,
+      pendingScoreLock,
+      currentCalledStudent
+    });
   },
 
   async loadLessonEvents() {
@@ -298,10 +390,12 @@ Page({
         .get();
       const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
       this.setData({ lessonEvents });
+      this.rebuildRollcallState(lessonEvents);
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
       this.setData({ lessonEvents: [] });
+      this.rebuildRollcallState([]);
       return [];
     } finally {
       this.setData({ lessonEventsLoading: false });
@@ -312,7 +406,10 @@ Page({
     this.refreshSignedStudents();
     this.setData({
       currentCalledStudent: null,
-      lessonEvents: []
+      lessonEvents: [],
+      currentRound: 1,
+      currentRoundCalledIds: [],
+      pendingScoreLock: false
     });
     await this.loadLessonEvents();
   },
@@ -338,6 +435,7 @@ Page({
           studentName: String(eventData.studentName || "").trim(),
           type: String(eventData.type || "").trim(),
           score: Number(eventData.score || 0),
+          round: Number(eventData.round || 0),
           payload: eventData.payload || {},
           createdAt: db.serverDate(),
           createdBy: "teacher"
@@ -348,6 +446,63 @@ Page({
       console.error("[signRecord] createLessonEvent failed", err);
       wx.showToast({
         title: "互动记录失败，请稍后重试",
+        icon: "none"
+      });
+      return false;
+    }
+  },
+
+  async saveAnswerScoreEvent(eventData = {}) {
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    const classId = String(this.data.classId || "").trim();
+    const targetRound = Number(eventData.round || this.data.currentRound || 0);
+    const targetStudentKey = this.getStudentUniqueId(eventData);
+
+    if (!lessonId || !classId || !targetRound || !targetStudentKey) {
+      wx.showToast({
+        title: "评分信息不完整",
+        icon: "none"
+      });
+      return false;
+    }
+
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({
+          classId,
+          lessonId,
+          type: "answer_score",
+          round: targetRound
+        })
+        .get();
+
+      const existed = (res.data || []).find(
+        (item) => this.getStudentUniqueId(item) === targetStudentKey
+      );
+      const payload = {
+        studentId: String(eventData.studentId || "").trim(),
+        studentName: String(eventData.studentName || "").trim(),
+        score: Number(eventData.score || 0),
+        payload: eventData.payload || {},
+        createdAt: db.serverDate(),
+        createdBy: "teacher"
+      };
+
+      if (existed && existed._id) {
+        await db.collection("lessonEvent").doc(existed._id).update({
+          data: payload
+        });
+        return true;
+      }
+
+      return this.createLessonEvent({
+        ...eventData,
+        round: targetRound
+      });
+    } catch (err) {
+      console.error("[signRecord] saveAnswerScoreEvent failed", err);
+      wx.showToast({
+        title: "评分失败，请稍后重试",
         icon: "none"
       });
       return false;
@@ -411,7 +566,42 @@ Page({
       return;
     }
 
-    const student = this.getRandomSignedStudent();
+    if (this.data.pendingScoreLock || this.data.currentCalledStudent) {
+      wx.showToast({
+        title: "请先完成当前点名评分",
+        icon: "none"
+      });
+      return;
+    }
+
+    const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
+    const calledIdSet = new Set(
+      (this.data.currentRoundCalledIds || []).map((item) => String(item || "").trim()).filter(Boolean)
+    );
+    let round = Number(this.data.currentRound || 1);
+    let candidateList = signedStudents.filter((item) => !calledIdSet.has(this.getStudentUniqueId(item)));
+
+    if (candidateList.length === 0) {
+      round += 1;
+      candidateList = signedStudents.slice();
+      this.setData({
+        currentRound: round,
+        currentRoundCalledIds: []
+      });
+    }
+
+    const weightedCandidates = this.getWeightedCandidates(candidateList);
+    const studentPool = Array.isArray(weightedCandidates) ? weightedCandidates : [];
+    if (studentPool.length === 0) {
+      wx.showToast({
+        title: "当前无可点名学生",
+        icon: "none"
+      });
+      return;
+    }
+
+    const index = Math.floor(Math.random() * studentPool.length);
+    const student = studentPool[index] || null;
     if (!student) {
       wx.showToast({
         title: "当前无已签到学生可点名",
@@ -425,12 +615,20 @@ Page({
       studentName: student.name,
       type: "rollcall",
       score: 0,
+      round,
       payload: { source: "signed_random" }
     });
 
     if (!success) return;
 
-    this.setData({ currentCalledStudent: student });
+    const studentKey = this.getStudentUniqueId(student);
+    const nextCalledIds = Array.from(new Set([...(this.data.currentRoundCalledIds || []), studentKey]));
+    this.setData({
+      currentCalledStudent: student,
+      currentRound: round,
+      currentRoundCalledIds: nextCalledIds,
+      pendingScoreLock: true
+    });
     await this.loadLessonEvents();
     wx.showToast({
       title: `已点名${student.name}`,
@@ -458,17 +656,21 @@ Page({
       return;
     }
 
-    const success = await this.createLessonEvent({
+    const success = await this.saveAnswerScoreEvent({
       studentId: student.studentId,
       studentName: student.name,
       type: "answer_score",
       score,
+      round: Number(this.data.currentRound || 0),
       payload: { basedOn: "rollcall" }
     });
 
     if (!success) return;
 
-    this.setData({ currentCalledStudent: null });
+    this.setData({
+      currentCalledStudent: null,
+      pendingScoreLock: false
+    });
     await this.loadLessonEvents();
     wx.showToast({
       title: "回答得分已记录",
