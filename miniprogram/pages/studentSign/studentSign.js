@@ -56,7 +56,6 @@ Page({
 
   goRegister() {
     const lessonId = String(this.data.lessonId || "").trim();
-    console.log("[studentSign] go register lessonId =", lessonId);
 
     if (!lessonId) {
       wx.showToast({ title: "请重新扫码老师二维码", icon: "none" });
@@ -64,7 +63,6 @@ Page({
     }
 
     const url = `/pages/register/register?lessonId=${encodeURIComponent(lessonId)}&scene=${encodeURIComponent(lessonId)}`;
-    console.log("[studentSign] go register url", url);
 
     wx.navigateTo({
       url,
@@ -136,16 +134,11 @@ Page({
   },
 
   async onLoad(options) {
-    console.log("[studentSign] raw options", options);
-    console.log("[studentSign] raw scene", options.scene);
-    console.log("[studentSign] raw q", options.q);
-
     const launchEntryParams = this.getLaunchEntryParams();
     const mergedOptions = {
       ...launchEntryParams,
       ...options
     };
-    console.log("[studentSign] launch entry params", launchEntryParams);
 
     const hasRawEntryParams = !!String(
       mergedOptions.lessonId || mergedOptions.scene || mergedOptions.q || ""
@@ -154,17 +147,6 @@ Page({
     const pendingLessonId = this.getPendingLessonId();
     const entrySource = this.isRegisterReturn(mergedOptions) ? "register_return" : "scan_entry";
     const finalLessonId = parsedLessonId || (entrySource === "register_return" ? pendingLessonId : "");
-    console.log("[studentSign] lesson source", {
-      parsedLessonId,
-      pendingLessonId,
-      finalLessonId,
-      entrySource
-    });
-    console.log("[studentSign] current page lessonId =", finalLessonId);
-    console.log("[studentSign] restored lessonId =", {
-      source: parsedLessonId ? "page_options" : (entrySource === "register_return" ? "pendingLessonId" : "none"),
-      lessonId: finalLessonId
-    });
 
     if (parsedLessonId) {
       wx.setStorageSync("pendingLessonId", parsedLessonId);
@@ -203,13 +185,6 @@ Page({
       const hasName = !!String(currentUser.name || "").trim();
       const hasStudentId = !!String(currentUser.studentId || "").trim();
       const shouldGoRegister = !result.bound || !hasName || !hasStudentId;
-      console.log("[studentSign] current user =", currentUser);
-      console.log("[studentSign] should go register =", {
-        bound: !!result.bound,
-        hasName,
-        hasStudentId,
-        shouldGoRegister
-      });
 
       wx.setStorageSync("currentUser", currentUser);
 
@@ -244,7 +219,6 @@ Page({
     const pendingLessonId = this.getPendingLessonId();
     if (!this.data.lessonId && pendingLessonId) {
       this.setData({ lessonId: pendingLessonId });
-      console.log("[studentSign] register return restored lessonId =", pendingLessonId);
     }
     if (this.data.lessonId && this.data.studentId) {
       this.ensureLessonClassId();
@@ -422,15 +396,6 @@ Page({
       name: studentName,
       classId,
       currentUser
-    });
-
-    console.log("[studentSign] submitQuestionRequest payload check", {
-      lessonId,
-      classId,
-      studentId,
-      studentName,
-      signSuccess: this.data.signSuccess,
-      data: this.data
     });
 
     if (!this.data.signSuccess) {

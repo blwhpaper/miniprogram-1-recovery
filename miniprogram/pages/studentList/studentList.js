@@ -17,7 +17,6 @@ Page({
   },
 
   onLoad(options) {
-    console.log("[studentList] options =", options)
     const classId = String(options.id || "").trim()
     const latestLessonId = String(wx.getStorageSync(`LATEST_LESSON_${classId}`) || "").trim()
     const incomingLessonId = String(options.lessonId || "").trim()
@@ -31,11 +30,6 @@ Page({
   onShow() {
     const latestLessonId = this.getLatestLessonId()
     if (latestLessonId && latestLessonId !== this.data.lessonId) {
-      console.log("[studentList] refresh latest lessonId", {
-        classId: this.data.classId,
-        previousLessonId: this.data.lessonId,
-        latestLessonId
-      })
       this.setData({ lessonId: latestLessonId })
     }
   },
@@ -60,10 +54,6 @@ Page({
   },
 
   syncRosterToCloud(roster) {
-    console.log("[studentList] sync roster to cloud", {
-      classId: this.data.classId,
-      rosterCount: roster.length
-    })
     return wx.cloud.callFunction({
       name: "syncClassRoster",
       data: {
@@ -111,7 +101,6 @@ Page({
 
             try {
               const syncRes = await this.syncRosterToCloud(arr)
-              console.log("[studentList] sync roster result", syncRes.result)
               if (!syncRes.result || !syncRes.result.success) {
                 throw new Error(syncRes.result?.msg || "云端同步失败")
               }
@@ -140,7 +129,6 @@ Page({
   // ======================
   goSignRecord() {
     const latestLessonId = this.getLatestLessonId()
-    console.log("[studentList] goSignRecord classId =", this.data.classId, "lessonId =", this.getLatestLessonId())
     const lessonId = latestLessonId || this.data.lessonId
 
     if (!lessonId) {

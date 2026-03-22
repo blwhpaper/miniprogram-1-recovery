@@ -7,10 +7,6 @@ Page({
 
   onLoad(options) {
     const classId = String(options.classId || options.id || "").trim()
-    console.log("[classHome] onLoad classId", {
-      classId,
-      options
-    })
 
     this.setData({
       classId
@@ -24,7 +20,6 @@ Page({
    */
   async createSignCode() {
     const classId = String(this.data.classId || "").trim()
-    console.log("[classHome] createSignCode classId", classId)
 
     if (!classId) {
       wx.showToast({ title: "请先选择班级", icon: "none" })
@@ -35,13 +30,10 @@ Page({
 
     try {
       // 第一步：在云端创建一节“课”（Lesson），获取唯一 ID
-      console.log("[classHome] createLesson classId =", classId)
       const lessonRes = await wx.cloud.callFunction({
         name: "createLesson",
         data: { classId }
       })
-      console.log("[classHome] createLesson result =", lessonRes)
-      console.log("[classHome] returned lessonId =", lessonRes.result?.lessonId)
 
       if (!lessonRes.result || !lessonRes.result.success) {
         throw new Error(lessonRes.result?.msg || "创建课程失败")
@@ -51,7 +43,6 @@ Page({
       if (!lessonId) {
         throw new Error("创建课程成功但未返回 lessonId")
       }
-      console.log("[classHome] created lessonId", lessonId)
       wx.setStorageSync(`LATEST_LESSON_${classId}`, lessonId)
       this.setData({ lessonId })
 
@@ -59,13 +50,6 @@ Page({
       const qrRes = await wx.cloud.callFunction({
         name: "createSignCode",
         data: { lessonId: lessonId }
-      })
-      console.log("[classHome] createSignCode result", {
-        lessonId,
-        success: qrRes.result?.success,
-        page: qrRes.result?.page,
-        scene: qrRes.result?.scene,
-        envVersion: qrRes.result?.envVersion
       })
 
       if (!qrRes.result || !qrRes.result.success || !qrRes.result.buffer) {

@@ -65,9 +65,6 @@ Page({
     const attendanceByStudentId = new Map();
     const attendanceByName = new Map();
 
-    console.log("[signRecord] baseList", baseList);
-    console.log("[signRecord] attendance docs", docs);
-
     docs.forEach((doc) => {
       const studentId = String(doc.studentId || "").trim();
       const studentName = String(doc.studentName || "").trim();
@@ -79,12 +76,6 @@ Page({
     return baseList.map((item) => {
       const matchedById = item.studentId && attendanceByStudentId.get(item.studentId);
       const matchedByName = item.name && attendanceByName.get(item.name);
-      console.log("[signRecord] compare", {
-        rosterStudentId: item.studentId,
-        rosterName: item.name,
-        matchedById,
-        matchedByName
-      });
 
       const matchedDoc =
         matchedById ||
@@ -340,6 +331,16 @@ Page({
     });
   },
 
+  getAttendanceListSignature(list = []) {
+    return JSON.stringify(
+      (list || []).map((item) => ({
+        studentId: String(item.studentId || item.id || "").trim(),
+        name: String(item.name || item.studentName || "").trim(),
+        status: String(item.status || "").trim()
+      }))
+    );
+  },
+
   normalizeLessonEvent(item = {}) {
     return {
       ...item,
@@ -518,6 +519,30 @@ Page({
         pendingQuestionRequests,
         currentQuestionRequest
       });
+    }
+  },
+
+  async loadQuestionRequestState() {
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    if (!lessonId) {
+      this.rebuildQuestionRequestState([]);
+      return [];
+    }
+
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          type: _.in(["question_request", "question_approved", "question_score"])
+        })
+        .orderBy("createdAt", "desc")
+        .get();
+      const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
+      this.rebuildQuestionRequestState(lessonEvents);
+      return lessonEvents;
+    } catch (err) {
+      console.error("[signRecord] loadQuestionRequestState failed", err);
+      return [];
     }
   },
 
@@ -1100,7 +1125,6 @@ Page({
     const csvText = [header, ...rows].join("\n");
     const fileName = classId ? `签到统计_${classId}.csv` : "签到统计_全部课次.csv";
 
-    console.log("[signRecord] export lesson stats fileName =", fileName);
     this.copyCsvToClipboard(csvText, "全部课次统计CSV已复制，可直接粘贴到表格");
   },
 
@@ -1184,7 +1208,6 @@ Page({
 
     const csvText = [header, ...rows].join("\n");
     const fileName = `签到明细_${lessonLabel || lessonId}.csv`;
-    console.log("[signRecord] export lesson detail fileName =", fileName);
     this.copyCsvToClipboard(csvText, "本次课明细CSV已复制，可直接粘贴到表格");
   },
 
@@ -1195,7 +1218,6 @@ Page({
   async loadRoster() {
     const cid = this.data.classId;
     const lessonId = this.data.lessonId;
-    console.log("[signRecord] page params", { classId: cid, lessonId });
     if (!cid) return;
 
     try {
@@ -1211,18 +1233,14 @@ Page({
         console.error("[signRecord] load cloud roster failed", cloudErr);
       }
 
-      console.log("[signRecord] cloud roster count", cloudCount);
-
       if (!Array.isArray(students) || students.length === 0) {
         const localStudents = wx.getStorageSync(`students_${cid}`) || [];
-        console.log("[signRecord] local roster fallback count", localStudents.length);
         students = localStudents;
       }
 
       const list = students
         .map((student) => this.normalizeRosterItem(student))
         .filter((item) => item.name);
-      console.log("[signRecord] final roster list count", list.length);
       const baseRosterList = list.map((item) => ({ ...item }));
       this.setData({
         baseRosterList,
@@ -1248,7 +1266,6 @@ Page({
       return [];
     }
 
-    console.log("[signRecord] query classId =", classId);
     this.setData({ lessonsLoading: true });
     this.refreshExportDisabledState();
 
@@ -1258,10 +1275,8 @@ Page({
         data: { classId }
       });
       const lessons = res.result?.success ? (res.result.lessons || []) : [];
-      console.log("[signRecord] lessons result count =", lessons.length);
       this.setData({ lessons });
       this.refreshExportDisabledState();
-      console.log("[signRecord] lessons count", lessons.length);
       return lessons;
     } catch (err) {
       console.error("[signRecord] load lessons failed", {
@@ -1339,18 +1354,12 @@ Page({
   async fetchAttendanceOnce(targetLessonId = "") {
     const lessonId = String(targetLessonId || "").trim();
     const classId = String(this.data.classId || "").trim();
-    console.log("[signRecord] fetch attendance start", {
-      classId,
-      lessonId
-    });
 
     if (!lessonId) {
-      console.log("[signRecord] skip fetch attendance: lessonId is empty");
       return;
     }
 
     if (!classId) {
-      console.log("[signRecord] skip fetch attendance: classId is empty");
       return;
     }
 
@@ -1359,7 +1368,6 @@ Page({
         .where({ lessonId })
         .get();
       const docs = res.data || [];
-      console.log("[signRecord] fetch attendance docs count", docs.length);
       this.syncAttendance(docs);
     } catch (err) {
       console.error("[signRecord] fetch attendance failed", {
@@ -1375,12 +1383,10 @@ Page({
     const classId = String(this.data.classId || "").trim();
 
     if (!lessonId) {
-      console.log("[signRecord] skip polling: lessonId is empty");
       return;
     }
 
     if (!classId) {
-      console.log("[signRecord] skip polling: classId is empty");
       return;
     }
 
@@ -1390,19 +1396,12 @@ Page({
     this.attendancePollingTimer = setInterval(() => {
       this.fetchAttendanceOnce(lessonId);
     }, 3000);
-
-    console.log("[signRecord] polling started", {
-      classId,
-      lessonId,
-      intervalMs: 3000
-    });
   },
 
   startLessonEventPolling(targetLessonId = "") {
     const lessonId = String(targetLessonId || "").trim();
 
     if (!lessonId) {
-      console.log("[signRecord] skip lessonEvent polling: lessonId is empty");
       return;
     }
 
@@ -1410,13 +1409,8 @@ Page({
 
     this.lessonEventPollingLessonId = lessonId;
     this.lessonEventPollingTimer = setInterval(() => {
-      this.loadLessonEvents();
-    }, 3000);
-
-    console.log("[signRecord] lessonEvent polling started", {
-      lessonId,
-      intervalMs: 3000
-    });
+      this.loadQuestionRequestState();
+    }, 5000);
   },
 
   clearAttendancePolling() {
@@ -1425,7 +1419,6 @@ Page({
     }
     this.attendancePollingTimer = null;
     this.attendancePollingLessonId = "";
-    console.log("[signRecord] polling cleared");
   },
 
   clearLessonEventPolling() {
@@ -1434,7 +1427,6 @@ Page({
     }
     this.lessonEventPollingTimer = null;
     this.lessonEventPollingLessonId = "";
-    console.log("[signRecord] lessonEvent polling cleared");
   },
 
   async refreshAttendance() {
@@ -1445,7 +1437,12 @@ Page({
   syncAttendance(docs) {
     const baseList = this.cloneBaseRosterList();
     const list = this.mergeAttendanceIntoList(baseList, docs);
-    console.log("[signRecord] merged list count", list.length);
+    const nextSignature = this.getAttendanceListSignature(list);
+    const currentSignature = this.getAttendanceListSignature(this.data.list);
+    if (nextSignature === currentSignature) {
+      return;
+    }
+
     this.setData({ list });
     this.refreshSignedStudents();
     this.refreshExportDisabledState();

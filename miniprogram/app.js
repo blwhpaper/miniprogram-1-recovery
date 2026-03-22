@@ -14,14 +14,6 @@ App({
     }
     this.globalData.launchEntryOptions = safeOptions;
 
-    console.log("[app] cache launch entry options", {
-      source,
-      path: safeOptions.path,
-      scene: safeOptions.scene,
-      query: safeOptions.query,
-      referrerInfo: safeOptions.referrerInfo,
-      apiCategory: safeOptions.apiCategory
-    });
   },
 
   onLaunch: function (options) {
