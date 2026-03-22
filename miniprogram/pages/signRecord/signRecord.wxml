@@ -18,6 +18,29 @@
       </view>
     </view>
 
+    <view class="interaction-card">
+      <view class="interaction-title">课堂互动</view>
+      <button class="export-btn" size="mini" bindtap="onTapRandomRollcall">随机点名</button>
+      <view class="interaction-current">
+        <text wx:if="{{currentCalledStudent}}">
+          当前点名：{{currentCalledStudent.name}}（{{currentCalledStudent.studentId || '-'}}）
+        </text>
+        <text wx:else>当前未点名</text>
+      </view>
+      <view wx:if="{{currentCalledStudent}}" class="score-btn-group">
+        <button
+          wx:for="{{interactionScoreOptions}}"
+          wx:key="*this"
+          class="score-btn"
+          size="mini"
+          bindtap="onTapScoreAnswer"
+          data-score="{{item}}"
+        >
+          {{item}}分
+        </button>
+      </view>
+    </view>
+
     <view class="lesson-section">
       <view class="lesson-header">
         <text class="lesson-title">历史课次</text>
@@ -55,8 +78,39 @@
       <view class="sub">
         <text>状态：{{item.status === 'signed' ? '已签到' : '未签到'}}</text>
       </view>
+
+      <view wx:if="{{item.status === 'signed'}}" class="question-btn-row">
+        <button class="question-btn" size="mini" bindtap="onTapAddStudentQuestion" data-student-id="{{item.studentId}}" data-student-name="{{item.name}}" data-score="1">主动提问 +1</button>
+        <button class="question-btn" size="mini" bindtap="onTapAddStudentQuestion" data-student-id="{{item.studentId}}" data-student-name="{{item.name}}" data-score="2">主动提问 +2</button>
+        <button class="question-btn" size="mini" bindtap="onTapAddStudentQuestion" data-student-id="{{item.studentId}}" data-student-name="{{item.name}}" data-score="3">主动提问 +3</button>
+      </view>
     </view>
 
     <view wx:if="{{list.length === 0}}" class="empty">暂无学生</view>
+
+    <view class="event-list">
+      <view class="lesson-header">
+        <text class="lesson-title">本节互动记录</text>
+      </view>
+
+      <view wx:if="{{lessonEventsLoading}}" class="lesson-empty">互动记录加载中</view>
+
+      <view wx:elif="{{lessonEvents.length > 0}}">
+        <view class="event-item" wx:for="{{lessonEvents}}" wx:key="_id">
+          <view class="info">
+            <text class="name">{{item.studentName || '未命名学生'}}</text>
+            <text class="event-score" wx:if="{{item.score}}">+{{item.score}}</text>
+          </view>
+          <view class="sub">
+            <text class="event-type">{{item.displayType}}</text>
+          </view>
+          <view class="sub">
+            <text>{{item.displayTime}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:else class="lesson-empty">本节暂无互动记录</view>
+    </view>
   </view>
 </view>

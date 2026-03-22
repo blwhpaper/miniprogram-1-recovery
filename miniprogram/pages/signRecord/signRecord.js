@@ -15,6 +15,11 @@ Page({
     list: [], // 最终展示的混合列表
     detailExportDisabled: true,
     statsExportDisabled: true,
+    signedStudents: [],
+    currentCalledStudent: null,
+    lessonEvents: [],
+    lessonEventsLoading: false,
+    interactionScoreOptions: [1, 2, 3, 5],
     signCount: 0,
     unsignCount: 0,
     absentCount: 0,
@@ -140,8 +145,11 @@ Page({
         this.setData({
           lessonId: "",
           selectedLessonId: "",
-          list
+          list,
+          currentCalledStudent: null,
+          lessonEvents: []
         });
+        this.refreshSignedStudents();
         this.refreshExportDisabledState();
         this.refreshStats();
       }
@@ -230,6 +238,122 @@ Page({
     });
   },
 
+  refreshSignedStudents() {
+    const list = Array.isArray(this.data.list) ? this.data.list : [];
+    const signedStudents = list
+      .filter((item) => item.status === "signed")
+      .map((item) => ({
+        studentId: String(item.studentId || item.id || "").trim(),
+        name: String(item.name || item.studentName || "").trim()
+      }))
+      .filter((item) => item.name);
+
+    this.setData({ signedStudents });
+    return signedStudents;
+  },
+
+  getRandomSignedStudent() {
+    const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
+    if (signedStudents.length === 0) return null;
+    const index = Math.floor(Math.random() * signedStudents.length);
+    return signedStudents[index] || null;
+  },
+
+  getLessonEventTypeLabel(type) {
+    const map = {
+      rollcall: "随机点名",
+      answer_score: "回答得分",
+      student_question: "主动提问"
+    };
+    return map[type] || type;
+  },
+
+  normalizeLessonEvent(item = {}) {
+    return {
+      ...item,
+      studentId: String(item.studentId || "").trim(),
+      studentName: String(item.studentName || "").trim(),
+      type: String(item.type || "").trim(),
+      score: item.score ?? "",
+      displayType: this.getLessonEventTypeLabel(item.type),
+      displayTime: this.formatSimpleDateTime(item.createdAt)
+    };
+  },
+
+  async loadLessonEvents() {
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    if (!lessonId) {
+      this.setData({
+        lessonEvents: [],
+        lessonEventsLoading: false
+      });
+      return [];
+    }
+
+    this.setData({ lessonEventsLoading: true });
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({ lessonId })
+        .orderBy("createdAt", "desc")
+        .get();
+      const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
+      this.setData({ lessonEvents });
+      return lessonEvents;
+    } catch (err) {
+      console.error("[signRecord] loadLessonEvents failed", err);
+      this.setData({ lessonEvents: [] });
+      return [];
+    } finally {
+      this.setData({ lessonEventsLoading: false });
+    }
+  },
+
+  async refreshInteractionDataAfterLessonChange() {
+    this.refreshSignedStudents();
+    this.setData({
+      currentCalledStudent: null,
+      lessonEvents: []
+    });
+    await this.loadLessonEvents();
+  },
+
+  async createLessonEvent(eventData = {}) {
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    const classId = String(this.data.classId || "").trim();
+
+    if (!lessonId || !classId) {
+      wx.showToast({
+        title: "缺少课次信息",
+        icon: "none"
+      });
+      return false;
+    }
+
+    try {
+      await db.collection("lessonEvent").add({
+        data: {
+          lessonId,
+          classId,
+          studentId: String(eventData.studentId || "").trim(),
+          studentName: String(eventData.studentName || "").trim(),
+          type: String(eventData.type || "").trim(),
+          score: Number(eventData.score || 0),
+          payload: eventData.payload || {},
+          createdAt: db.serverDate(),
+          createdBy: "teacher"
+        }
+      });
+      return true;
+    } catch (err) {
+      console.error("[signRecord] createLessonEvent failed", err);
+      wx.showToast({
+        title: "互动记录失败，请稍后重试",
+        icon: "none"
+      });
+      return false;
+    }
+  },
+
   getLessonOrderLabel(lessonId) {
     const targetLessonId = String(lessonId || "").trim();
     if (!targetLessonId) return "";
@@ -267,6 +391,127 @@ Page({
 
   getSignStatusLabel(status) {
     return status === "signed" ? "已签到" : "未签到";
+  },
+
+  async onTapRandomRollcall() {
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    if (!lessonId) {
+      wx.showToast({
+        title: "当前无可用课次",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!Array.isArray(this.data.signedStudents) || this.data.signedStudents.length === 0) {
+      wx.showToast({
+        title: "当前无已签到学生可点名",
+        icon: "none"
+      });
+      return;
+    }
+
+    const student = this.getRandomSignedStudent();
+    if (!student) {
+      wx.showToast({
+        title: "当前无已签到学生可点名",
+        icon: "none"
+      });
+      return;
+    }
+
+    const success = await this.createLessonEvent({
+      studentId: student.studentId,
+      studentName: student.name,
+      type: "rollcall",
+      score: 0,
+      payload: { source: "signed_random" }
+    });
+
+    if (!success) return;
+
+    this.setData({ currentCalledStudent: student });
+    await this.loadLessonEvents();
+    wx.showToast({
+      title: `已点名${student.name}`,
+      icon: "none"
+    });
+  },
+
+  async onTapScoreAnswer(e) {
+    const score = Number(e.currentTarget.dataset.score || 0);
+    const student = this.data.currentCalledStudent;
+
+    if (!student || !student.name) {
+      wx.showToast({
+        title: "请先随机点名",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!score) {
+      wx.showToast({
+        title: "分值无效",
+        icon: "none"
+      });
+      return;
+    }
+
+    const success = await this.createLessonEvent({
+      studentId: student.studentId,
+      studentName: student.name,
+      type: "answer_score",
+      score,
+      payload: { basedOn: "rollcall" }
+    });
+
+    if (!success) return;
+
+    this.setData({ currentCalledStudent: null });
+    await this.loadLessonEvents();
+    wx.showToast({
+      title: "回答得分已记录",
+      icon: "none"
+    });
+  },
+
+  async onTapAddStudentQuestion(e) {
+    const score = Number(e.currentTarget.dataset.score || 0);
+    const studentId = String(e.currentTarget.dataset.studentId || "").trim();
+    const studentName = String(e.currentTarget.dataset.studentName || "").trim();
+
+    if (!studentName) {
+      wx.showToast({
+        title: "学生信息无效",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!score) {
+      wx.showToast({
+        title: "分值无效",
+        icon: "none"
+      });
+      return;
+    }
+
+    const success = await this.createLessonEvent({
+      studentId,
+      studentName,
+      type: "student_question",
+      score,
+      payload: { note: "" }
+    });
+
+    if (!success) return;
+
+    await this.loadLessonEvents();
+    wx.showToast({
+      title: "主动提问已记录",
+      icon: "none"
+    });
   },
 
   onTapExportLessonStats() {
@@ -471,6 +716,7 @@ Page({
         baseRosterList,
         list: baseRosterList.map((item) => ({ ...item }))
       });
+      this.refreshSignedStudents();
       this.refreshExportDisabledState();
       this.refreshStats();
     } catch (err) {
@@ -545,6 +791,7 @@ Page({
         currentStats: null,
         list
       });
+      await this.refreshInteractionDataAfterLessonChange();
       this.refreshExportDisabledState();
       this.refreshStats();
       return;
@@ -559,6 +806,7 @@ Page({
       currentStats: (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null,
       list: baseList
     });
+    await this.refreshInteractionDataAfterLessonChange();
     this.refreshExportDisabledState();
     this.refreshStats();
 
@@ -654,6 +902,7 @@ Page({
     const list = this.mergeAttendanceIntoList(baseList, docs);
     console.log("[signRecord] merged list count", list.length);
     this.setData({ list });
+    this.refreshSignedStudents();
     this.refreshExportDisabledState();
     this.refreshStats();
   },
