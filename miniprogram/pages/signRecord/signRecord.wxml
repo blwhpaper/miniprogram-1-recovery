@@ -42,6 +42,48 @@
           {{item}}分
         </button>
       </view>
+
+      <view wx:if="{{pendingQuestionRequests.length > 0}}" class="event-list">
+        <view class="lesson-header">
+          <text class="lesson-title">待处理提问申请</text>
+        </view>
+        <view class="event-item" wx:for="{{pendingQuestionRequests}}" wx:key="_id">
+          <view class="info">
+            <text class="name">{{item.studentName}}</text>
+          </view>
+          <view class="sub">
+            <text>{{item.displayTime}}</text>
+          </view>
+          <view class="score-btn-group">
+            <button
+              class="score-btn"
+              size="mini"
+              bindtap="onTapApproveQuestionRequest"
+              data-request-id="{{item._id}}"
+              data-student-id="{{item.studentId}}"
+              data-student-name="{{item.studentName}}"
+            >
+              允许提问
+            </button>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{currentQuestionRequest}}" class="interaction-current">
+        <text>当前提问：{{currentQuestionRequest.studentName}}（{{currentQuestionRequest.studentId || '-'}}）</text>
+      </view>
+      <view wx:if="{{currentQuestionRequest}}" class="score-btn-group">
+        <button
+          wx:for="{{interactionScoreOptions}}"
+          wx:key="*this"
+          class="score-btn"
+          size="mini"
+          bindtap="onTapScoreQuestion"
+          data-score="{{item}}"
+        >
+          提问{{item}}分
+        </button>
+      </view>
     </view>
 
     <view class="lesson-section">
@@ -80,12 +122,6 @@
 
       <view class="sub">
         <text>状态：{{item.status === 'signed' ? '已签到' : '未签到'}}</text>
-      </view>
-
-      <view wx:if="{{item.status === 'signed'}}" class="question-btn-row">
-        <button class="question-btn" size="mini" bindtap="onTapAddStudentQuestion" data-student-id="{{item.studentId}}" data-student-name="{{item.name}}" data-score="1">主动提问 +1</button>
-        <button class="question-btn" size="mini" bindtap="onTapAddStudentQuestion" data-student-id="{{item.studentId}}" data-student-name="{{item.name}}" data-score="2">主动提问 +2</button>
-        <button class="question-btn" size="mini" bindtap="onTapAddStudentQuestion" data-student-id="{{item.studentId}}" data-student-name="{{item.name}}" data-score="3">主动提问 +3</button>
       </view>
     </view>
 

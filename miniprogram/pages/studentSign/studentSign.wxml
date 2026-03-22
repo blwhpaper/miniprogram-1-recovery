@@ -24,7 +24,12 @@
     </view>
   </view>
 
-  <view wx:if="{{signSuccess}}" class="success">✅ 签到成功</view>
+  <view wx:if="{{signSuccess}}">
+    <view class="success">✅ 签到成功</view>
+    <view>主动提问申请：{{questionRequestCount}} / 3</view>
+    <view wx:if="{{hasPendingQuestionRequest}}">你已有待处理提问申请</view>
+    <button bindtap="submitQuestionRequest">主动提问</button>
+  </view>
 </view>
 
 <!-- 退出登录按钮 -->

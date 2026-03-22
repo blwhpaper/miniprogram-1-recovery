@@ -1,13 +1,19 @@
+const db = wx.cloud.database()
+const _ = db.command
+
 Page({
   data: {
     lessonId: "",
+    classId: "",
     name: "",
     studentId: "",
     signSuccess: false,
     hasSubmittedLeave: false,
     entrySource: "",
     currentUser: null,
-    shouldGoRegister: false
+    shouldGoRegister: false,
+    questionRequestCount: 0,
+    hasPendingQuestionRequest: false
   },
 
   getPendingLessonId() {
@@ -209,6 +215,7 @@ Page({
 
       this.setData({
         lessonId: finalLessonId,
+        classId: currentUser.classId || "",
         studentId: currentUser.studentId || "",
         hasSubmittedLeave: false,
         signSuccess: false,
@@ -222,6 +229,10 @@ Page({
         this.goRegister();
         return;
       }
+
+      await this.ensureLessonClassId();
+      await this.restoreSignSuccessStatus();
+      await this.loadQuestionRequestState();
     } catch (err) {
       wx.hideLoading();
       console.error("getMyUser failed:", err);
@@ -234,6 +245,245 @@ Page({
     if (!this.data.lessonId && pendingLessonId) {
       this.setData({ lessonId: pendingLessonId });
       console.log("[studentSign] register return restored lessonId =", pendingLessonId);
+    }
+    if (this.data.lessonId && this.data.studentId) {
+      this.ensureLessonClassId();
+      this.restoreSignSuccessStatus();
+      this.loadQuestionRequestState();
+    }
+  },
+
+  async restoreSignSuccessStatus() {
+    const lessonId = String(this.data.lessonId || "").trim();
+    const studentId = String(this.data.studentId || "").trim();
+
+    if (!lessonId || !studentId) {
+      this.setData({ signSuccess: false });
+      return false;
+    }
+
+    try {
+      const res = await db.collection("attendance")
+        .where({
+          lessonId,
+          studentId
+        })
+        .limit(1)
+        .get();
+      const hasSigned = Array.isArray(res.data) && res.data.length > 0;
+      this.setData({ signSuccess: hasSigned });
+      return hasSigned;
+    } catch (err) {
+      console.error("[studentSign] restoreSignSuccessStatus failed", err);
+      return false;
+    }
+  },
+
+  getQuestionStudentKey() {
+    return String(
+      this.data.studentId ||
+      this.data.currentUser?.studentId ||
+      this.data.currentUser?.id ||
+      this.data.currentUser?._openid ||
+      this.data.name ||
+      ""
+    ).trim();
+  },
+
+  async ensureLessonClassId() {
+    const lessonId = String(this.data.lessonId || "").trim();
+    const studentId = String(this.data.studentId || "").trim();
+    if (!lessonId || this.data.classId) return this.data.classId;
+
+    try {
+      const res = await db.collection("lessons").doc(lessonId).get();
+      const lessonClassId = String(res.data?.classId || "").trim();
+      if (lessonClassId) {
+        this.setData({ classId: lessonClassId });
+        return lessonClassId;
+      }
+    } catch (err) {
+      console.error("[studentSign] ensureLessonClassId failed", err);
+    }
+
+    if (!studentId) return "";
+
+    try {
+      const attendanceRes = await db.collection("attendance")
+        .where({
+          lessonId,
+          studentId
+        })
+        .limit(1)
+        .get();
+      const attendanceClassId = String(attendanceRes.data?.[0]?.classId || "").trim();
+      if (attendanceClassId) {
+        this.setData({ classId: attendanceClassId });
+        return attendanceClassId;
+      }
+    } catch (err) {
+      console.error("[studentSign] ensureLessonClassId fallback failed", err);
+    }
+
+    return "";
+  },
+
+  async loadQuestionRequestState() {
+    const lessonId = String(this.data.lessonId || "").trim();
+    const studentId = String(this.data.studentId || "").trim();
+    const studentKey = this.getQuestionStudentKey();
+
+    if (!lessonId || !studentKey || !studentId) {
+      this.setData({
+        questionRequestCount: 0,
+        hasPendingQuestionRequest: false
+      });
+      return;
+    }
+
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          studentId,
+          type: _.in(["question_request", "question_approved", "question_score"])
+        })
+        .get();
+      const events = res.data || [];
+      const myEvents = events.filter((item) => {
+        const itemKey = String(
+          item.studentId ||
+          item.id ||
+          item.openid ||
+          item._openid ||
+          item.studentName ||
+          ""
+        ).trim();
+        return itemKey === studentKey;
+      });
+
+      const requestIds = new Set(
+        myEvents
+          .filter((item) => item.type === "question_request")
+          .map((item) => String(item._id || "").trim())
+          .filter(Boolean)
+      );
+      const approvedIds = new Set(
+        myEvents
+          .filter((item) => item.type === "question_approved")
+          .map((item) => String(item.payload?.requestId || "").trim())
+          .filter(Boolean)
+      );
+      const scoredIds = new Set(
+        myEvents
+          .filter((item) => item.type === "question_score")
+          .map((item) => String(item.payload?.requestId || "").trim())
+          .filter(Boolean)
+      );
+      const hasPendingQuestionRequest = Array.from(requestIds).some(
+        (requestId) => !approvedIds.has(requestId) && !scoredIds.has(requestId)
+      );
+
+      this.setData({
+        questionRequestCount: requestIds.size,
+        hasPendingQuestionRequest
+      });
+    } catch (err) {
+      console.error("[studentSign] loadQuestionRequestState failed", err);
+    }
+  },
+
+  async submitQuestionRequest() {
+    const storedUser = wx.getStorageSync("currentUser") || {};
+    const currentUser = this.data.currentUser || storedUser || {};
+    const lessonId = String(this.data.lessonId || this.getPendingLessonId() || "").trim();
+    const studentId = String(
+      this.data.studentId ||
+      currentUser.studentId ||
+      currentUser.id ||
+      ""
+    ).trim();
+    const studentName = String(
+      this.data.name ||
+      currentUser.name ||
+      currentUser.studentName ||
+      ""
+    ).trim();
+    const classId = String(
+      (await this.ensureLessonClassId()) ||
+      this.data.classId ||
+      currentUser.classId ||
+      ""
+    ).trim();
+
+    this.setData({
+      lessonId,
+      studentId,
+      name: studentName,
+      classId,
+      currentUser
+    });
+
+    console.log("[studentSign] submitQuestionRequest payload check", {
+      lessonId,
+      classId,
+      studentId,
+      studentName,
+      signSuccess: this.data.signSuccess,
+      data: this.data
+    });
+
+    if (!this.data.signSuccess) {
+      wx.showToast({ title: "签到后才能申请提问", icon: "none" });
+      return;
+    }
+
+    const missingFields = [];
+    if (!lessonId) missingFields.push("lessonId");
+    if (!classId) missingFields.push("classId");
+    if (!studentId) missingFields.push("studentId");
+    if (!studentName) missingFields.push("studentName");
+
+    if (missingFields.length > 0) {
+      wx.showToast({
+        title: `缺少 ${missingFields.join("/")}`,
+        icon: "none"
+      });
+      return;
+    }
+
+    await this.loadQuestionRequestState();
+
+    if (this.data.questionRequestCount >= 3) {
+      wx.showToast({ title: "本节课提问次数已达上限", icon: "none" });
+      return;
+    }
+
+    if (this.data.hasPendingQuestionRequest) {
+      wx.showToast({ title: "你已有待处理提问申请", icon: "none" });
+      return;
+    }
+
+    try {
+      await db.collection("lessonEvent").add({
+        data: {
+          lessonId,
+          classId,
+          studentId,
+          studentName,
+          type: "question_request",
+          score: 0,
+          round: 0,
+          payload: { source: "student_apply" },
+          createdAt: db.serverDate(),
+          createdBy: "student"
+        }
+      });
+      await this.loadQuestionRequestState();
+      wx.showToast({ title: "提问申请已提交", icon: "none" });
+    } catch (err) {
+      console.error("[studentSign] submitQuestionRequest failed", err);
+      wx.showToast({ title: "申请失败，请稍后重试", icon: "none" });
     }
   },
 
@@ -266,6 +516,8 @@ Page({
       if (res.result && res.result.success) {
         this.setData({ signSuccess: true });
         wx.removeStorageSync("pendingLessonId");
+        await this.ensureLessonClassId();
+        await this.loadQuestionRequestState();
         wx.showToast({ title: "签到成功", icon: "success" });
       } else {
         wx.showModal({
