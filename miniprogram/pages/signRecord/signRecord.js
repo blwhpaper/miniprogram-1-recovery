@@ -19,7 +19,7 @@ Page({
     currentCalledStudent: null,
     lessonEvents: [],
     lessonEventsLoading: false,
-    interactionScoreOptions: [1, 2, 3, 5],
+    interactionScoreOptions: [60, 80, 95],
     currentRound: 1,
     currentRoundCalledIds: [],
     pendingScoreLock: false,
