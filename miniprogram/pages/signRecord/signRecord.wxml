@@ -11,7 +11,10 @@
             未到：{{currentStats.unsignedCount}}
           </text>
         </view>
-        <button class="export-btn" size="mini" bindtap="exportLessonStatsCsv">导出统计</button>
+        <view class="export-btn-group">
+          <button class="export-btn" size="mini" bindtap="exportLessonStatsCsv">导出全部课次统计</button>
+          <button class="export-btn export-btn-secondary" size="mini" bindtap="exportLessonDetailCsv">导出本次课明细</button>
+        </view>
       </view>
     </view>
 

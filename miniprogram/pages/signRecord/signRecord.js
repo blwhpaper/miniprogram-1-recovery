@@ -277,7 +277,7 @@ Page({
     const fileName = classId ? `签到统计_${classId}.csv` : "签到统计_全部课次.csv";
 
     console.log("[signRecord] export lesson stats fileName =", fileName);
-    this.copyCsvToClipboard(csvText, "统计CSV已复制，可直接粘贴到表格");
+    this.copyCsvToClipboard(csvText, "全部课次统计CSV已复制，可直接粘贴到表格");
   },
 
   async exportLessonDetailCsv() {
@@ -361,7 +361,7 @@ Page({
     const csvText = [header, ...rows].join("\n");
     const fileName = `签到明细_${lessonLabel || lessonId}.csv`;
     console.log("[signRecord] export lesson detail fileName =", fileName);
-    this.copyCsvToClipboard(csvText, "明细CSV已复制，可直接粘贴到表格");
+    this.copyCsvToClipboard(csvText, "本次课明细CSV已复制，可直接粘贴到表格");
   },
 
   /**
