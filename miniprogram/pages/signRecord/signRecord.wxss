@@ -14,6 +14,10 @@
   align-items:flex-start;
   gap:16rpx;
 }
+.export-btn-group {
+  display:flex;
+  gap:12rpx;
+}
 .attendance-summary-title {
   display:block;
   font-size:30rpx;
@@ -32,6 +36,13 @@
   color:#fff;
   border-radius:999rpx;
   line-height:1.6;
+}
+.export-btn-secondary {
+  background:#5b6573;
+}
+.export-btn--disabled {
+  opacity: 0.45;
+  filter: grayscale(1);
 }
 .lesson-section { margin-bottom:20rpx; }
 .lesson-header { margin-bottom:12rpx; }

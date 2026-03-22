@@ -13,6 +13,8 @@ Page({
     currentStats: null,
     statsLoading: false,
     list: [], // 最终展示的混合列表
+    detailExportDisabled: true,
+    statsExportDisabled: true,
     signCount: 0,
     unsignCount: 0,
     absentCount: 0,
@@ -140,6 +142,7 @@ Page({
           selectedLessonId: "",
           list
         });
+        this.refreshExportDisabledState();
         this.refreshStats();
       }
       await this.loadStats();
@@ -154,6 +157,7 @@ Page({
     if (!classId) return;
 
     this.setData({ statsLoading: true });
+    this.refreshExportDisabledState();
     try {
       const res = await wx.cloud.callFunction({
         name: "getLessonStatsByClass",
@@ -169,11 +173,13 @@ Page({
           stats,
           currentStats
         });
+        this.refreshExportDisabledState();
       } else {
         this.setData({
           stats: [],
           currentStats: null
         });
+        this.refreshExportDisabledState();
       }
     } catch (err) {
       console.error("[signRecord] loadStats failed", err);
@@ -181,8 +187,10 @@ Page({
         stats: [],
         currentStats: null
       });
+      this.refreshExportDisabledState();
     } finally {
       this.setData({ statsLoading: false });
+      this.refreshExportDisabledState();
     }
   },
 
@@ -208,6 +216,17 @@ Page({
           icon: "none"
         });
       }
+    });
+  },
+
+  refreshExportDisabledState() {
+    const { lessonsLoading, statsLoading, list, stats } = this.data;
+    const isListInvalid = !Array.isArray(list) || list.length === 0;
+    const isStatsInvalid = !Array.isArray(stats) || stats.length === 0;
+
+    this.setData({
+      detailExportDisabled: Boolean(lessonsLoading || statsLoading || isListInvalid),
+      statsExportDisabled: Boolean(lessonsLoading || statsLoading || isStatsInvalid)
     });
   },
 
@@ -250,12 +269,60 @@ Page({
     return status === "signed" ? "已签到" : "未签到";
   },
 
+  onTapExportLessonStats() {
+    if (this.data.lessonsLoading || this.data.statsLoading) {
+      wx.showToast({
+        title: "数据加载中，请稍后",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!Array.isArray(this.data.stats) || this.data.stats.length === 0) {
+      wx.showToast({
+        title: "暂无可导出的课次统计",
+        icon: "none"
+      });
+      return;
+    }
+
+    this.exportLessonStatsCsv();
+  },
+
+  onTapExportLessonDetail() {
+    if (this.data.lessonsLoading || this.data.statsLoading) {
+      wx.showToast({
+        title: "数据加载中，请稍后",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!Array.isArray(this.data.list) || this.data.list.length === 0) {
+      wx.showToast({
+        title: "当前课次暂无可导出明细",
+        icon: "none"
+      });
+      return;
+    }
+
+    this.exportLessonDetailCsv();
+  },
+
   async exportLessonStatsCsv() {
     let stats = Array.isArray(this.data.stats) ? this.data.stats : [];
 
     if (stats.length === 0) {
       await this.loadStats();
       stats = Array.isArray(this.data.stats) ? this.data.stats : [];
+    }
+
+    if (stats.length === 0) {
+      wx.showToast({
+        title: "暂无可导出的课次统计",
+        icon: "none"
+      });
+      return;
     }
 
     const classId = String(this.data.classId || "").trim();
@@ -295,7 +362,7 @@ Page({
 
     if (roster.length === 0) {
       wx.showToast({
-        title: "暂无学生数据",
+        title: "当前课次暂无可导出明细",
         icon: "none"
       });
       return;
@@ -336,7 +403,7 @@ Page({
 
     if (detailList.length === 0) {
       wx.showToast({
-        title: "当前名单为空，无法导出",
+        title: "当前课次暂无可导出明细",
         icon: "none"
       });
       return;
@@ -404,6 +471,7 @@ Page({
         baseRosterList,
         list: baseRosterList.map((item) => ({ ...item }))
       });
+      this.refreshExportDisabledState();
       this.refreshStats();
     } catch (err) {
       console.error("加载花名册失败：", err);
@@ -418,11 +486,13 @@ Page({
         lessons: [],
         lessonsLoading: false
       });
+      this.refreshExportDisabledState();
       return [];
     }
 
     console.log("[signRecord] query classId =", classId);
     this.setData({ lessonsLoading: true });
+    this.refreshExportDisabledState();
 
     try {
       const res = await wx.cloud.callFunction({
@@ -432,6 +502,7 @@ Page({
       const lessons = res.result?.success ? (res.result.lessons || []) : [];
       console.log("[signRecord] lessons result count =", lessons.length);
       this.setData({ lessons });
+      this.refreshExportDisabledState();
       console.log("[signRecord] lessons count", lessons.length);
       return lessons;
     } catch (err) {
@@ -440,9 +511,11 @@ Page({
         err
       });
       this.setData({ lessons: [] });
+      this.refreshExportDisabledState();
       return [];
     } finally {
       this.setData({ lessonsLoading: false });
+      this.refreshExportDisabledState();
     }
   },
 
@@ -472,6 +545,7 @@ Page({
         currentStats: null,
         list
       });
+      this.refreshExportDisabledState();
       this.refreshStats();
       return;
     }
@@ -485,6 +559,7 @@ Page({
       currentStats: (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null,
       list: baseList
     });
+    this.refreshExportDisabledState();
     this.refreshStats();
 
     await this.fetchAttendanceOnce(nextLessonId);
@@ -579,6 +654,7 @@ Page({
     const list = this.mergeAttendanceIntoList(baseList, docs);
     console.log("[signRecord] merged list count", list.length);
     this.setData({ list });
+    this.refreshExportDisabledState();
     this.refreshStats();
   },
 
