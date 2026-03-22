@@ -227,6 +227,25 @@ Page({
     return "";
   },
 
+  formatSimpleDateTime(value) {
+    if (!value) return "";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value || "");
+    }
+
+    const pad = (num) => String(num).padStart(2, "0");
+    return [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate())
+    ].join("-") + " " + [
+      pad(date.getHours()),
+      pad(date.getMinutes())
+    ].join(":");
+  },
+
   getSignStatusLabel(status) {
     return status === "signed" ? "已签到" : "未签到";
   },
@@ -239,20 +258,25 @@ Page({
       stats = Array.isArray(this.data.stats) ? this.data.stats : [];
     }
 
-    const header = "classId,lessonId,startTime,rosterCount,signedCount,unsignedCount";
+    const classId = String(this.data.classId || "").trim();
+    const header = "班级ID,课次,上课时间,应到人数,实到人数,未到人数";
     const rows = stats.map((item) => {
-      const startTime = item?.startTime ? JSON.stringify(item.startTime).replace(/^"|"$/g, "") : "";
+      const lessonLabel = this.getLessonOrderLabel(item?.lessonId) || String(item?.lessonId || "");
+      const startTime = this.formatSimpleDateTime(item?.startTime);
+
       return [
-        this.data.classId,
-        String(item?.lessonId || ""),
-        startTime,
+        this.escapeCsv(classId),
+        this.escapeCsv(lessonLabel),
+        this.escapeCsv(startTime),
         String(item?.rosterCount ?? ""),
         String(item?.signedCount ?? ""),
         String(item?.unsignedCount ?? "")
       ].join(",");
     });
     const csvText = [header, ...rows].join("\n");
+    const fileName = classId ? `签到统计_${classId}.csv` : "签到统计_全部课次.csv";
 
+    console.log("[signRecord] export lesson stats fileName =", fileName);
     this.copyCsvToClipboard(csvText, "统计CSV已复制，可直接粘贴到表格");
   },
 
