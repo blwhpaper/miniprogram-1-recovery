@@ -25,6 +25,8 @@ Page({
     pendingScoreLock: false,
     pendingQuestionRequests: [],
     currentQuestionRequest: null,
+    currentPublishedTest: null,
+    currentTestRecords: [],
     signCount: 0,
     unsignCount: 0,
     absentCount: 0,
@@ -432,9 +434,15 @@ Page({
     const testStatus = String(payload.status || "").trim();
     const testContent = String(payload.content || "").trim();
     const testAnswer = String(payload.answer || "").trim();
+    const testQuestionId = String(payload.questionId || item._id || "").trim();
+    const testOptions = Array.isArray(payload.options)
+      ? payload.options.map((option) => String(option || "").trim()).filter(Boolean)
+      : [];
+    const testCorrectAnswer = String(payload.correctAnswer || "").trim();
 
     return {
       ...item,
+      _id: String(item._id || "").trim(),
       studentId: String(item.studentId || "").trim(),
       studentName: String(item.studentName || "").trim(),
       type: String(item.type || "").trim(),
@@ -446,6 +454,10 @@ Page({
       testStatus,
       testContent,
       testAnswer,
+      testQuestionId,
+      testOptions,
+      testOptionsText: testOptions.join(" / "),
+      testCorrectAnswer,
       testSummary: item.type === "test_record" || item.type === "test_publish"
         ? [testType, testSubType, testResult, testStatus].filter(Boolean).join(" / ")
         : "",
@@ -622,6 +634,24 @@ Page({
     }
   },
 
+  rebuildCurrentTestState(lessonEvents = []) {
+    const publishedTests = lessonEvents
+      .filter((item) => item.type === "test_publish" && item.testType === "single_choice")
+      .sort((a, b) => this.getEventTimestamp(b) - this.getEventTimestamp(a));
+    const currentPublishedTest = publishedTests[0] || null;
+    const currentQuestionId = String(currentPublishedTest?._id || "").trim();
+    const currentTestRecords = currentQuestionId
+      ? lessonEvents.filter(
+        (item) => item.type === "test_record" && item.testQuestionId === currentQuestionId
+      )
+      : [];
+
+    this.setData({
+      currentPublishedTest,
+      currentTestRecords
+    });
+  },
+
   async loadQuestionRequestState() {
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
     if (!lessonId) {
@@ -674,6 +704,7 @@ Page({
       this.rebuildStudentDisplayList({ lessonEvents });
       this.rebuildRollcallState(lessonEvents);
       this.rebuildQuestionRequestState(lessonEvents);
+      this.rebuildCurrentTestState(lessonEvents);
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
@@ -683,6 +714,7 @@ Page({
       this.rebuildStudentDisplayList({ lessonEvents: [] });
       this.rebuildRollcallState([]);
       this.rebuildQuestionRequestState([]);
+      this.rebuildCurrentTestState([]);
       return [];
     } finally {
       if (!silent) {
@@ -702,7 +734,9 @@ Page({
       currentRoundCalledIds: [],
       pendingScoreLock: false,
       pendingQuestionRequests: [],
-      currentQuestionRequest: null
+      currentQuestionRequest: null,
+      currentPublishedTest: null,
+      currentTestRecords: []
     });
     await this.loadLessonEvents();
   },
@@ -876,6 +910,9 @@ Page({
       payload: {
         testType: String(payload.testType || "").trim(),
         testSubType: String(payload.testSubType || "").trim(),
+        questionId: String(payload.questionId || "").trim(),
+        options: Array.isArray(payload.options) ? payload.options : [],
+        correctAnswer: String(payload.correctAnswer || "").trim(),
         result: String(payload.result || "").trim(),
         content: String(payload.content || "").trim(),
         answer: String(payload.answer || "").trim(),
@@ -896,6 +933,8 @@ Page({
       payload: {
         testType: String(payload.testType || "").trim(),
         testSubType: String(payload.testSubType || "").trim(),
+        options: Array.isArray(payload.options) ? payload.options : [],
+        correctAnswer: String(payload.correctAnswer || "").trim(),
         content: String(payload.content || "").trim(),
         status: String(payload.status || "").trim()
       }
@@ -1214,9 +1253,11 @@ Page({
 
     const success = await this.saveTestPublishEvent({
       payload: {
-        testType: "quiz",
-        testSubType: "translation",
-        content: "示例全班随堂测试：英译中",
+        testType: "single_choice",
+        testSubType: "vocabulary",
+        options: ["A. apple", "B. banana", "C. orange", "D. pear"],
+        correctAnswer: "B",
+        content: "示例单选题：banana 对应哪个选项？",
         status: "published"
       }
     });
@@ -1588,7 +1629,7 @@ Page({
 
     this.lessonEventPollingLessonId = lessonId;
     this.lessonEventPollingTimer = setInterval(() => {
-      this.loadQuestionRequestState();
+      this.loadLessonEvents({ silent: true });
     }, 5000);
   },
 

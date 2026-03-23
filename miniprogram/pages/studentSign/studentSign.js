@@ -13,8 +13,14 @@ Page({
     currentUser: null,
     shouldGoRegister: false,
     questionRequestCount: 0,
-    hasPendingQuestionRequest: false
+    hasPendingQuestionRequest: false,
+    currentSingleChoiceTest: null,
+    selectedSingleChoiceAnswer: "",
+    hasSubmittedCurrentTest: false,
+    currentTestRecord: null
   },
+
+  testPollingTimer: null,
 
   getPendingLessonId() {
     return String(wx.getStorageSync("pendingLessonId") || "").trim();
@@ -206,8 +212,12 @@ Page({
       }
 
       await this.ensureLessonClassId();
-      await this.restoreSignSuccessStatus();
+      const hasSigned = await this.restoreSignSuccessStatus();
       await this.loadQuestionRequestState();
+      await this.loadCurrentSingleChoiceTest();
+      if (hasSigned) {
+        this.startTestPolling();
+      }
     } catch (err) {
       wx.hideLoading();
       console.error("getMyUser failed:", err);
@@ -215,16 +225,30 @@ Page({
     }
   },
 
-  onShow() {
+  async onShow() {
     const pendingLessonId = this.getPendingLessonId();
     if (!this.data.lessonId && pendingLessonId) {
       this.setData({ lessonId: pendingLessonId });
     }
     if (this.data.lessonId && this.data.studentId) {
-      this.ensureLessonClassId();
-      this.restoreSignSuccessStatus();
-      this.loadQuestionRequestState();
+      await this.ensureLessonClassId();
+      const hasSigned = await this.restoreSignSuccessStatus();
+      await this.loadQuestionRequestState();
+      await this.loadCurrentSingleChoiceTest();
+      if (hasSigned) {
+        this.startTestPolling();
+      } else {
+        this.clearTestPolling();
+      }
     }
+  },
+
+  onHide() {
+    this.clearTestPolling();
+  },
+
+  onUnload() {
+    this.clearTestPolling();
   },
 
   async restoreSignSuccessStatus() {
@@ -300,6 +324,113 @@ Page({
     }
 
     return "";
+  },
+
+  normalizeSingleChoicePublish(item = {}) {
+    const payload = item.payload || {};
+    const options = Array.isArray(payload.options)
+      ? payload.options
+        .map((option) => String(option || "").trim())
+        .filter(Boolean)
+        .map((option) => {
+          const matched = option.match(/^([A-Z])[\.\uff0e]\s*(.*)$/i);
+          return {
+            value: matched ? String(matched[1] || "").toUpperCase() : option,
+            text: option
+          };
+        })
+      : [];
+
+    return {
+      _id: String(item._id || "").trim(),
+      lessonId: String(item.lessonId || "").trim(),
+      classId: String(item.classId || "").trim(),
+      testType: String(payload.testType || "").trim(),
+      testSubType: String(payload.testSubType || "").trim(),
+      testContent: String(payload.content || "").trim(),
+      testStatus: String(payload.status || "").trim(),
+      testOptions: options,
+      testCorrectAnswer: String(payload.correctAnswer || "").trim()
+    };
+  },
+
+  async loadCurrentSingleChoiceTest() {
+    const lessonId = String(this.data.lessonId || "").trim();
+    const studentId = String(this.data.studentId || "").trim();
+
+    if (!lessonId || !studentId || !this.data.signSuccess) {
+      this.setData({
+        currentSingleChoiceTest: null,
+        selectedSingleChoiceAnswer: "",
+        hasSubmittedCurrentTest: false,
+        currentTestRecord: null
+      });
+      return null;
+    }
+
+    try {
+      const publishRes = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          type: "test_publish"
+        })
+        .orderBy("createdAt", "desc")
+        .get();
+      const publishedList = (publishRes.data || [])
+        .map((item) => this.normalizeSingleChoicePublish(item))
+        .filter((item) => item.testType === "single_choice" && item.testStatus === "published");
+      const currentSingleChoiceTest = publishedList[0] || null;
+
+      if (!currentSingleChoiceTest) {
+        this.setData({
+          currentSingleChoiceTest: null,
+          selectedSingleChoiceAnswer: "",
+          hasSubmittedCurrentTest: false,
+          currentTestRecord: null
+        });
+        return null;
+      }
+
+      const questionId = String(currentSingleChoiceTest._id || "").trim();
+      const recordRes = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          studentId,
+          type: "test_record",
+          "payload.questionId": questionId
+        })
+        .limit(1)
+        .get();
+      const currentTestRecord = recordRes.data?.[0] || null;
+
+      this.setData({
+        currentSingleChoiceTest,
+        selectedSingleChoiceAnswer: String(currentTestRecord?.payload?.answer || "").trim(),
+        hasSubmittedCurrentTest: !!currentTestRecord,
+        currentTestRecord
+      });
+      return currentSingleChoiceTest;
+    } catch (err) {
+      console.error("[studentSign] loadCurrentSingleChoiceTest failed", err);
+      return null;
+    }
+  },
+
+  startTestPolling() {
+    const lessonId = String(this.data.lessonId || "").trim();
+    if (!lessonId || !this.data.signSuccess) return;
+
+    this.clearTestPolling();
+    this.testPollingTimer = setInterval(() => {
+      this.loadCurrentSingleChoiceTest();
+    }, 5000);
+  },
+
+  clearTestPolling() {
+    if (this.testPollingTimer) {
+      clearInterval(this.testPollingTimer);
+    }
+    this.testPollingTimer = null;
   },
 
   async loadQuestionRequestState() {
@@ -452,6 +583,99 @@ Page({
     }
   },
 
+  onSelectSingleChoiceAnswer(e) {
+    const answer = String(e.currentTarget.dataset.answer || "").trim();
+    if (!answer || this.data.hasSubmittedCurrentTest) return;
+    this.setData({ selectedSingleChoiceAnswer: answer });
+  },
+
+  async submitSingleChoiceAnswer() {
+    const lessonId = String(this.data.lessonId || "").trim();
+    const studentId = String(this.data.studentId || "").trim();
+    const studentName = String(this.data.name || "").trim();
+    const classId = String((await this.ensureLessonClassId()) || this.data.classId || "").trim();
+    const currentTest = this.data.currentSingleChoiceTest || null;
+    const questionId = String(currentTest?._id || "").trim();
+    const selectedAnswer = String(this.data.selectedSingleChoiceAnswer || "").trim();
+
+    if (!this.data.signSuccess) {
+      wx.showToast({ title: "签到后才能答题", icon: "none" });
+      return;
+    }
+
+    if (!questionId || !currentTest) {
+      wx.showToast({ title: "当前没有可作答单选题", icon: "none" });
+      return;
+    }
+
+    if (!selectedAnswer) {
+      wx.showToast({ title: "请先选择答案", icon: "none" });
+      return;
+    }
+
+    if (this.data.hasSubmittedCurrentTest) {
+      wx.showToast({ title: "当前题目已提交", icon: "none" });
+      return;
+    }
+
+    try {
+      const existedRes = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          studentId,
+          type: "test_record",
+          "payload.questionId": questionId
+        })
+        .limit(1)
+        .get();
+      if (Array.isArray(existedRes.data) && existedRes.data.length > 0) {
+        this.setData({
+          hasSubmittedCurrentTest: true,
+          currentTestRecord: existedRes.data[0],
+          selectedSingleChoiceAnswer: String(existedRes.data[0]?.payload?.answer || "").trim()
+        });
+        wx.showToast({ title: "当前题目已提交", icon: "none" });
+        return;
+      }
+
+      const correctAnswer = String(currentTest.testCorrectAnswer || "").trim();
+      const isCorrect = !!selectedAnswer && selectedAnswer === correctAnswer;
+
+      await db.collection("lessonEvent").add({
+        data: {
+          lessonId,
+          classId,
+          studentId,
+          studentName,
+          type: "test_record",
+          score: isCorrect ? 100 : 0,
+          round: 0,
+          payload: {
+            testType: "single_choice",
+            testSubType: String(currentTest.testSubType || "").trim(),
+            questionId,
+            options: Array.isArray(currentTest.testOptions)
+              ? currentTest.testOptions.map((item) => item.text)
+              : [],
+            correctAnswer,
+            result: isCorrect ? "correct" : "wrong",
+            content: String(currentTest.testContent || "").trim(),
+            answer: selectedAnswer,
+            status: "submitted"
+          },
+          createdAt: db.serverDate(),
+          createdBy: "student"
+        }
+      });
+
+      await this.loadCurrentSingleChoiceTest();
+      wx.showToast({ title: "答案已提交", icon: "none" });
+    } catch (err) {
+      console.error("[studentSign] submitSingleChoiceAnswer failed", err);
+      wx.showToast({ title: "提交失败，请稍后重试", icon: "none" });
+    }
+  },
+
   async submitSign() {
     const { name, studentId, lessonId } = this.data;
 
@@ -483,6 +707,8 @@ Page({
         wx.removeStorageSync("pendingLessonId");
         await this.ensureLessonClassId();
         await this.loadQuestionRequestState();
+        await this.loadCurrentSingleChoiceTest();
+        this.startTestPolling();
         wx.showToast({ title: "签到成功", icon: "success" });
       } else {
         wx.showModal({

@@ -29,6 +29,31 @@
     <view>主动提问申请：{{questionRequestCount}} / 3</view>
     <view wx:if="{{hasPendingQuestionRequest}}">你已有待处理提问申请</view>
     <button bindtap="submitQuestionRequest">主动提问</button>
+
+    <view wx:if="{{currentSingleChoiceTest}}" class="leave-box">
+      <text class="tip">当前单选题：{{currentSingleChoiceTest.testContent}}</text>
+      <view wx:if="{{currentSingleChoiceTest.testOptions.length > 0}}">
+        <button
+          wx:for="{{currentSingleChoiceTest.testOptions}}"
+          wx:key="value"
+          data-answer="{{item.value}}"
+          bindtap="onSelectSingleChoiceAnswer"
+          disabled="{{hasSubmittedCurrentTest}}"
+        >
+          {{item.text}}{{selectedSingleChoiceAnswer === item.value ? '（已选）' : ''}}
+        </button>
+      </view>
+      <view wx:if="{{hasSubmittedCurrentTest}}">
+        已提交：{{currentTestRecord.payload.answer || selectedSingleChoiceAnswer || '-'}}
+      </view>
+      <button
+        wx:if="{{!hasSubmittedCurrentTest}}"
+        bindtap="submitSingleChoiceAnswer"
+        type="primary"
+      >
+        提交单选题答案
+      </button>
+    </view>
   </view>
 </view>
 
