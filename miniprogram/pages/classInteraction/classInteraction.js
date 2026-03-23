@@ -15,14 +15,9 @@ Page({
     list: [], // 最终展示的混合列表
     detailExportDisabled: true,
     statsExportDisabled: true,
-    signedStudents: [],
-    currentCalledStudent: null,
     lessonEvents: [],
     lessonEventsLoading: false,
     interactionScoreOptions: [60, 80, 95],
-    currentRound: 1,
-    currentRoundCalledIds: [],
-    pendingScoreLock: false,
     pendingQuestionRequests: [],
     currentQuestionRequest: null,
     currentPublishedTest: null,
@@ -40,7 +35,6 @@ Page({
   lessonEventPollingTimer: null,
   lessonEventPollingLessonId: "",
   latestAttendanceDocs: [],
-  recentAnswerScoreKeys: new Set(),
 
   normalizeRosterItem(student) {
     if (typeof student === "string") {
@@ -174,7 +168,6 @@ Page({
           lessonId: "",
           selectedLessonId: "",
           list,
-          currentCalledStudent: null,
           lessonEvents: []
         });
         this.refreshSignedStudents();
@@ -276,15 +269,7 @@ Page({
       }))
       .filter((item) => item.name);
 
-    this.setData({ signedStudents });
     return signedStudents;
-  },
-
-  getRandomSignedStudent() {
-    const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
-    if (signedStudents.length === 0) return null;
-    const index = Math.floor(Math.random() * signedStudents.length);
-    return signedStudents[index] || null;
   },
 
   getStudentUniqueId(student = {}) {
@@ -296,10 +281,6 @@ Page({
       student.name ||
       ""
     ).trim();
-  },
-
-  getWeightedCandidates(candidateList = []) {
-    return candidateList;
   },
 
   getLessonEventTypeLabel(type) {
@@ -501,120 +482,6 @@ Page({
     return Number.isNaN(timestamp) ? 0 : timestamp;
   },
 
-  getRollcallScoreKey(item = {}) {
-    const round = Number(item.round || 0);
-    const studentKey = this.getStudentUniqueId(item);
-    if (!round || !studentKey) return "";
-    return `${round}::${studentKey}`;
-  },
-
-  rememberRecentAnswerScore(item = {}) {
-    const scoreKey = this.getRollcallScoreKey(item);
-    if (!scoreKey) return;
-
-    if (!(this.recentAnswerScoreKeys instanceof Set)) {
-      this.recentAnswerScoreKeys = new Set();
-    }
-
-    this.recentAnswerScoreKeys.add(scoreKey);
-  },
-
-  clearRecentAnswerScoreKeys() {
-    this.recentAnswerScoreKeys = new Set();
-  },
-
-  rebuildRollcallState(lessonEvents = []) {
-    const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
-    const signedIdSet = new Set(
-      signedStudents
-        .map((item) => this.getStudentUniqueId(item))
-        .filter(Boolean)
-    );
-    const rollcallEvents = lessonEvents
-      .filter((item) => item.type === "rollcall")
-      .sort((a, b) => this.getEventTimestamp(a) - this.getEventTimestamp(b));
-    const scoreEventKeys = lessonEvents
-      .filter((item) => item.type === "answer_score")
-      .map((item) => this.getRollcallScoreKey(item))
-      .filter(Boolean);
-    const recentAnswerScoreKeys = this.recentAnswerScoreKeys instanceof Set
-      ? Array.from(this.recentAnswerScoreKeys)
-      : [];
-    const scoredRollcallKeySet = new Set(
-      [
-        ...scoreEventKeys,
-        ...recentAnswerScoreKeys
-      ]
-    );
-
-    if (recentAnswerScoreKeys.length > 0 && scoreEventKeys.length > 0) {
-      scoreEventKeys.forEach((key) => {
-        if (this.recentAnswerScoreKeys instanceof Set) {
-          this.recentAnswerScoreKeys.delete(key);
-        }
-      });
-    }
-
-    const roundCalledMap = new Map();
-    let maxRound = 0;
-
-    rollcallEvents.forEach((item) => {
-      const round = Number(item.round || 1);
-      const studentKey = this.getStudentUniqueId(item);
-      if (!studentKey) return;
-      maxRound = Math.max(maxRound, round);
-      if (!roundCalledMap.has(round)) {
-        roundCalledMap.set(round, new Set());
-      }
-      roundCalledMap.get(round).add(studentKey);
-    });
-
-    const activeRound = maxRound || 1;
-    const activeCalledSet = roundCalledMap.get(activeRound) || new Set();
-    const currentRoundCalledIds = Array.from(activeCalledSet).filter((id) => !signedIdSet.size || signedIdSet.has(id));
-    const pendingRollcallEvents = rollcallEvents.filter((item) => !scoredRollcallKeySet.has(this.getRollcallScoreKey(item)));
-    const latestPendingRollcall = pendingRollcallEvents[pendingRollcallEvents.length - 1] || null;
-    const hasPendingRollcall = !!latestPendingRollcall;
-    const pendingRollcallRound = latestPendingRollcall
-      ? Number(latestPendingRollcall.round || activeRound || 1)
-      : 0;
-    const currentCalledStudent = hasPendingRollcall
-      ? {
-        studentId: String(latestPendingRollcall.studentId || "").trim(),
-        name: String(latestPendingRollcall.studentName || "").trim(),
-        round: pendingRollcallRound
-      }
-      : null;
-    const pendingScoreLock = hasPendingRollcall;
-
-    if (hasPendingRollcall) {
-      this.setData({
-        currentRound: pendingRollcallRound || activeRound,
-        currentRoundCalledIds,
-        pendingScoreLock,
-        currentCalledStudent
-      });
-      return;
-    }
-
-    if (signedIdSet.size > 0 && currentRoundCalledIds.length >= signedIdSet.size) {
-      this.setData({
-        currentRound: activeRound + 1,
-        currentRoundCalledIds: [],
-        pendingScoreLock,
-        currentCalledStudent
-      });
-      return;
-    }
-
-    this.setData({
-      currentRound: activeRound,
-      currentRoundCalledIds,
-      pendingScoreLock,
-      currentCalledStudent
-    });
-  },
-
   rebuildQuestionRequestState(lessonEvents = []) {
     const requestEvents = lessonEvents.filter((item) => item.type === "question_request");
     const approvedEvents = lessonEvents
@@ -720,7 +587,6 @@ Page({
         this.setData({ lessonEvents });
       }
       this.rebuildStudentDisplayList({ lessonEvents });
-      this.rebuildRollcallState(lessonEvents);
       this.rebuildQuestionRequestState(lessonEvents);
       this.rebuildCurrentTestState(lessonEvents);
       return lessonEvents;
@@ -730,7 +596,6 @@ Page({
         this.setData({ lessonEvents: [] });
       }
       this.rebuildStudentDisplayList({ lessonEvents: [] });
-      this.rebuildRollcallState([]);
       this.rebuildQuestionRequestState([]);
       this.rebuildCurrentTestState([]);
       return [];
@@ -743,14 +608,9 @@ Page({
 
   async refreshInteractionDataAfterLessonChange() {
     this.refreshSignedStudents();
-    this.clearRecentAnswerScoreKeys();
     this.latestAttendanceDocs = [];
     this.setData({
-      currentCalledStudent: null,
       lessonEvents: [],
-      currentRound: 1,
-      currentRoundCalledIds: [],
-      pendingScoreLock: false,
       pendingQuestionRequests: [],
       currentQuestionRequest: null,
       currentPublishedTest: null,
@@ -791,63 +651,6 @@ Page({
       console.error("[signRecord] createLessonEvent failed", err);
       wx.showToast({
         title: "互动记录失败，请稍后重试",
-        icon: "none"
-      });
-      return false;
-    }
-  },
-
-  async saveAnswerScoreEvent(eventData = {}) {
-    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    const classId = String(this.data.classId || "").trim();
-    const targetRound = Number(eventData.round || this.data.currentRound || 0);
-    const targetStudentKey = this.getStudentUniqueId(eventData);
-
-    if (!lessonId || !classId || !targetRound || !targetStudentKey) {
-      wx.showToast({
-        title: "评分信息不完整",
-        icon: "none"
-      });
-      return false;
-    }
-
-    try {
-      const res = await db.collection("lessonEvent")
-        .where({
-          classId,
-          lessonId,
-          type: "answer_score",
-          round: targetRound
-        })
-        .get();
-
-      const existed = (res.data || []).find(
-        (item) => this.getStudentUniqueId(item) === targetStudentKey
-      );
-      const payload = {
-        studentId: String(eventData.studentId || "").trim(),
-        studentName: String(eventData.studentName || "").trim(),
-        score: Number(eventData.score || 0),
-        payload: eventData.payload || {},
-        createdAt: db.serverDate(),
-        createdBy: "teacher"
-      };
-
-      if (existed && existed._id) {
-        await db.collection("lessonEvent").doc(existed._id).update({
-          data: payload
-        });
-        return true;
-      }
-
-      return this.createLessonEvent({
-        ...eventData,
-        round: targetRound
-      });
-    } catch (err) {
-      console.error("[signRecord] saveAnswerScoreEvent failed", err);
-      wx.showToast({
-        title: "评分失败，请稍后重试",
         icon: "none"
       });
       return false;
@@ -924,7 +727,7 @@ Page({
       studentName,
       type: "test_record",
       score: Number(eventData.score || 0),
-      round: Number(eventData.round || this.data.currentRound || 0),
+      round: Number(eventData.round || 0),
       payload: {
         testType: String(payload.testType || "").trim(),
         testSubType: String(payload.testSubType || "").trim(),
@@ -996,144 +799,6 @@ Page({
 
   getSignStatusLabel(status) {
     return status === "signed" ? "已签到" : "未签到";
-  },
-
-  async onTapRandomRollcall() {
-    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    if (!lessonId) {
-      wx.showToast({
-        title: "当前无可用课次",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (!Array.isArray(this.data.signedStudents) || this.data.signedStudents.length === 0) {
-      wx.showToast({
-        title: "当前无已签到学生可点名",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (this.data.pendingScoreLock || this.data.currentCalledStudent) {
-      wx.showToast({
-        title: "请先完成当前点名评分",
-        icon: "none"
-      });
-      return;
-    }
-
-    const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
-    const calledIdSet = new Set(
-      (this.data.currentRoundCalledIds || []).map((item) => String(item || "").trim()).filter(Boolean)
-    );
-    let round = Number(this.data.currentRound || 1);
-    let candidateList = signedStudents.filter((item) => !calledIdSet.has(this.getStudentUniqueId(item)));
-
-    if (candidateList.length === 0) {
-      round += 1;
-      candidateList = signedStudents.slice();
-      this.setData({
-        currentRound: round,
-        currentRoundCalledIds: []
-      });
-    }
-
-    const weightedCandidates = this.getWeightedCandidates(candidateList);
-    const studentPool = Array.isArray(weightedCandidates) ? weightedCandidates : [];
-    if (studentPool.length === 0) {
-      wx.showToast({
-        title: "当前无可点名学生",
-        icon: "none"
-      });
-      return;
-    }
-
-    const index = Math.floor(Math.random() * studentPool.length);
-    const student = studentPool[index] || null;
-    if (!student) {
-      wx.showToast({
-        title: "当前无已签到学生可点名",
-        icon: "none"
-      });
-      return;
-    }
-
-    const success = await this.createLessonEvent({
-      studentId: student.studentId,
-      studentName: student.name,
-      type: "rollcall",
-      score: 0,
-      round,
-      payload: { source: "signed_random" }
-    });
-
-    if (!success) return;
-
-    const studentKey = this.getStudentUniqueId(student);
-    const nextCalledIds = Array.from(new Set([...(this.data.currentRoundCalledIds || []), studentKey]));
-    this.setData({
-      currentCalledStudent: {
-        ...student,
-        round
-      },
-      currentRound: round,
-      currentRoundCalledIds: nextCalledIds,
-      pendingScoreLock: true
-    });
-    await this.loadLessonEvents();
-    wx.showToast({
-      title: `已点名${student.name}`,
-      icon: "none"
-    });
-  },
-
-  async onTapScoreAnswer(e) {
-    const score = Number(e.currentTarget.dataset.score || 0);
-    const student = this.data.currentCalledStudent;
-
-    if (!student || !student.name) {
-      wx.showToast({
-        title: "请先随机点名",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (!score) {
-      wx.showToast({
-        title: "分值无效",
-        icon: "none"
-      });
-      return;
-    }
-
-    const success = await this.saveAnswerScoreEvent({
-      studentId: student.studentId,
-      studentName: student.name,
-      type: "answer_score",
-      score,
-      round: Number(student.round || this.data.currentRound || 0),
-      payload: { basedOn: "rollcall" }
-    });
-
-    if (!success) return;
-
-    this.rememberRecentAnswerScore({
-      studentId: student.studentId,
-      studentName: student.name,
-      round: Number(student.round || this.data.currentRound || 0)
-    });
-    this.setData({
-      currentCalledStudent: null,
-      pendingScoreLock: false
-    });
-    await this.loadLessonEvents();
-    wx.showToast({
-      title: "回答得分已记录",
-      icon: "none"
-    });
   },
 
   async onTapAddStudentQuestion(e) {
