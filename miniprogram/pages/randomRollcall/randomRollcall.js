@@ -199,6 +199,11 @@ Page({
     return map[type] || type;
   },
 
+  isRollcallRelatedLessonEvent(item = {}) {
+    const type = String(item.type || "").trim();
+    return type === "rollcall" || type === "answer_score";
+  },
+
   getLessonEventsSignature(lessonEvents = []) {
     return JSON.stringify(
       (lessonEvents || []).map((item) => ({
@@ -487,7 +492,9 @@ Page({
         .where({ lessonId })
         .orderBy("createdAt", "desc")
         .get();
-      const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
+      const lessonEvents = (res.data || [])
+        .map((item) => this.normalizeLessonEvent(item))
+        .filter((item) => this.isRollcallRelatedLessonEvent(item));
       const nextSignature = this.getLessonEventsSignature(lessonEvents);
       const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
       if (nextSignature === currentSignature) {
@@ -889,7 +896,7 @@ Page({
     });
     await this.refreshInteractionDataAfterLessonChange();
 
-    this.fetchAttendanceOnce(nextLessonId);
+    await this.fetchAttendanceOnce(nextLessonId);
     this.startAttendancePolling(nextLessonId);
     this.startLessonEventPolling(nextLessonId);
   },
@@ -986,5 +993,6 @@ Page({
   syncAttendance(docs) {
     this.latestAttendanceDocs = Array.isArray(docs) ? docs : [];
     this.rebuildStudentDisplayList({ attendanceDocs: this.latestAttendanceDocs });
+    this.rebuildRollcallState(this.data.lessonEvents);
   }
 });
