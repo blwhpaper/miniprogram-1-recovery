@@ -6,7 +6,8 @@
     "pages/studentList/studentList",
     "pages/studentSign/studentSign",
     "pages/register/register",
-    "pages/signRecord/signRecord"
+    "pages/signRecord/signRecord",
+    "pages/classInteraction/classInteraction"
   ],
   "window": {
     "backgroundColor": "#F6F6F6",

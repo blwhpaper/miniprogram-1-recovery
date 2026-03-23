@@ -92,7 +92,7 @@
 }
 .lesson-empty { font-size:22rpx; color:#999; padding:12rpx 0; }
 
-.list-container { padding-top:300rpx; padding-bottom:40rpx; }
+.list-container { padding-top:700rpx; padding-bottom:40rpx; }
 
 .card {
   background:#fff; border-radius:20rpx; margin:0 20rpx 20rpx; padding:30rpx;

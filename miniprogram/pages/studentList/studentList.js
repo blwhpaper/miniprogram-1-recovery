@@ -140,5 +140,20 @@ Page({
     wx.navigateTo({
       url: `/pages/signRecord/signRecord?classId=${this.data.classId}&lessonId=${lessonId}`
     })
+  },
+
+  goClassInteraction() {
+    const latestLessonId = this.getLatestLessonId()
+    const lessonId = latestLessonId || this.data.lessonId
+
+    if (!lessonId) {
+      wx.showToast({ title: "请先生成签到码", icon: "none" })
+      return
+    }
+
+    this.setData({ lessonId })
+    wx.navigateTo({
+      url: `/pages/classInteraction/classInteraction?classId=${this.data.classId}&lessonId=${lessonId}`
+    })
   }
 })

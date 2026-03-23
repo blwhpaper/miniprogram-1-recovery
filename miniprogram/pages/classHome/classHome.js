@@ -83,5 +83,21 @@ Page({
     wx.navigateTo({
       url: `/pages/studentList/studentList?id=${classId}&lessonId=${latestLessonId}`
     })
+  },
+
+  goToClassInteraction() {
+    const classId = String(this.data.classId || "").trim()
+    const lessonId = String(
+      this.data.lessonId || wx.getStorageSync(`LATEST_LESSON_${classId}`) || ""
+    ).trim()
+
+    if (!lessonId) {
+      wx.showToast({ title: "请先生成签到码", icon: "none" })
+      return
+    }
+
+    wx.navigateTo({
+      url: `/pages/classInteraction/classInteraction?classId=${classId}&lessonId=${lessonId}`
+    })
   }
 })

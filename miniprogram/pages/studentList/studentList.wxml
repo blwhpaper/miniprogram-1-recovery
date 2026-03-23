@@ -9,4 +9,8 @@
   <button bindtap="goSignRecord" type="primary">
     进入签到情况管理
   </button>
+
+  <button bindtap="goClassInteraction">
+    进入课堂互动
+  </button>
 </view>

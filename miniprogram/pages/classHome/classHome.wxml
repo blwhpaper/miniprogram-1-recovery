@@ -16,3 +16,8 @@
   bindtap="goToStudentList">
   学生名单管理
 </view>
+
+<view style="margin-top:25rpx; font-size:30rpx; color:#2f70e6; text-decoration:underline;"
+  bindtap="goToClassInteraction">
+  进入课堂互动
+</view>

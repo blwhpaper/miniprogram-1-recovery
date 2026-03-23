@@ -119,19 +119,24 @@ Page({
 
     this.fetchAttendanceOnce(lessonId);
     this.startAttendancePolling(lessonId);
+    this.loadLessonEvents();
+    this.startLessonEventPolling(lessonId);
   },
 
   onUnload() {
     this.clearAttendancePolling();
+    this.clearLessonEventPolling();
   },
 
   onHide() {
     this.clearAttendancePolling();
+    this.clearLessonEventPolling();
   },
 
   async onPullDownRefresh() {
     try {
       await this.refreshAttendance();
+      await this.loadLessonEvents({ silent: true });
     } finally {
       wx.stopPullDownRefresh();
     }
@@ -151,7 +156,9 @@ Page({
         this.setData({
           lessonId: "",
           selectedLessonId: "",
-          list
+          list,
+          currentCalledStudent: null,
+          lessonEvents: []
         });
         this.refreshSignedStudents();
         this.refreshExportDisabledState();
@@ -1525,6 +1532,7 @@ Page({
     const nextLessonId = String(lessonId || "").trim();
     if (!nextLessonId) {
       this.clearAttendancePolling();
+      this.clearLessonEventPolling();
       const list = this.cloneBaseRosterList();
       this.setData({
         lessonId: "",
@@ -1532,12 +1540,14 @@ Page({
         currentStats: null,
         list
       });
+      await this.refreshInteractionDataAfterLessonChange();
       this.refreshExportDisabledState();
       this.refreshStats();
       return;
     }
 
     this.clearAttendancePolling();
+    this.clearLessonEventPolling();
 
     const baseList = this.cloneBaseRosterList();
     this.setData({
@@ -1546,11 +1556,13 @@ Page({
       currentStats: (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null,
       list: baseList
     });
+    await this.refreshInteractionDataAfterLessonChange();
     this.refreshExportDisabledState();
     this.refreshStats();
 
     await this.fetchAttendanceOnce(nextLessonId);
     this.startAttendancePolling(nextLessonId);
+    this.startLessonEventPolling(nextLessonId);
     await this.loadStats();
   },
 
