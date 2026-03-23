@@ -16,7 +16,9 @@ Page({
     interactionScoreOptions: [60, 80, 95],
     currentRound: 1,
     currentRoundCalledIds: [],
-    pendingScoreLock: false
+    pendingScoreLock: false,
+    lastScoredStudentName: "",
+    lastScoredRound: 0
   },
 
   attendancePollingTimer: null,
@@ -143,7 +145,9 @@ Page({
           selectedLessonId: "",
           list,
           currentCalledStudent: null,
-          lessonEvents: []
+          lessonEvents: [],
+          lastScoredStudentName: "",
+          lastScoredRound: 0
         });
         this.refreshSignedStudents();
       }
@@ -528,7 +532,9 @@ Page({
       lessonEvents: [],
       currentRound: 1,
       currentRoundCalledIds: [],
-      pendingScoreLock: false
+      pendingScoreLock: false,
+      lastScoredStudentName: "",
+      lastScoredRound: 0
     });
     await this.loadLessonEvents();
   },
@@ -733,7 +739,9 @@ Page({
       },
       currentRound: round,
       currentRoundCalledIds: nextCalledIds,
-      pendingScoreLock: true
+      pendingScoreLock: true,
+      lastScoredStudentName: "",
+      lastScoredRound: 0
     });
     await this.loadLessonEvents();
     wx.showToast({
@@ -780,7 +788,9 @@ Page({
     });
     this.setData({
       currentCalledStudent: null,
-      pendingScoreLock: false
+      pendingScoreLock: false,
+      lastScoredStudentName: String(student.name || "").trim(),
+      lastScoredRound: Number(student.round || this.data.currentRound || 0)
     });
     await this.loadLessonEvents();
     wx.showToast({

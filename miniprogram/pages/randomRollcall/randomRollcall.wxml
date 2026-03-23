@@ -1,31 +1,88 @@
 
 <view class="page">
   <view class="stats-fixed">
-    <view class="interaction-card">
-      <view class="interaction-title">随机点名</view>
-      <view class="interaction-current">
-        <text>当前轮次：第{{currentRound}}轮</text>
-      </view>
-      <view class="score-btn-group">
-        <button class="export-btn" size="mini" bindtap="onTapRandomRollcall">随机点名</button>
-      </view>
-      <view class="interaction-current">
-        <text wx:if="{{currentCalledStudent}}">
-          当前点名：{{currentCalledStudent.name}}（{{currentCalledStudent.studentId || '-'}}）
-        </text>
-        <text wx:else>当前未点名</text>
-      </view>
-      <view wx:if="{{currentCalledStudent}}" class="score-btn-group">
-        <button
-          wx:for="{{interactionScoreOptions}}"
-          wx:key="*this"
-          class="score-btn"
-          size="mini"
-          bindtap="onTapScoreAnswer"
-          data-score="{{item}}"
+    <view class="interaction-card {{pendingScoreLock ? 'interaction-card--pending' : ''}}">
+      <view class="interaction-head">
+        <view>
+          <view class="interaction-title">随机点名</view>
+          <view class="interaction-round">当前轮次：第{{currentRound}}轮</view>
+        </view>
+        <view
+          class="state-badge
+          {{pendingScoreLock ? 'state-badge--pending' : ''}}
+          {{!pendingScoreLock && currentCalledStudent ? 'state-badge--active' : ''}}
+          {{!pendingScoreLock && !currentCalledStudent && lastScoredStudentName ? 'state-badge--done' : ''}}
+          {{!pendingScoreLock && !currentCalledStudent && !lastScoredStudentName ? 'state-badge--idle' : ''}}"
         >
-          {{item}}分
+          <text wx:if="{{pendingScoreLock}}">待评分</text>
+          <text wx:elif="{{currentCalledStudent}}">点名中</text>
+          <text wx:elif="{{lastScoredStudentName}}">可继续下一位</text>
+          <text wx:else>未开始</text>
+        </view>
+      </view>
+
+      <view class="interaction-status-panel">
+        <view wx:if="{{currentCalledStudent}}" class="student-focus">
+          <text class="student-focus-label">当前点到</text>
+          <text class="student-focus-name">{{currentCalledStudent.name}}</text>
+          <text class="student-focus-meta">学号：{{currentCalledStudent.studentId || '-'}}</text>
+        </view>
+
+        <view wx:elif="{{lastScoredStudentName}}" class="status-copy">
+          <text class="status-copy-title">上一位已完成评分</text>
+          <text class="status-copy-main">{{lastScoredStudentName}} 已完成第{{lastScoredRound}}轮评分</text>
+          <text class="status-copy-sub">现在可以继续随机点下一位。</text>
+        </view>
+
+        <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="status-copy">
+          <text class="status-copy-title">当前可开始点名</text>
+          <text class="status-copy-main">已签到 {{signedStudents.length}} 人，可随机点名</text>
+          <text class="status-copy-sub">点到学生后需先评分，才能继续下一位。</text>
+        </view>
+
+        <view wx:elif="{{selectedLessonId}}" class="status-copy">
+          <text class="status-copy-title">当前暂无可点名学生</text>
+          <text class="status-copy-main">请等待学生签到后再开始随机点名</text>
+          <text class="status-copy-sub">随机点名仅从已签到学生中抽取。</text>
+        </view>
+
+        <view wx:else class="status-copy">
+          <text class="status-copy-title">当前无可用课次</text>
+          <text class="status-copy-main">请先选择可用课次</text>
+          <text class="status-copy-sub">课次切换后将自动加载当前名单与互动记录。</text>
+        </view>
+      </view>
+
+      <view class="action-section">
+        <button
+          class="primary-action {{pendingScoreLock ? 'primary-action--disabled' : ''}}"
+          bindtap="onTapRandomRollcall"
+          disabled="{{pendingScoreLock || !selectedLessonId || signedStudents.length === 0}}"
+        >
+          {{currentCalledStudent || pendingScoreLock ? '完成评分后继续' : '随机点名'}}
         </button>
+
+        <view wx:if="{{pendingScoreLock && currentCalledStudent}}" class="score-panel">
+          <view class="score-panel-title">请先给 {{currentCalledStudent.name}} 评分</view>
+          <view class="score-btn-group">
+            <button
+              wx:for="{{interactionScoreOptions}}"
+              wx:key="*this"
+              class="score-btn"
+              size="mini"
+              bindtap="onTapScoreAnswer"
+              data-score="{{item}}"
+            >
+              {{item}}分
+            </button>
+          </view>
+        </view>
+
+        <view wx:else class="action-hint">
+          <text wx:if="{{selectedLessonId && signedStudents.length > 0}}">当前可以继续随机点名。</text>
+          <text wx:elif="{{selectedLessonId}}">当前没有已签到学生，按钮已禁用。</text>
+          <text wx:else>当前没有可用课次，按钮已禁用。</text>
+        </view>
       </view>
     </view>
 
@@ -62,20 +119,12 @@
       <view wx:elif="{{lessonEvents.length > 0}}">
         <view class="event-item" wx:for="{{lessonEvents}}" wx:key="_id">
           <view class="info">
-            <text class="name">{{item.studentName || (item.type === 'test_publish' ? '全班测试' : '未命名学生')}}</text>
+            <text class="name">{{item.studentName || '未命名学生'}}</text>
             <text class="event-score" wx:if="{{item.score}}">+{{item.score}}</text>
           </view>
           <view class="sub">
             <text class="event-type">{{item.displayType}}</text>
-          </view>
-          <view class="sub" wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testSummary}}">
-            <text>{{item.testSummary}}</text>
-          </view>
-          <view class="sub" wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testContent}}">
-            <text>内容：{{item.testContent}}</text>
-          </view>
-          <view class="sub" wx:if="{{item.type === 'test_record' && item.testAnswer}}">
-            <text>答案：{{item.testAnswer}}</text>
+            <text wx:if="{{item.round}}" class="event-round">第{{item.round}}轮</text>
           </view>
           <view class="sub">
             <text>{{item.displayTime}}</text>
