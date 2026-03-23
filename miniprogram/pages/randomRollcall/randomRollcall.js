@@ -26,6 +26,7 @@ Page({
   lessonEventPollingTimer: null,
   lessonEventPollingLessonId: "",
   latestAttendanceDocs: [],
+  latestClassRollcallEvents: [],
   recentAnswerScoreKeys: new Set(),
   isInitializing: false,
 
@@ -222,6 +223,10 @@ Page({
     );
   },
 
+  getClassRollcallEventsSignature(lessonEvents = []) {
+    return this.getLessonEventsSignature(lessonEvents);
+  },
+
   getAttendanceListSignature(list = []) {
     return JSON.stringify(
       (list || []).map((item) => ({
@@ -386,16 +391,19 @@ Page({
   },
 
   rebuildRollcallState(lessonEvents = []) {
+    const rollcallSource = Array.isArray(lessonEvents) && lessonEvents.length > 0
+      ? lessonEvents
+      : this.latestClassRollcallEvents;
     const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
     const signedIdSet = new Set(
       signedStudents
         .map((item) => this.getStudentUniqueId(item))
         .filter(Boolean)
     );
-    const rollcallEvents = lessonEvents
+    const rollcallEvents = (rollcallSource || [])
       .filter((item) => item.type === "rollcall")
       .sort((a, b) => this.getEventTimestamp(a) - this.getEventTimestamp(b));
-    const scoreEventKeys = lessonEvents
+    const scoreEventKeys = (rollcallSource || [])
       .filter((item) => item.type === "answer_score")
       .map((item) => this.getRollcallScoreKey(item))
       .filter(Boolean);
@@ -477,6 +485,47 @@ Page({
     });
   },
 
+  async loadClassRollcallProgressEvents() {
+    const classId = String(this.data.classId || "").trim();
+    if (!classId) {
+      this.latestClassRollcallEvents = [];
+      this.rebuildRollcallState([]);
+      return [];
+    }
+
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({
+          classId,
+          type: _.in(["rollcall", "answer_score"])
+        })
+        .orderBy("createdAt", "desc")
+        .get();
+      const classRollcallEvents = (res.data || [])
+        .map((item) => this.normalizeLessonEvent(item))
+        .filter((item) => this.isRollcallRelatedLessonEvent(item));
+      const nextSignature = this.getClassRollcallEventsSignature(classRollcallEvents);
+      const currentSignature = this.getClassRollcallEventsSignature(this.latestClassRollcallEvents);
+
+      if (nextSignature === currentSignature) {
+        this.rebuildRollcallState(this.latestClassRollcallEvents);
+        return this.latestClassRollcallEvents;
+      }
+
+      this.latestClassRollcallEvents = classRollcallEvents;
+      this.rebuildRollcallState(classRollcallEvents);
+      return classRollcallEvents;
+    } catch (err) {
+      console.error("[signRecord] loadClassRollcallProgressEvents failed", {
+        classId,
+        err
+      });
+      this.latestClassRollcallEvents = [];
+      this.rebuildRollcallState([]);
+      return [];
+    }
+  },
+
   async loadLessonEvents(options = {}) {
     const { silent = false } = options;
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
@@ -485,6 +534,7 @@ Page({
         lessonEvents: [],
         lessonEventsLoading: false
       });
+      await this.loadClassRollcallProgressEvents();
       return [];
     }
 
@@ -502,11 +552,12 @@ Page({
       const nextSignature = this.getLessonEventsSignature(lessonEvents);
       const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
       if (nextSignature === currentSignature) {
+        await this.loadClassRollcallProgressEvents();
         return this.data.lessonEvents;
       }
       this.setData({ lessonEvents });
       this.rebuildStudentDisplayList({ lessonEvents });
-      this.rebuildRollcallState(lessonEvents);
+      await this.loadClassRollcallProgressEvents();
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
@@ -514,7 +565,7 @@ Page({
         this.setData({ lessonEvents: [] });
       }
       this.rebuildStudentDisplayList({ lessonEvents: [] });
-      this.rebuildRollcallState([]);
+      await this.loadClassRollcallProgressEvents();
       return [];
     } finally {
       if (!silent) {
@@ -530,8 +581,6 @@ Page({
     this.setData({
       currentCalledStudent: null,
       lessonEvents: [],
-      currentRound: 1,
-      currentRoundCalledIds: [],
       pendingScoreLock: false,
       lastScoredStudentName: "",
       lastScoredRound: 0
@@ -1003,6 +1052,6 @@ Page({
   syncAttendance(docs) {
     this.latestAttendanceDocs = Array.isArray(docs) ? docs : [];
     this.rebuildStudentDisplayList({ attendanceDocs: this.latestAttendanceDocs });
-    this.rebuildRollcallState(this.data.lessonEvents);
+    this.rebuildRollcallState(this.latestClassRollcallEvents);
   }
 });
