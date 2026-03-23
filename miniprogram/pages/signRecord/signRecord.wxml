@@ -123,6 +123,15 @@
       <view class="sub">
         <text>状态：{{item.status === 'signed' ? '已签到' : '未签到'}}</text>
       </view>
+
+      <view wx:if="{{item.answerScoreText || item.questionScoreText}}" class="interaction-result-box">
+        <view wx:if="{{item.answerScoreText}}" class="sub interaction-result-row">
+          <text>随机点名回答：{{item.answerScoreText}}分</text>
+        </view>
+        <view wx:if="{{item.questionScoreText}}" class="sub interaction-result-row">
+          <text>主动提问评分：{{item.questionScoreText}}分</text>
+        </view>
+      </view>
     </view>
 
     <view wx:if="{{list.length === 0}}" class="empty">暂无学生</view>

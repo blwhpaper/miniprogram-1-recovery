@@ -99,6 +99,19 @@
 }
 .info { display:flex; justify-content:space-between; }
 .name { font-size:32rpx; }
+.sub { margin-top:12rpx; font-size:24rpx; color:#666; }
+.interaction-result-box {
+  margin-top:18rpx;
+  padding:16rpx 20rpx;
+  background:#f7faff;
+  border-radius:16rpx;
+}
+.interaction-result-row {
+  margin-top:0;
+}
+.interaction-result-row + .interaction-result-row {
+  margin-top:10rpx;
+}
 .question-btn-row {
   display:flex;
   flex-wrap:wrap;

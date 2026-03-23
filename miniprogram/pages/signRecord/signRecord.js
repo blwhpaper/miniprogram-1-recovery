@@ -37,6 +37,7 @@ Page({
   attendancePollingLessonId: "",
   lessonEventPollingTimer: null,
   lessonEventPollingLessonId: "",
+  latestAttendanceDocs: [],
   recentAnswerScoreKeys: new Set(),
 
   normalizeRosterItem(student) {
@@ -45,7 +46,9 @@ Page({
         studentId: "",
         name: student,
         status: "unsigned",
-        img: ""
+        img: "",
+        answerScoreText: "",
+        questionScoreText: ""
       };
     }
 
@@ -53,7 +56,9 @@ Page({
       studentId: String(student?.studentId || student?.id || "").trim(),
       name: String(student?.name || "").trim(),
       status: "unsigned",
-      img: ""
+      img: "",
+      answerScoreText: "",
+      questionScoreText: ""
     };
   },
 
@@ -336,9 +341,85 @@ Page({
       (list || []).map((item) => ({
         studentId: String(item.studentId || item.id || "").trim(),
         name: String(item.name || item.studentName || "").trim(),
-        status: String(item.status || "").trim()
+        status: String(item.status || "").trim(),
+        answerScoreText: String(item.answerScoreText || "").trim(),
+        questionScoreText: String(item.questionScoreText || "").trim()
       }))
     );
+  },
+
+  buildInteractionScoreMap(lessonEvents = []) {
+    const interactionScoreMap = new Map();
+    const scoreEvents = (lessonEvents || []).filter(
+      (item) => item.type === "answer_score" || item.type === "question_score"
+    );
+
+    scoreEvents.forEach((item) => {
+      const studentKey = this.getStudentUniqueId(item);
+      if (!studentKey) return;
+
+      if (!interactionScoreMap.has(studentKey)) {
+        interactionScoreMap.set(studentKey, {
+          answerScores: [],
+          questionScores: []
+        });
+      }
+
+      const score = Number(item.score || 0);
+      if (!score) return;
+
+      const target = interactionScoreMap.get(studentKey);
+      if (item.type === "answer_score") {
+        target.answerScores.push(score);
+        return;
+      }
+
+      target.questionScores.push(score);
+    });
+
+    return interactionScoreMap;
+  },
+
+  mergeInteractionIntoList(baseList, lessonEvents = []) {
+    const interactionScoreMap = this.buildInteractionScoreMap(lessonEvents);
+
+    return (baseList || []).map((item) => {
+      const studentKey = this.getStudentUniqueId(item);
+      const interaction = interactionScoreMap.get(studentKey) || {
+        answerScores: [],
+        questionScores: []
+      };
+
+      return {
+        ...item,
+        answerScoreText: interaction.answerScores.join(" / "),
+        questionScoreText: interaction.questionScores.join(" / ")
+      };
+    });
+  },
+
+  rebuildStudentDisplayList(options = {}) {
+    const attendanceDocs = Array.isArray(options.attendanceDocs)
+      ? options.attendanceDocs
+      : this.latestAttendanceDocs;
+    const lessonEvents = Array.isArray(options.lessonEvents)
+      ? options.lessonEvents
+      : this.data.lessonEvents;
+    const baseList = this.cloneBaseRosterList();
+    const attendanceMergedList = this.mergeAttendanceIntoList(baseList, attendanceDocs);
+    const list = this.mergeInteractionIntoList(attendanceMergedList, lessonEvents);
+    const nextSignature = this.getAttendanceListSignature(list);
+    const currentSignature = this.getAttendanceListSignature(this.data.list);
+
+    if (nextSignature === currentSignature) {
+      return list;
+    }
+
+    this.setData({ list });
+    this.refreshSignedStudents();
+    this.refreshExportDisabledState();
+    this.refreshStats();
+    return list;
   },
 
   normalizeLessonEvent(item = {}) {
@@ -571,6 +652,7 @@ Page({
       if (nextSignature !== currentSignature) {
         this.setData({ lessonEvents });
       }
+      this.rebuildStudentDisplayList({ lessonEvents });
       this.rebuildRollcallState(lessonEvents);
       this.rebuildQuestionRequestState(lessonEvents);
       return lessonEvents;
@@ -579,6 +661,7 @@ Page({
       if (this.data.lessonEvents.length > 0) {
         this.setData({ lessonEvents: [] });
       }
+      this.rebuildStudentDisplayList({ lessonEvents: [] });
       this.rebuildRollcallState([]);
       this.rebuildQuestionRequestState([]);
       return [];
@@ -592,6 +675,7 @@ Page({
   async refreshInteractionDataAfterLessonChange() {
     this.refreshSignedStudents();
     this.clearRecentAnswerScoreKeys();
+    this.latestAttendanceDocs = [];
     this.setData({
       currentCalledStudent: null,
       lessonEvents: [],
@@ -1435,18 +1519,8 @@ Page({
 
   // 将签到数据同步到当前列表
   syncAttendance(docs) {
-    const baseList = this.cloneBaseRosterList();
-    const list = this.mergeAttendanceIntoList(baseList, docs);
-    const nextSignature = this.getAttendanceListSignature(list);
-    const currentSignature = this.getAttendanceListSignature(this.data.list);
-    if (nextSignature === currentSignature) {
-      return;
-    }
-
-    this.setData({ list });
-    this.refreshSignedStudents();
-    this.refreshExportDisabledState();
-    this.refreshStats();
+    this.latestAttendanceDocs = Array.isArray(docs) ? docs : [];
+    this.rebuildStudentDisplayList({ attendanceDocs: this.latestAttendanceDocs });
   },
 
   /**
