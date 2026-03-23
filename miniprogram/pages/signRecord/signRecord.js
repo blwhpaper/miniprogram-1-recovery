@@ -287,6 +287,8 @@ Page({
       rollcall: "随机点名",
       answer_score: "回答得分",
       student_question: "主动提问",
+      test_publish: "测试发布",
+      test_record: "随堂测试",
       question_request: "提问申请",
       question_approved: "允许提问",
       question_score: "提问得分"
@@ -423,6 +425,14 @@ Page({
   },
 
   normalizeLessonEvent(item = {}) {
+    const payload = item.payload || {};
+    const testType = String(payload.testType || "").trim();
+    const testSubType = String(payload.testSubType || "").trim();
+    const testResult = String(payload.result || "").trim();
+    const testStatus = String(payload.status || "").trim();
+    const testContent = String(payload.content || "").trim();
+    const testAnswer = String(payload.answer || "").trim();
+
     return {
       ...item,
       studentId: String(item.studentId || "").trim(),
@@ -430,6 +440,15 @@ Page({
       type: String(item.type || "").trim(),
       score: item.score ?? "",
       round: Number(item.round || 0),
+      testType,
+      testSubType,
+      testResult,
+      testStatus,
+      testContent,
+      testAnswer,
+      testSummary: item.type === "test_record" || item.type === "test_publish"
+        ? [testType, testSubType, testResult, testStatus].filter(Boolean).join(" / ")
+        : "",
       displayType: this.getLessonEventTypeLabel(item.type),
       displayTime: this.formatSimpleDateTime(item.createdAt)
     };
@@ -835,6 +854,54 @@ Page({
     }
   },
 
+  async saveTestRecordEvent(eventData = {}) {
+    const studentId = String(eventData.studentId || "").trim();
+    const studentName = String(eventData.studentName || "").trim();
+    const payload = eventData.payload || {};
+
+    if (!studentId || !studentName) {
+      wx.showToast({
+        title: "测试记录学生信息不完整",
+        icon: "none"
+      });
+      return false;
+    }
+
+    return this.createLessonEvent({
+      studentId,
+      studentName,
+      type: "test_record",
+      score: Number(eventData.score || 0),
+      round: Number(eventData.round || this.data.currentRound || 0),
+      payload: {
+        testType: String(payload.testType || "").trim(),
+        testSubType: String(payload.testSubType || "").trim(),
+        result: String(payload.result || "").trim(),
+        content: String(payload.content || "").trim(),
+        answer: String(payload.answer || "").trim(),
+        status: String(payload.status || "").trim()
+      }
+    });
+  },
+
+  async saveTestPublishEvent(eventData = {}) {
+    const payload = eventData.payload || {};
+
+    return this.createLessonEvent({
+      studentId: "",
+      studentName: "",
+      type: "test_publish",
+      score: 0,
+      round: 0,
+      payload: {
+        testType: String(payload.testType || "").trim(),
+        testSubType: String(payload.testSubType || "").trim(),
+        content: String(payload.content || "").trim(),
+        status: String(payload.status || "").trim()
+      }
+    });
+  },
+
   getLessonOrderLabel(lessonId) {
     const targetLessonId = String(lessonId || "").trim();
     if (!targetLessonId) return "";
@@ -1131,6 +1198,34 @@ Page({
     await this.loadLessonEvents();
     wx.showToast({
       title: "提问得分已记录",
+      icon: "none"
+    });
+  },
+
+  async onTapPublishTestExample() {
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    if (!lessonId) {
+      wx.showToast({
+        title: "当前无可用课次",
+        icon: "none"
+      });
+      return;
+    }
+
+    const success = await this.saveTestPublishEvent({
+      payload: {
+        testType: "quiz",
+        testSubType: "translation",
+        content: "示例全班随堂测试：英译中",
+        status: "published"
+      }
+    });
+
+    if (!success) return;
+
+    await this.loadLessonEvents();
+    wx.showToast({
+      title: "全班测试样例已发布",
       icon: "none"
     });
   },
