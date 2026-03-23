@@ -133,23 +133,6 @@ Page({
     this.clearLessonEventPolling();
   },
 
-  goToRandomRollcall() {
-    const classId = String(this.data.classId || "").trim();
-    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-
-    if (!classId || !lessonId) {
-      wx.showToast({
-        title: "当前无可用课次",
-        icon: "none"
-      });
-      return;
-    }
-
-    wx.navigateTo({
-      url: `/pages/randomRollcall/randomRollcall?classId=${encodeURIComponent(classId)}&lessonId=${encodeURIComponent(lessonId)}`
-    });
-  },
-
   async onPullDownRefresh() {
     try {
       await this.refreshAttendance();

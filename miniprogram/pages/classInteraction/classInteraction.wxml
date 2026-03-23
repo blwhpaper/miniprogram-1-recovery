@@ -3,30 +3,9 @@
   <view class="stats-fixed">
     <view class="interaction-card">
       <view class="interaction-title">课堂互动</view>
-      <view class="interaction-current">
-        <text>当前轮次：第{{currentRound}}轮</text>
-      </view>
       <view class="score-btn-group">
-        <button class="export-btn" size="mini" bindtap="onTapRandomRollcall">随机点名</button>
+        <button class="export-btn" size="mini" bindtap="goToRandomRollcall">进入随机点名</button>
         <button class="export-btn export-btn-secondary" size="mini" bindtap="onTapPublishTestExample">发布测试样例</button>
-      </view>
-      <view class="interaction-current">
-        <text wx:if="{{currentCalledStudent}}">
-          当前点名：{{currentCalledStudent.name}}（{{currentCalledStudent.studentId || '-'}}）
-        </text>
-        <text wx:else>当前未点名</text>
-      </view>
-      <view wx:if="{{currentCalledStudent}}" class="score-btn-group">
-        <button
-          wx:for="{{interactionScoreOptions}}"
-          wx:key="*this"
-          class="score-btn"
-          size="mini"
-          bindtap="onTapScoreAnswer"
-          data-score="{{item}}"
-        >
-          {{item}}分
-        </button>
       </view>
 
       <view wx:if="{{pendingQuestionRequests.length > 0}}" class="event-list">
