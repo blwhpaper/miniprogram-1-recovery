@@ -7,14 +7,8 @@ Page({
     lessonId: "",
     lessons: [],
     selectedLessonId: "",
-    lessonsLoading: false,
     baseRosterList: [],
-    stats: [],
-    currentStats: null,
-    statsLoading: false,
     list: [], // 最终展示的混合列表
-    detailExportDisabled: true,
-    statsExportDisabled: true,
     signedStudents: [],
     currentCalledStudent: null,
     lessonEvents: [],
@@ -22,17 +16,7 @@ Page({
     interactionScoreOptions: [60, 80, 95],
     currentRound: 1,
     currentRoundCalledIds: [],
-    pendingScoreLock: false,
-    pendingQuestionRequests: [],
-    currentQuestionRequest: null,
-    currentPublishedTest: null,
-    currentTestRecords: [],
-    signCount: 0,
-    unsignCount: 0,
-    absentCount: 0,
-    waitCount: 0,
-    leaveCount: 0,
-    jumpCursor: {}
+    pendingScoreLock: false
   },
 
   attendancePollingTimer: null,
@@ -41,26 +25,21 @@ Page({
   lessonEventPollingLessonId: "",
   latestAttendanceDocs: [],
   recentAnswerScoreKeys: new Set(),
+  isInitializing: false,
 
   normalizeRosterItem(student) {
     if (typeof student === "string") {
       return {
         studentId: "",
         name: student,
-        status: "unsigned",
-        img: "",
-        answerScoreText: "",
-        questionScoreText: ""
+        status: "unsigned"
       };
     }
 
     return {
       studentId: String(student?.studentId || student?.id || "").trim(),
       name: String(student?.name || "").trim(),
-      status: "unsigned",
-      img: "",
-      answerScoreText: "",
-      questionScoreText: ""
+      status: "unsigned"
     };
   },
 
@@ -107,19 +86,21 @@ Page({
       classId,
       selectedLessonId: lessonId
     }, () => {
-      // 1. 先加载花名册（基础数据）
-      // 2. 成功后拉取签到记录并启动轮询
       this.initData();
     });
   },
 
   onShow() {
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    if (!lessonId) return;
+    if (!lessonId || this.isInitializing) return;
+
+    const attendanceReady = this.attendancePollingLessonId === lessonId && !!this.attendancePollingTimer;
+    const lessonEventReady = this.lessonEventPollingLessonId === lessonId && !!this.lessonEventPollingTimer;
+    if (attendanceReady && lessonEventReady) return;
 
     this.fetchAttendanceOnce(lessonId);
     this.startAttendancePolling(lessonId);
-    this.loadLessonEvents();
+    this.loadLessonEvents({ silent: true });
     this.startLessonEventPolling(lessonId);
   },
 
@@ -143,10 +124,14 @@ Page({
   },
 
   async initData() {
+    if (this.isInitializing) return;
+    this.isInitializing = true;
     wx.showLoading({ title: "加载中..." });
     try {
-      await this.loadRoster();
-      const lessons = await this.loadLessons();
+      const [_, lessons] = await Promise.all([
+        this.loadRoster(),
+        this.loadLessons()
+      ]);
       const initialLessonId = this.resolveInitialLessonId(lessons);
 
       if (initialLessonId) {
@@ -161,92 +146,11 @@ Page({
           lessonEvents: []
         });
         this.refreshSignedStudents();
-        this.refreshExportDisabledState();
-        this.refreshStats();
       }
-      await this.loadStats();
     } finally {
+      this.isInitializing = false;
       wx.hideLoading();
     }
-  },
-
-  async loadStats() {
-    const classId = String(this.data.classId || "").trim();
-    const lessonId = String(this.data.lessonId || this.data.selectedLessonId || "").trim();
-    if (!classId) return;
-
-    this.setData({ statsLoading: true });
-    this.refreshExportDisabledState();
-    try {
-      const res = await wx.cloud.callFunction({
-        name: "getLessonStatsByClass",
-        data: { classId }
-      });
-
-      if (res.result && res.result.success) {
-        const stats = Array.isArray(res.result.stats) ? res.result.stats : [];
-        const currentStats =
-          stats.find(item => String(item.lessonId || "").trim() === lessonId) || null;
-
-        this.setData({
-          stats,
-          currentStats
-        });
-        this.refreshExportDisabledState();
-      } else {
-        this.setData({
-          stats: [],
-          currentStats: null
-        });
-        this.refreshExportDisabledState();
-      }
-    } catch (err) {
-      console.error("[signRecord] loadStats failed", err);
-      this.setData({
-        stats: [],
-        currentStats: null
-      });
-      this.refreshExportDisabledState();
-    } finally {
-      this.setData({ statsLoading: false });
-      this.refreshExportDisabledState();
-    }
-  },
-
-  escapeCsv(value) {
-    const text = String(value ?? "");
-    if (!/[",\n\r]/.test(text)) return text;
-    return `"${text.replace(/"/g, '""')}"`;
-  },
-
-  copyCsvToClipboard(csvText, successTitle) {
-    wx.setClipboardData({
-      data: `\uFEFF${csvText}`,
-      success: () => {
-        wx.showToast({
-          title: successTitle,
-          icon: "none"
-        });
-      },
-      fail: (err) => {
-        console.error("[signRecord] copy csv failed", err);
-        wx.showToast({
-          title: "导出失败，请稍后重试",
-          icon: "none"
-        });
-      }
-    });
-  },
-
-  refreshExportDisabledState() {
-    const { lessonsLoading, statsLoading, list, stats } = this.data;
-    const isListInvalid = !Array.isArray(list) || list.length === 0;
-    const isStatsInvalid = !Array.isArray(stats) || stats.length === 0;
-
-    this.setData({
-      detailExportDisabled: Boolean(lessonsLoading || statsLoading || isListInvalid),
-      statsExportDisabled: Boolean(lessonsLoading || statsLoading || isStatsInvalid)
-    });
   },
 
   refreshSignedStudents() {
@@ -289,22 +193,10 @@ Page({
     const map = {
       rollcall: "随机点名",
       answer_score: "回答得分",
-      student_question: "主动提问",
       test_publish: "测试发布",
-      test_record: "随堂测试",
-      question_request: "提问申请",
-      question_approved: "允许提问",
-      question_score: "提问得分"
+      test_record: "随堂测试"
     };
     return map[type] || type;
-  },
-
-  getQuestionRequestId(item = {}) {
-    return String(
-      item?.payload?.requestId ||
-      (item.type === "question_request" ? item._id : "") ||
-      ""
-    ).trim();
   },
 
   getLessonEventsSignature(lessonEvents = []) {
@@ -316,29 +208,9 @@ Page({
         studentName: String(item.studentName || ""),
         score: item.score ?? "",
         round: Number(item.round || 0),
-        requestId: this.getQuestionRequestId(item),
         displayTime: String(item.displayTime || "")
       }))
     );
-  },
-
-  getQuestionStateSignature(pendingQuestionRequests = [], currentQuestionRequest = null) {
-    return JSON.stringify({
-      pendingQuestionRequests: (pendingQuestionRequests || []).map((item) => ({
-        _id: String(item._id || ""),
-        studentId: String(item.studentId || ""),
-        studentName: String(item.studentName || ""),
-        requestId: this.getQuestionRequestId(item)
-      })),
-      currentQuestionRequest: currentQuestionRequest
-        ? {
-          _id: String(currentQuestionRequest._id || ""),
-          studentId: String(currentQuestionRequest.studentId || ""),
-          studentName: String(currentQuestionRequest.studentName || ""),
-          requestId: this.getQuestionRequestId(currentQuestionRequest)
-        }
-        : null
-    });
   },
 
   getAttendanceListSignature(list = []) {
@@ -422,8 +294,6 @@ Page({
 
     this.setData({ list });
     this.refreshSignedStudents();
-    this.refreshExportDisabledState();
-    this.refreshStats();
     return list;
   },
 
@@ -598,85 +468,6 @@ Page({
     });
   },
 
-  rebuildQuestionRequestState(lessonEvents = []) {
-    const requestEvents = lessonEvents.filter((item) => item.type === "question_request");
-    const approvedEvents = lessonEvents
-      .filter((item) => item.type === "question_approved")
-      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-    const scoreEvents = lessonEvents.filter((item) => item.type === "question_score");
-    const approvedRequestIds = new Set(
-      approvedEvents.map((item) => this.getQuestionRequestId(item)).filter(Boolean)
-    );
-    const scoredRequestIds = new Set(
-      scoreEvents.map((item) => this.getQuestionRequestId(item)).filter(Boolean)
-    );
-
-    const pendingQuestionRequests = requestEvents.filter((item) => {
-      const requestId = this.getQuestionRequestId(item);
-      return requestId && !approvedRequestIds.has(requestId) && !scoredRequestIds.has(requestId);
-    });
-
-    const currentQuestionRequest = approvedEvents.find((item) => {
-      const requestId = this.getQuestionRequestId(item);
-      return requestId && !scoredRequestIds.has(requestId);
-    }) || null;
-
-    const nextSignature = this.getQuestionStateSignature(pendingQuestionRequests, currentQuestionRequest);
-    const currentSignature = this.getQuestionStateSignature(
-      this.data.pendingQuestionRequests,
-      this.data.currentQuestionRequest
-    );
-
-    if (nextSignature !== currentSignature) {
-      this.setData({
-        pendingQuestionRequests,
-        currentQuestionRequest
-      });
-    }
-  },
-
-  rebuildCurrentTestState(lessonEvents = []) {
-    const publishedTests = lessonEvents
-      .filter((item) => item.type === "test_publish" && item.testType === "single_choice")
-      .sort((a, b) => this.getEventTimestamp(b) - this.getEventTimestamp(a));
-    const currentPublishedTest = publishedTests[0] || null;
-    const currentQuestionId = String(currentPublishedTest?._id || "").trim();
-    const currentTestRecords = currentQuestionId
-      ? lessonEvents.filter(
-        (item) => item.type === "test_record" && item.testQuestionId === currentQuestionId
-      )
-      : [];
-
-    this.setData({
-      currentPublishedTest,
-      currentTestRecords
-    });
-  },
-
-  async loadQuestionRequestState() {
-    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    if (!lessonId) {
-      this.rebuildQuestionRequestState([]);
-      return [];
-    }
-
-    try {
-      const res = await db.collection("lessonEvent")
-        .where({
-          lessonId,
-          type: _.in(["question_request", "question_approved", "question_score"])
-        })
-        .orderBy("createdAt", "desc")
-        .get();
-      const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
-      this.rebuildQuestionRequestState(lessonEvents);
-      return lessonEvents;
-    } catch (err) {
-      console.error("[signRecord] loadQuestionRequestState failed", err);
-      return [];
-    }
-  },
-
   async loadLessonEvents(options = {}) {
     const { silent = false } = options;
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
@@ -699,13 +490,12 @@ Page({
       const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
       const nextSignature = this.getLessonEventsSignature(lessonEvents);
       const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
-      if (nextSignature !== currentSignature) {
-        this.setData({ lessonEvents });
+      if (nextSignature === currentSignature) {
+        return this.data.lessonEvents;
       }
+      this.setData({ lessonEvents });
       this.rebuildStudentDisplayList({ lessonEvents });
       this.rebuildRollcallState(lessonEvents);
-      this.rebuildQuestionRequestState(lessonEvents);
-      this.rebuildCurrentTestState(lessonEvents);
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
@@ -714,8 +504,6 @@ Page({
       }
       this.rebuildStudentDisplayList({ lessonEvents: [] });
       this.rebuildRollcallState([]);
-      this.rebuildQuestionRequestState([]);
-      this.rebuildCurrentTestState([]);
       return [];
     } finally {
       if (!silent) {
@@ -733,11 +521,7 @@ Page({
       lessonEvents: [],
       currentRound: 1,
       currentRoundCalledIds: [],
-      pendingScoreLock: false,
-      pendingQuestionRequests: [],
-      currentQuestionRequest: null,
-      currentPublishedTest: null,
-      currentTestRecords: []
+      pendingScoreLock: false
     });
     await this.loadLessonEvents();
   },
@@ -835,127 +619,6 @@ Page({
       });
       return false;
     }
-  },
-
-  async saveQuestionScoreEvent(eventData = {}) {
-    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    const classId = String(this.data.classId || "").trim();
-    const requestId = String(eventData?.payload?.requestId || "").trim();
-
-    if (!lessonId || !classId || !requestId) {
-      wx.showToast({
-        title: "提问信息不完整",
-        icon: "none"
-      });
-      return false;
-    }
-
-    try {
-      const res = await db.collection("lessonEvent")
-        .where({
-          classId,
-          lessonId,
-          type: "question_score"
-        })
-        .get();
-
-      const existed = (res.data || []).find(
-        (item) => this.getQuestionRequestId(item) === requestId
-      );
-      const payload = {
-        studentId: String(eventData.studentId || "").trim(),
-        studentName: String(eventData.studentName || "").trim(),
-        score: Number(eventData.score || 0),
-        payload: eventData.payload || {},
-        createdAt: db.serverDate(),
-        createdBy: "teacher"
-      };
-
-      if (existed && existed._id) {
-        await db.collection("lessonEvent").doc(existed._id).update({
-          data: payload
-        });
-        return true;
-      }
-
-      return this.createLessonEvent(eventData);
-    } catch (err) {
-      console.error("[signRecord] saveQuestionScoreEvent failed", err);
-      wx.showToast({
-        title: "提问评分失败，请稍后重试",
-        icon: "none"
-      });
-      return false;
-    }
-  },
-
-  async saveTestRecordEvent(eventData = {}) {
-    const studentId = String(eventData.studentId || "").trim();
-    const studentName = String(eventData.studentName || "").trim();
-    const payload = eventData.payload || {};
-
-    if (!studentId || !studentName) {
-      wx.showToast({
-        title: "测试记录学生信息不完整",
-        icon: "none"
-      });
-      return false;
-    }
-
-    return this.createLessonEvent({
-      studentId,
-      studentName,
-      type: "test_record",
-      score: Number(eventData.score || 0),
-      round: Number(eventData.round || this.data.currentRound || 0),
-      payload: {
-        testType: String(payload.testType || "").trim(),
-        testSubType: String(payload.testSubType || "").trim(),
-        questionId: String(payload.questionId || "").trim(),
-        options: Array.isArray(payload.options) ? payload.options : [],
-        correctAnswer: String(payload.correctAnswer || "").trim(),
-        result: String(payload.result || "").trim(),
-        content: String(payload.content || "").trim(),
-        answer: String(payload.answer || "").trim(),
-        status: String(payload.status || "").trim()
-      }
-    });
-  },
-
-  async saveTestPublishEvent(eventData = {}) {
-    const payload = eventData.payload || {};
-
-    return this.createLessonEvent({
-      studentId: "",
-      studentName: "",
-      type: "test_publish",
-      score: 0,
-      round: 0,
-      payload: {
-        testType: String(payload.testType || "").trim(),
-        testSubType: String(payload.testSubType || "").trim(),
-        options: Array.isArray(payload.options) ? payload.options : [],
-        correctAnswer: String(payload.correctAnswer || "").trim(),
-        content: String(payload.content || "").trim(),
-        status: String(payload.status || "").trim()
-      }
-    });
-  },
-
-  getLessonOrderLabel(lessonId) {
-    const targetLessonId = String(lessonId || "").trim();
-    if (!targetLessonId) return "";
-
-    const lessons = Array.isArray(this.data.lessons) ? this.data.lessons : [];
-    const lessonIndex = lessons.findIndex(
-      (item) => String(item?._id || item?.lessonId || "").trim() === targetLessonId
-    );
-
-    if (lessonIndex >= 0) {
-      return `第${lessonIndex + 1}次课`;
-    }
-
-    return "";
   },
 
   formatSimpleDateTime(value) {
@@ -1119,326 +782,12 @@ Page({
     });
   },
 
-  async onTapAddStudentQuestion(e) {
-    const score = Number(e.currentTarget.dataset.score || 0);
-    const studentId = String(e.currentTarget.dataset.studentId || "").trim();
-    const studentName = String(e.currentTarget.dataset.studentName || "").trim();
-
-    if (!studentName) {
-      wx.showToast({
-        title: "学生信息无效",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (!score) {
-      wx.showToast({
-        title: "分值无效",
-        icon: "none"
-      });
-      return;
-    }
-
-    const success = await this.createLessonEvent({
-      studentId,
-      studentName,
-      type: "student_question",
-      score,
-      payload: { note: "" }
-    });
-
-    if (!success) return;
-
-    await this.loadLessonEvents();
-    wx.showToast({
-      title: "主动提问已记录",
-      icon: "none"
-    });
-  },
-
-  async onTapApproveQuestionRequest(e) {
-    const requestId = String(e.currentTarget.dataset.requestId || "").trim();
-    const studentId = String(e.currentTarget.dataset.studentId || "").trim();
-    const studentName = String(e.currentTarget.dataset.studentName || "").trim();
-
-    if (!requestId || !studentName) {
-      wx.showToast({
-        title: "提问申请无效",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (this.data.currentQuestionRequest && this.getQuestionRequestId(this.data.currentQuestionRequest) === requestId) {
-      wx.showToast({
-        title: "该提问已允许，待评分",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (this.data.currentQuestionRequest && this.getQuestionRequestId(this.data.currentQuestionRequest) !== requestId) {
-      wx.showToast({
-        title: "请先完成当前提问评分",
-        icon: "none"
-      });
-      return;
-    }
-
-    const success = await this.createLessonEvent({
-      studentId,
-      studentName,
-      type: "question_approved",
-      score: 0,
-      payload: { requestId, basedOn: "question_request" }
-    });
-
-    if (!success) return;
-
-    await this.loadLessonEvents();
-    wx.showToast({
-      title: "已允许学生提问",
-      icon: "none"
-    });
-  },
-
-  async onTapScoreQuestion(e) {
-    const score = Number(e.currentTarget.dataset.score || 0);
-    const request = this.data.currentQuestionRequest;
-    const requestId = this.getQuestionRequestId(request);
-
-    if (!request || !requestId) {
-      wx.showToast({
-        title: "当前无待评分提问",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (!score) {
-      wx.showToast({
-        title: "分值无效",
-        icon: "none"
-      });
-      return;
-    }
-
-    const success = await this.saveQuestionScoreEvent({
-      studentId: request.studentId,
-      studentName: request.studentName,
-      type: "question_score",
-      score,
-      payload: { requestId, basedOn: "question_approved" }
-    });
-
-    if (!success) return;
-
-    this.setData({ currentQuestionRequest: null });
-    await this.loadLessonEvents();
-    wx.showToast({
-      title: "提问得分已记录",
-      icon: "none"
-    });
-  },
-
-  async onTapPublishTestExample() {
-    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    if (!lessonId) {
-      wx.showToast({
-        title: "当前无可用课次",
-        icon: "none"
-      });
-      return;
-    }
-
-    const success = await this.saveTestPublishEvent({
-      payload: {
-        testType: "single_choice",
-        testSubType: "vocabulary",
-        options: ["A. apple", "B. banana", "C. orange", "D. pear"],
-        correctAnswer: "B",
-        content: "示例单选题：banana 对应哪个选项？",
-        status: "published"
-      }
-    });
-
-    if (!success) return;
-
-    await this.loadLessonEvents();
-    wx.showToast({
-      title: "全班测试样例已发布",
-      icon: "none"
-    });
-  },
-
-  onTapExportLessonStats() {
-    if (this.data.lessonsLoading || this.data.statsLoading) {
-      wx.showToast({
-        title: "数据加载中，请稍后",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (!Array.isArray(this.data.stats) || this.data.stats.length === 0) {
-      wx.showToast({
-        title: "暂无可导出的课次统计",
-        icon: "none"
-      });
-      return;
-    }
-
-    this.exportLessonStatsCsv();
-  },
-
-  onTapExportLessonDetail() {
-    if (this.data.lessonsLoading || this.data.statsLoading) {
-      wx.showToast({
-        title: "数据加载中，请稍后",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (!Array.isArray(this.data.list) || this.data.list.length === 0) {
-      wx.showToast({
-        title: "当前课次暂无可导出明细",
-        icon: "none"
-      });
-      return;
-    }
-
-    this.exportLessonDetailCsv();
-  },
-
-  async exportLessonStatsCsv() {
-    let stats = Array.isArray(this.data.stats) ? this.data.stats : [];
-
-    if (stats.length === 0) {
-      await this.loadStats();
-      stats = Array.isArray(this.data.stats) ? this.data.stats : [];
-    }
-
-    if (stats.length === 0) {
-      wx.showToast({
-        title: "暂无可导出的课次统计",
-        icon: "none"
-      });
-      return;
-    }
-
-    const classId = String(this.data.classId || "").trim();
-    const header = "班级ID,课次,上课时间,应到人数,实到人数,未到人数";
-    const rows = stats.map((item) => {
-      const lessonLabel = this.getLessonOrderLabel(item?.lessonId) || String(item?.lessonId || "");
-      const startTime = this.formatSimpleDateTime(item?.startTime);
-
-      return [
-        this.escapeCsv(classId),
-        this.escapeCsv(lessonLabel),
-        this.escapeCsv(startTime),
-        String(item?.rosterCount ?? ""),
-        String(item?.signedCount ?? ""),
-        String(item?.unsignedCount ?? "")
-      ].join(",");
-    });
-    const csvText = [header, ...rows].join("\n");
-    const fileName = classId ? `签到统计_${classId}.csv` : "签到统计_全部课次.csv";
-
-    this.copyCsvToClipboard(csvText, "全部课次统计CSV已复制，可直接粘贴到表格");
-  },
-
-  async exportLessonDetailCsv() {
-    const classId = String(this.data.classId || "").trim();
-    const lessonId = String(this.data.lessonId || this.data.selectedLessonId || "").trim();
-    const roster = Array.isArray(this.data.baseRosterList) ? this.data.baseRosterList : [];
-
-    if (!classId || !lessonId) {
-      wx.showToast({
-        title: "缺少班级或课次信息",
-        icon: "none"
-      });
-      return;
-    }
-
-    if (roster.length === 0) {
-      wx.showToast({
-        title: "当前课次暂无可导出明细",
-        icon: "none"
-      });
-      return;
-    }
-
-    let detailList = Array.isArray(this.data.list) ? this.data.list : [];
-
-    if (detailList.length === 0) {
-      try {
-        const res = await db.collection("attendance")
-          .where({ lessonId })
-          .get();
-        const attendanceList = res.data || [];
-        const signedSet = new Set(
-          attendanceList
-            .map(item => String(item.studentId || "").trim())
-            .filter(Boolean)
-        );
-
-        detailList = roster.map((student) => {
-          const studentId = String(student.studentId || student.id || "").trim();
-          const name = String(student.name || student.studentName || "").trim();
-          return {
-            studentId,
-            name,
-            status: signedSet.has(studentId) ? "signed" : "unsigned"
-          };
-        });
-      } catch (err) {
-        console.error("[signRecord] exportLessonDetailCsv failed to build detail list", err);
-        wx.showToast({
-          title: "导出失败，请稍后重试",
-          icon: "none"
-        });
-        return;
-      }
-    }
-
-    if (detailList.length === 0) {
-      wx.showToast({
-        title: "当前课次暂无可导出明细",
-        icon: "none"
-      });
-      return;
-    }
-
-    const lessonLabel = this.getLessonOrderLabel(lessonId) || lessonId;
-    const header = "班级ID,课次,学号,姓名,签到状态";
-    const rows = detailList.map((item) => {
-      const studentId = String(item?.studentId || item?.id || "").trim();
-      const name = String(item?.name || item?.studentName || "").trim();
-      const status = String(item?.status || "unsigned").trim() || "unsigned";
-
-      return [
-        this.escapeCsv(classId),
-        this.escapeCsv(lessonLabel),
-        this.escapeCsv(studentId),
-        this.escapeCsv(name),
-        this.escapeCsv(this.getSignStatusLabel(status))
-      ].join(",");
-    });
-
-    const csvText = [header, ...rows].join("\n");
-    const fileName = `签到明细_${lessonLabel || lessonId}.csv`;
-    this.copyCsvToClipboard(csvText, "本次课明细CSV已复制，可直接粘贴到表格");
-  },
-
   /**
    * 加载班级花名册
    * 从 classes 集合获取 roster 数组，构建初始列表
    */
   async loadRoster() {
     const cid = this.data.classId;
-    const lessonId = this.data.lessonId;
     if (!cid) return;
 
     try {
@@ -1468,8 +817,6 @@ Page({
         list: baseRosterList.map((item) => ({ ...item }))
       });
       this.refreshSignedStudents();
-      this.refreshExportDisabledState();
-      this.refreshStats();
     } catch (err) {
       console.error("加载花名册失败：", err);
       wx.showToast({ title: "加载名单失败", icon: "none" });
@@ -1479,16 +826,9 @@ Page({
   async loadLessons() {
     const classId = String(this.data.classId || "").trim();
     if (!classId) {
-      this.setData({
-        lessons: [],
-        lessonsLoading: false
-      });
-      this.refreshExportDisabledState();
+      this.setData({ lessons: [] });
       return [];
     }
-
-    this.setData({ lessonsLoading: true });
-    this.refreshExportDisabledState();
 
     try {
       const res = await wx.cloud.callFunction({
@@ -1497,7 +837,6 @@ Page({
       });
       const lessons = res.result?.success ? (res.result.lessons || []) : [];
       this.setData({ lessons });
-      this.refreshExportDisabledState();
       return lessons;
     } catch (err) {
       console.error("[signRecord] load lessons failed", {
@@ -1505,11 +844,7 @@ Page({
         err
       });
       this.setData({ lessons: [] });
-      this.refreshExportDisabledState();
       return [];
-    } finally {
-      this.setData({ lessonsLoading: false });
-      this.refreshExportDisabledState();
     }
   },
 
@@ -1537,12 +872,9 @@ Page({
       this.setData({
         lessonId: "",
         selectedLessonId: "",
-        currentStats: null,
         list
       });
       await this.refreshInteractionDataAfterLessonChange();
-      this.refreshExportDisabledState();
-      this.refreshStats();
       return;
     }
 
@@ -1553,17 +885,13 @@ Page({
     this.setData({
       lessonId: nextLessonId,
       selectedLessonId: nextLessonId,
-      currentStats: (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null,
       list: baseList
     });
     await this.refreshInteractionDataAfterLessonChange();
-    this.refreshExportDisabledState();
-    this.refreshStats();
 
-    await this.fetchAttendanceOnce(nextLessonId);
+    this.fetchAttendanceOnce(nextLessonId);
     this.startAttendancePolling(nextLessonId);
     this.startLessonEventPolling(nextLessonId);
-    await this.loadStats();
   },
 
   onSelectLesson(e) {
@@ -1658,52 +986,5 @@ Page({
   syncAttendance(docs) {
     this.latestAttendanceDocs = Array.isArray(docs) ? docs : [];
     this.rebuildStudentDisplayList({ attendanceDocs: this.latestAttendanceDocs });
-  },
-
-  /**
-   * 重新计算统计数字
-   */
-  refreshStats() {
-    const list = this.data.list;
-    this.setData({
-      signCount: list.filter(i => i.status === "signed").length,
-      unsignCount: list.filter(i => i.status === "unsigned").length,
-      absentCount: list.filter(i => i.status === "absent").length,
-      waitCount: list.filter(i => i.status === "leave_wait").length,
-      leaveCount: list.filter(i => i.status === "leave_agree").length,
-    });
-  },
-
-  showStatus(s) {
-    const map = {
-      signed: "已签到",
-      unsigned: "未签到",
-      absent: "旷课",
-      leave_wait: "待审批",
-      leave_agree: "已请假"
-    };
-    return map[s] || s;
-  },
-
-  /**
-   * 锚点跳转：点击上方统计卡片快速定位学生
-   */
-  jumpTo(e) {
-    const type = e.currentTarget.dataset.type;
-    const list = this.data.list;
-    const targets = list.map((item, idx) => item.status === type ? idx : -1).filter(i => i >= 0);
-    
-    if (targets.length === 0) return;
-    
-    let cur = this.data.jumpCursor[type] || 0;
-    if (cur >= targets.length) cur = 0;
-    
-    wx.pageScrollTo({ selector: "#item-" + targets[cur], duration: 300 });
-    this.setData({ [`jumpCursor.${type}`]: cur + 1 });
-  },
-
-  previewImg(e) {
-    const url = e.currentTarget.dataset.src;
-    if (url) wx.previewImage({ urls: [url] });
   }
 });
