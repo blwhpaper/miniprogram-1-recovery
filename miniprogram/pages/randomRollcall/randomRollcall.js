@@ -194,6 +194,37 @@ Page({
     return candidateList;
   },
 
+  getRosterStudentKeySet() {
+    return new Set(
+      (this.data.baseRosterList || [])
+        .map((item) => this.getStudentUniqueId(item))
+        .filter(Boolean)
+    );
+  },
+
+  getRoundCalledStudentKeySet(round = 0, lessonEvents = []) {
+    const targetRound = Number(round || 0);
+    if (!targetRound) return new Set();
+
+    return new Set(
+      (lessonEvents || [])
+        .filter((item) => item.type === "rollcall" && Number(item.round || 0) === targetRound)
+        .map((item) => this.getStudentUniqueId(item))
+        .filter(Boolean)
+    );
+  },
+
+  isRoundComplete(round = 0, lessonEvents = []) {
+    const rosterStudentKeySet = this.getRosterStudentKeySet();
+    const roundCalledStudentKeySet = this.getRoundCalledStudentKeySet(round, lessonEvents);
+
+    if (rosterStudentKeySet.size === 0) {
+      return roundCalledStudentKeySet.size > 0;
+    }
+
+    return Array.from(rosterStudentKeySet).every((key) => roundCalledStudentKeySet.has(key));
+  },
+
   getLessonEventTypeLabel(type) {
     const map = {
       rollcall: "随机点名",
@@ -225,6 +256,28 @@ Page({
 
   getClassRollcallEventsSignature(lessonEvents = []) {
     return this.getLessonEventsSignature(lessonEvents);
+  },
+
+  async queryLessonEventList(where = {}) {
+    const pageSize = 100;
+    let skip = 0;
+    let hasMore = true;
+    const list = [];
+
+    while (hasMore) {
+      const res = await db.collection("lessonEvent")
+        .where(where)
+        .orderBy("createdAt", "desc")
+        .skip(skip)
+        .limit(pageSize)
+        .get();
+      const pageList = Array.isArray(res.data) ? res.data : [];
+      list.push(...pageList);
+      hasMore = pageList.length === pageSize;
+      skip += pageList.length;
+    }
+
+    return list;
   },
 
   getAttendanceListSignature(list = []) {
@@ -456,6 +509,7 @@ Page({
       }
       : null;
     const pendingScoreLock = hasPendingRollcall;
+    const roundComplete = this.isRoundComplete(activeRound, rollcallSource);
 
     if (hasPendingRollcall) {
       this.setData({
@@ -467,7 +521,7 @@ Page({
       return;
     }
 
-    if (signedIdSet.size > 0 && currentRoundCalledIds.length >= signedIdSet.size) {
+    if (roundComplete) {
       this.setData({
         currentRound: activeRound + 1,
         currentRoundCalledIds: [],
@@ -494,14 +548,11 @@ Page({
     }
 
     try {
-      const res = await db.collection("lessonEvent")
-        .where({
-          classId,
-          type: _.in(["rollcall", "answer_score"])
-        })
-        .orderBy("createdAt", "desc")
-        .get();
-      const classRollcallEvents = (res.data || [])
+      const rawEvents = await this.queryLessonEventList({
+        classId,
+        type: _.in(["rollcall", "answer_score"])
+      });
+      const classRollcallEvents = (rawEvents || [])
         .map((item) => this.normalizeLessonEvent(item))
         .filter((item) => this.isRollcallRelatedLessonEvent(item));
       const nextSignature = this.getClassRollcallEventsSignature(classRollcallEvents);
@@ -542,11 +593,8 @@ Page({
       this.setData({ lessonEventsLoading: true });
     }
     try {
-      const res = await db.collection("lessonEvent")
-        .where({ lessonId })
-        .orderBy("createdAt", "desc")
-        .get();
-      const lessonEvents = (res.data || [])
+      const rawEvents = await this.queryLessonEventList({ lessonId });
+      const lessonEvents = (rawEvents || [])
         .map((item) => this.normalizeLessonEvent(item))
         .filter((item) => this.isRollcallRelatedLessonEvent(item));
       const nextSignature = this.getLessonEventsSignature(lessonEvents);
@@ -740,6 +788,15 @@ Page({
     let candidateList = signedStudents.filter((item) => !calledIdSet.has(this.getStudentUniqueId(item)));
 
     if (candidateList.length === 0) {
+      const roundComplete = this.isRoundComplete(round, this.latestClassRollcallEvents);
+      if (!roundComplete) {
+        wx.showToast({
+          title: "本轮未完成，将在后续课次继续",
+          icon: "none"
+        });
+        return;
+      }
+
       round += 1;
       candidateList = signedStudents.slice();
       this.setData({
