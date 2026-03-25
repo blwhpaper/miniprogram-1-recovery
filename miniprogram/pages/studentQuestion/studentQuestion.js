@@ -9,11 +9,45 @@ Page({
     studentId: "",
     currentUser: null,
     signSuccess: false,
+    pageStatusText: "未签到，暂不可提问",
     questionRequestCount: 0,
     hasPendingQuestionRequest: false,
     latestQuestionStatusText: "",
     latestQuestionStatusType: "",
     canSubmitQuestionRequest: false
+  },
+
+  questionPollingTimer: null,
+
+  syncPageState(nextState = {}) {
+    const changedState = {};
+
+    Object.keys(nextState).forEach((key) => {
+      if (this.data[key] !== nextState[key]) {
+        changedState[key] = nextState[key];
+      }
+    });
+
+    if (Object.keys(changedState).length > 0) {
+      this.setData(changedState);
+    }
+
+    return changedState;
+  },
+
+  shouldKeepQuestionPolling(state = {}) {
+    const questionRequestCount = Number(
+      state.questionRequestCount !== undefined ? state.questionRequestCount : this.data.questionRequestCount
+    );
+    const hasPendingQuestionRequest = Boolean(
+      state.hasPendingQuestionRequest !== undefined ? state.hasPendingQuestionRequest : this.data.hasPendingQuestionRequest
+    );
+    const latestQuestionStatusType = String(
+      state.latestQuestionStatusType !== undefined ? state.latestQuestionStatusType : this.data.latestQuestionStatusType
+    ).trim();
+
+    if (questionRequestCount >= 3) return false;
+    return hasPendingQuestionRequest || latestQuestionStatusType === "approved";
   },
 
   getPendingLessonId() {
@@ -59,16 +93,17 @@ Page({
     return "";
   },
 
-  async restoreSignSuccessStatus() {
+  async restoreSignSuccessStatus(options = {}) {
+    const { apply = true } = options;
     const lessonId = String(this.data.lessonId || "").trim();
     const studentId = String(this.data.studentId || "").trim();
 
     if (!lessonId || !studentId) {
-      this.setData({
-        signSuccess: false,
-        canSubmitQuestionRequest: false
-      });
-      return false;
+      const nextState = { signSuccess: false };
+      if (apply) {
+        this.syncPageState(nextState);
+      }
+      return nextState;
     }
 
     try {
@@ -77,14 +112,14 @@ Page({
         .limit(1)
         .get();
       const hasSigned = Array.isArray(res.data) && res.data.length > 0;
-      this.setData({
-        signSuccess: hasSigned,
-        canSubmitQuestionRequest: hasSigned
-      });
-      return hasSigned;
+      const nextState = { signSuccess: hasSigned };
+      if (apply) {
+        this.syncPageState(nextState);
+      }
+      return nextState;
     } catch (err) {
       console.error("[studentQuestion] restoreSignSuccessStatus failed", err);
-      return false;
+      return { signSuccess: false };
     }
   },
 
@@ -99,32 +134,47 @@ Page({
     ).trim();
   },
 
-  async loadQuestionRequestState() {
+  async loadQuestionRequestState(options = {}) {
+    const {
+      signSuccess = this.data.signSuccess,
+      apply = true
+    } = options;
     const lessonId = String(this.data.lessonId || "").trim();
     const studentId = String(this.data.studentId || "").trim();
     const studentKey = this.getQuestionStudentKey();
 
     if (!lessonId || !studentKey || !studentId) {
-      this.setData({
+      const nextState = {
+        pageStatusText: signSuccess ? "已签到，可提交提问申请" : "未签到，暂不可提问",
         questionRequestCount: 0,
         hasPendingQuestionRequest: false,
         latestQuestionStatusText: "",
         latestQuestionStatusType: "",
         canSubmitQuestionRequest: false
-      });
-      return;
+      };
+      if (apply) {
+        this.syncPageState(nextState);
+        this.syncQuestionPolling(nextState);
+      }
+      return nextState;
     }
 
     try {
+      console.log("[studentQuestion] query lesson events", {
+        lessonId,
+        studentId,
+        studentKey
+      });
       const res = await db.collection("lessonEvent")
         .where({
           lessonId,
-          studentId,
           type: _.in(["question_request", "question_approved", "question_score"])
         })
+        .orderBy("createdAt", "desc")
         .get();
       const events = res.data || [];
-      const myEvents = events.filter((item) => {
+      const requestEvents = events.filter((item) => item.type === "question_request");
+      const myRequestEvents = requestEvents.filter((item) => {
         const itemKey = String(
           item.studentId ||
           item.id ||
@@ -133,24 +183,35 @@ Page({
           item.studentName ||
           ""
         ).trim();
-        return itemKey === studentKey;
+        return itemKey === studentKey || String(item.studentName || "").trim() === String(this.data.name || "").trim();
       });
-
-      const requestIds = new Set(
-        myEvents
-          .filter((item) => item.type === "question_request")
+      const myRequestIds = new Set(
+        myRequestEvents
           .map((item) => String(item._id || "").trim())
           .filter(Boolean)
       );
+
+      const myApprovedEvents = events.filter((item) => {
+        if (item.type !== "question_approved") return false;
+        const requestId = String(item.payload?.requestId || "").trim();
+        return myRequestIds.has(requestId);
+      });
+      const myScoreEvents = events.filter((item) => {
+        if (item.type !== "question_score") return false;
+        const requestId = String(item.payload?.requestId || "").trim();
+        return myRequestIds.has(requestId);
+      });
+
+      const requestIds = new Set(
+        Array.from(myRequestIds)
+      );
       const approvedIds = new Set(
-        myEvents
-          .filter((item) => item.type === "question_approved")
+        myApprovedEvents
           .map((item) => String(item.payload?.requestId || "").trim())
           .filter(Boolean)
       );
       const scoredIds = new Set(
-        myEvents
-          .filter((item) => item.type === "question_score")
+        myScoreEvents
           .map((item) => String(item.payload?.requestId || "").trim())
           .filter(Boolean)
       );
@@ -158,14 +219,27 @@ Page({
       const hasPendingQuestionRequest = Array.from(requestIds).some(
         (requestId) => !approvedIds.has(requestId) && !scoredIds.has(requestId)
       );
+      const hasApprovedUnscoredQuestionRequest = Array.from(requestIds).some(
+        (requestId) => approvedIds.has(requestId) && !scoredIds.has(requestId)
+      );
 
       let latestQuestionStatusText = "";
       let latestQuestionStatusType = "";
-      if (hasPendingQuestionRequest) {
+      if (requestIds.size >= 3) {
+        latestQuestionStatusText = "你的三个愿望已经用完啦，下次课还有机会哦，骚年！";
+        latestQuestionStatusType = "exhausted";
+      } else if (hasPendingQuestionRequest) {
         latestQuestionStatusText = "你已有待处理提问申请，请等待老师处理。";
         latestQuestionStatusType = "pending";
+      } else if (hasApprovedUnscoredQuestionRequest) {
+        latestQuestionStatusText = "老师已经允许你提问啦，当前正在等待老师完成评分。";
+        latestQuestionStatusType = "approved";
       } else if (scoredIds.size > 0) {
-        latestQuestionStatusText = "最近一次主动提问已完成课堂评分。";
+        const latestScoreEvent = myScoreEvents[0] || null;
+        const latestScore = latestScoreEvent ? Number(latestScoreEvent.score || 0) : 0;
+        latestQuestionStatusText = latestScore
+          ? `最近一次主动提问已完成课堂评分：${latestScore}分。`
+          : "最近一次主动提问已完成课堂评分。";
         latestQuestionStatusType = "scored";
       } else if (approvedIds.size > 0) {
         latestQuestionStatusText = "最近一次主动提问已通过，等待老师点你发言。";
@@ -173,20 +247,116 @@ Page({
       }
 
       const canSubmitQuestionRequest =
-        this.data.signSuccess &&
+        signSuccess &&
         requestIds.size < 3 &&
-        !hasPendingQuestionRequest;
+        !hasPendingQuestionRequest &&
+        !hasApprovedUnscoredQuestionRequest;
 
-      this.setData({
+      console.log("[studentQuestion] query result", {
+        totalEvents: events.length,
+        myRequestCount: myRequestEvents.length,
+        myApprovedCount: myApprovedEvents.length,
+        myScoreCount: myScoreEvents.length,
+        hasPendingQuestionRequest,
+        hasApprovedUnscoredQuestionRequest,
+        latestQuestionStatusType,
+        canSubmitQuestionRequest
+      });
+
+      const nextState = {
+        pageStatusText: signSuccess ? "已签到，可提交提问申请" : "未签到，暂不可提问",
         questionRequestCount: requestIds.size,
         hasPendingQuestionRequest,
         latestQuestionStatusText,
         latestQuestionStatusType,
         canSubmitQuestionRequest
-      });
+      };
+      if (latestQuestionStatusType === "pending") {
+        nextState.pageStatusText = "已提交申请，等待老师允许";
+      } else if (latestQuestionStatusType === "approved") {
+        nextState.pageStatusText = "已允许提问，等待老师评分";
+      } else if (latestQuestionStatusType === "exhausted") {
+        nextState.pageStatusText = "本节课提问次数已用完";
+      } else if (!canSubmitQuestionRequest) {
+        nextState.pageStatusText = signSuccess ? "已签到，暂不可继续提问" : "未签到，暂不可提问";
+      }
+      if (apply) {
+        const changedState = this.syncPageState(nextState);
+        console.log("[studentQuestion] setData", {
+          changedKeys: Object.keys(changedState),
+          ...nextState
+        });
+        this.syncQuestionPolling(nextState);
+      }
+      return nextState;
     } catch (err) {
       console.error("[studentQuestion] loadQuestionRequestState failed", err);
+      return {
+        pageStatusText: this.data.pageStatusText,
+        questionRequestCount: this.data.questionRequestCount,
+        hasPendingQuestionRequest: this.data.hasPendingQuestionRequest,
+        latestQuestionStatusText: this.data.latestQuestionStatusText,
+        latestQuestionStatusType: this.data.latestQuestionStatusType,
+        canSubmitQuestionRequest: this.data.canSubmitQuestionRequest
+      };
     }
+  },
+
+  async refreshQuestionPageState() {
+    if (!this.data.lessonId || !this.data.studentId) return;
+    console.log("[studentQuestion] refreshQuestionPageState", {
+      lessonId: this.data.lessonId,
+      studentId: this.data.studentId
+    });
+    const signState = await this.restoreSignSuccessStatus({ apply: false });
+    const questionState = await this.loadQuestionRequestState({
+      signSuccess: !!signState.signSuccess,
+      apply: false
+    });
+    const nextState = {
+      ...signState,
+      ...questionState
+    };
+    const changedState = this.syncPageState(nextState);
+    console.log("[studentQuestion] setData", {
+      changedKeys: Object.keys(changedState),
+      ...nextState
+    });
+    this.syncQuestionPolling(nextState);
+  },
+
+  startQuestionPolling() {
+    const lessonId = String(this.data.lessonId || "").trim();
+    const studentId = String(this.data.studentId || "").trim();
+    if (!lessonId || !studentId) return;
+    if (!this.shouldKeepQuestionPolling()) return;
+
+    if (this.questionPollingTimer) return;
+
+    console.log("[studentQuestion] startQuestionPolling", { lessonId, studentId });
+    this.questionPollingTimer = setInterval(() => {
+      console.log("[studentQuestion] polling tick", {
+        lessonId: this.data.lessonId,
+        studentId: this.data.studentId
+      });
+      this.refreshQuestionPageState();
+    }, 5000);
+  },
+
+  syncQuestionPolling(state = {}) {
+    if (this.shouldKeepQuestionPolling(state)) {
+      this.startQuestionPolling();
+      return;
+    }
+    this.clearQuestionPolling();
+  },
+
+  clearQuestionPolling() {
+    if (this.questionPollingTimer) {
+      clearInterval(this.questionPollingTimer);
+    }
+    console.log("[studentQuestion] clearQuestionPolling");
+    this.questionPollingTimer = null;
   },
 
   ensureInteractionAllowed(actionLabel = "主动提问") {
@@ -253,7 +423,7 @@ Page({
           createdBy: "student"
         }
       });
-      await this.loadQuestionRequestState();
+      await this.refreshQuestionPageState();
       wx.showToast({ title: "提问申请已提交", icon: "none" });
     } catch (err) {
       console.error("[studentQuestion] submitQuestionRequest failed", err);
@@ -303,8 +473,8 @@ Page({
       });
 
       await this.ensureLessonClassId();
-      await this.restoreSignSuccessStatus();
-      await this.loadQuestionRequestState();
+      await this.refreshQuestionPageState();
+      this.startQuestionPolling();
     } catch (err) {
       wx.hideLoading();
       console.error("[studentQuestion] initPageState failed", err);
@@ -318,6 +488,23 @@ Page({
 
   onShow() {
     if (!this.data.lessonId || !this.data.studentId) return;
-    this.restoreSignSuccessStatus().then(() => this.loadQuestionRequestState());
+    this.refreshQuestionPageState();
+    this.startQuestionPolling();
+  },
+
+  onHide() {
+    this.clearQuestionPolling();
+  },
+
+  onUnload() {
+    this.clearQuestionPolling();
+  },
+
+  async onPullDownRefresh() {
+    try {
+      await this.refreshQuestionPageState();
+    } finally {
+      wx.stopPullDownRefresh();
+    }
   }
 });

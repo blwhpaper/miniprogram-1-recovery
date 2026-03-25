@@ -2,7 +2,7 @@
   <view class="card">
     <view class="title">主动提问</view>
     <view class="status">
-      当前状态：{{signSuccess ? '已签到，可提交提问申请' : '未签到，暂不可提问'}}
+      当前状态：{{pageStatusText}}
     </view>
 
     <view class="info-block" wx:if="{{name}}">
