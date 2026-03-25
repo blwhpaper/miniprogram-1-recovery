@@ -53,7 +53,27 @@
       </view>
 
       <view class="sub">
-        <text>状态：{{item.status === 'signed' ? '已签到' : '未签到'}}</text>
+        <text>状态：{{item.statusLabel || (item.status === 'signed' ? '已签到' : '未签到')}}</text>
+      </view>
+
+      <view class="sub" wx:if="{{item.lessonScoreText}}">
+        <text>单次课最终分：{{item.lessonScoreText}}</text>
+      </view>
+
+      <view class="sub" wx:if="{{item.lessonScoreBreakdownText}}">
+        <text>评分项：{{item.lessonScoreBreakdownText}}</text>
+      </view>
+
+      <view class="sub" wx:if="{{item.answerScoreText}}">
+        <text>随机点名：{{item.answerScoreText}}（均分 {{item.answerScoreAvgText}}）</text>
+      </view>
+
+      <view class="sub" wx:if="{{item.questionScoreText}}">
+        <text>主动提问：{{item.questionScoreText}}（均分 {{item.questionScoreAvgText}}）</text>
+      </view>
+
+      <view class="sub" wx:if="{{item.testScoreText}}">
+        <text>随堂测试：{{item.testScoreText}}（均分 {{item.testScoreAvgText}}）</text>
       </view>
     </view>
 

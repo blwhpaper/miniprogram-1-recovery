@@ -50,7 +50,15 @@ Page({
         status: "unsigned",
         img: "",
         answerScoreText: "",
-        questionScoreText: ""
+        questionScoreText: "",
+        testScoreText: "",
+        statusLabel: "未签到",
+        attendanceScoreText: "",
+        answerScoreAvgText: "",
+        questionScoreAvgText: "",
+        testScoreAvgText: "",
+        lessonScoreText: "",
+        lessonScoreBreakdownText: ""
       };
     }
 
@@ -60,7 +68,15 @@ Page({
       status: "unsigned",
       img: "",
       answerScoreText: "",
-      questionScoreText: ""
+      questionScoreText: "",
+      testScoreText: "",
+      statusLabel: "未签到",
+      attendanceScoreText: "",
+      answerScoreAvgText: "",
+      questionScoreAvgText: "",
+      testScoreAvgText: "",
+      lessonScoreText: "",
+      lessonScoreBreakdownText: ""
     };
   },
 
@@ -88,11 +104,23 @@ Page({
         matchedById ||
         matchedByName;
 
-      if (!matchedDoc) return { ...item };
+      if (!matchedDoc) {
+        return {
+          ...item,
+          statusLabel: this.getSignStatusLabel(item.status)
+        };
+      }
+
+      const status = String(
+        matchedDoc.status ||
+        matchedDoc.attendanceStatus ||
+        "signed"
+      ).trim() || "signed";
 
       return {
         ...item,
-        status: "signed"
+        status,
+        statusLabel: this.getSignStatusLabel(status)
       };
     });
   },
@@ -340,16 +368,138 @@ Page({
         studentId: String(item.studentId || item.id || "").trim(),
         name: String(item.name || item.studentName || "").trim(),
         status: String(item.status || "").trim(),
+        statusLabel: String(item.statusLabel || "").trim(),
+        attendanceScoreText: String(item.attendanceScoreText || "").trim(),
         answerScoreText: String(item.answerScoreText || "").trim(),
-        questionScoreText: String(item.questionScoreText || "").trim()
+        answerScoreAvgText: String(item.answerScoreAvgText || "").trim(),
+        questionScoreText: String(item.questionScoreText || "").trim(),
+        questionScoreAvgText: String(item.questionScoreAvgText || "").trim(),
+        testScoreText: String(item.testScoreText || "").trim(),
+        testScoreAvgText: String(item.testScoreAvgText || "").trim(),
+        lessonScoreText: String(item.lessonScoreText || "").trim(),
+        lessonScoreBreakdownText: String(item.lessonScoreBreakdownText || "").trim()
       }))
     );
+  },
+
+  parseScore(value) {
+    if (value === "" || value === null || typeof value === "undefined") {
+      return null;
+    }
+
+    const score = Number(value);
+    return Number.isFinite(score) ? score : null;
+  },
+
+  formatScore(value) {
+    if (!Number.isFinite(value)) return "";
+    const fixedScore = Math.round(value * 100) / 100;
+    return Number.isInteger(fixedScore)
+      ? String(fixedScore)
+      : fixedScore.toFixed(2).replace(/\.?0+$/, "");
+  },
+
+  getAverageScore(scoreList = []) {
+    const validScores = (scoreList || []).filter((score) => Number.isFinite(score));
+    if (validScores.length === 0) return null;
+    const total = validScores.reduce((sum, score) => sum + score, 0);
+    return Math.round((total / validScores.length) * 100) / 100;
+  },
+
+  buildLessonScoreDetail(status = "", options = {}) {
+    const normalizedStatus = String(status || "").trim();
+    const answerScoreAvg = Number.isFinite(options.answerScoreAvg) ? options.answerScoreAvg : null;
+    const questionScoreAvg = Number.isFinite(options.questionScoreAvg) ? options.questionScoreAvg : null;
+    const testScoreAvg = Number.isFinite(options.testScoreAvg) ? options.testScoreAvg : null;
+
+    if (normalizedStatus === "leave_agree") {
+      return {
+        attendanceScore: 60,
+        attendanceScoreText: "60",
+        lessonScore: 60,
+        lessonScoreText: "60",
+        lessonScoreBreakdownText: "请假60",
+        lessonScoreApplicableItems: [
+          { key: "attendance_leave", label: "请假", score: 60 }
+        ]
+      };
+    }
+
+    if (normalizedStatus === "absent") {
+      return {
+        attendanceScore: 0,
+        attendanceScoreText: "0",
+        lessonScore: 0,
+        lessonScoreText: "0",
+        lessonScoreBreakdownText: "旷课0",
+        lessonScoreApplicableItems: [
+          { key: "attendance_absent", label: "旷课", score: 0 }
+        ]
+      };
+    }
+
+    const applicableItems = [];
+    if (normalizedStatus === "signed") {
+      applicableItems.push({
+        key: "attendance_present",
+        label: "到课",
+        score: 80
+      });
+    }
+    if (Number.isFinite(answerScoreAvg)) {
+      applicableItems.push({
+        key: "rollcall",
+        label: "随机点名",
+        score: answerScoreAvg
+      });
+    }
+    if (Number.isFinite(questionScoreAvg)) {
+      applicableItems.push({
+        key: "question",
+        label: "主动提问",
+        score: questionScoreAvg
+      });
+    }
+    if (Number.isFinite(testScoreAvg)) {
+      applicableItems.push({
+        key: "test",
+        label: "随堂测试",
+        score: testScoreAvg
+      });
+    }
+
+    if (applicableItems.length === 0) {
+      return {
+        attendanceScore: normalizedStatus === "signed" ? 80 : null,
+        attendanceScoreText: normalizedStatus === "signed" ? "80" : "",
+        lessonScore: null,
+        lessonScoreText: "",
+        lessonScoreBreakdownText: "",
+        lessonScoreApplicableItems: []
+      };
+    }
+
+    const lessonScore = this.getAverageScore(applicableItems.map((item) => item.score));
+
+    return {
+      attendanceScore: normalizedStatus === "signed" ? 80 : null,
+      attendanceScoreText: normalizedStatus === "signed" ? "80" : "",
+      lessonScore,
+      lessonScoreText: this.formatScore(lessonScore),
+      lessonScoreBreakdownText: applicableItems
+        .map((item) => `${item.label}${this.formatScore(item.score)}`)
+        .join(" / "),
+      lessonScoreApplicableItems: applicableItems
+    };
   },
 
   buildInteractionScoreMap(lessonEvents = []) {
     const interactionScoreMap = new Map();
     const scoreEvents = (lessonEvents || []).filter(
-      (item) => item.type === "answer_score" || item.type === "question_score"
+      (item) =>
+        item.type === "answer_score" ||
+        item.type === "question_score" ||
+        item.type === "test_record"
     );
 
     scoreEvents.forEach((item) => {
@@ -359,16 +509,22 @@ Page({
       if (!interactionScoreMap.has(studentKey)) {
         interactionScoreMap.set(studentKey, {
           answerScores: [],
-          questionScores: []
+          questionScores: [],
+          testScores: []
         });
       }
 
-      const score = Number(item.score || 0);
-      if (!score) return;
+      const score = this.parseScore(item.score);
+      if (!Number.isFinite(score)) return;
 
       const target = interactionScoreMap.get(studentKey);
       if (item.type === "answer_score") {
         target.answerScores.push(score);
+        return;
+      }
+
+      if (item.type === "test_record") {
+        target.testScores.push(score);
         return;
       }
 
@@ -385,13 +541,35 @@ Page({
       const studentKey = this.getStudentUniqueId(item);
       const interaction = interactionScoreMap.get(studentKey) || {
         answerScores: [],
-        questionScores: []
+        questionScores: [],
+        testScores: []
       };
+      const answerScoreAvg = this.getAverageScore(interaction.answerScores);
+      const questionScoreAvg = this.getAverageScore(interaction.questionScores);
+      const testScoreAvg = this.getAverageScore(interaction.testScores);
+      const lessonScoreDetail = this.buildLessonScoreDetail(item.status, {
+        answerScoreAvg,
+        questionScoreAvg,
+        testScoreAvg
+      });
 
       return {
         ...item,
         answerScoreText: interaction.answerScores.join(" / "),
-        questionScoreText: interaction.questionScores.join(" / ")
+        answerScoreAvg,
+        answerScoreAvgText: this.formatScore(answerScoreAvg),
+        questionScoreText: interaction.questionScores.join(" / "),
+        questionScoreAvg,
+        questionScoreAvgText: this.formatScore(questionScoreAvg),
+        testScoreText: interaction.testScores.join(" / "),
+        testScoreAvg,
+        testScoreAvgText: this.formatScore(testScoreAvg),
+        attendanceScore: lessonScoreDetail.attendanceScore,
+        attendanceScoreText: lessonScoreDetail.attendanceScoreText,
+        lessonScore: lessonScoreDetail.lessonScore,
+        lessonScoreText: lessonScoreDetail.lessonScoreText,
+        lessonScoreBreakdownText: lessonScoreDetail.lessonScoreBreakdownText,
+        lessonScoreApplicableItems: lessonScoreDetail.lessonScoreApplicableItems
       };
     });
   },
@@ -971,7 +1149,14 @@ Page({
   },
 
   getSignStatusLabel(status) {
-    return status === "signed" ? "已签到" : "未签到";
+    const map = {
+      signed: "已签到",
+      unsigned: "未签到",
+      absent: "旷课",
+      leave_wait: "待审批",
+      leave_agree: "已请假"
+    };
+    return map[status] || "未签到";
   },
 
   async onTapRandomRollcall() {
