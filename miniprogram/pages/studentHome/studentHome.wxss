@@ -47,6 +47,10 @@ page {
   margin-top: 28rpx;
 }
 
+.secondary-action {
+  margin-top: 20rpx;
+}
+
 .tip {
   font-size: 28rpx;
   line-height: 1.7;

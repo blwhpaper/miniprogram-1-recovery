@@ -13,9 +13,15 @@
       <view class="tip">{{summaryText}}</view>
     </view>
 
-    <view wx:if="{{showActionButton}}" class="action-block">
+    <view wx:if="{{showLessonEntryButton}}" class="action-block">
       <button type="primary" bindtap="enterCurrentLesson">
-        {{actionText}}
+        {{lessonEntryText}}
+      </button>
+    </view>
+
+    <view wx:if="{{showQuestionEntryButton}}" class="action-block secondary-action">
+      <button bindtap="enterQuestionEntry">
+        进入主动提问
       </button>
     </view>
   </view>

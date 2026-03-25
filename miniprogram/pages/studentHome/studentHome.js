@@ -1,3 +1,5 @@
+const db = wx.cloud.database();
+
 Page({
   data: {
     lessonId: "",
@@ -5,10 +7,12 @@ Page({
     name: "",
     studentId: "",
     hasBoundStudentSession: false,
+    hasSignedCurrentLesson: false,
     statusText: "当前暂无进行中的课堂",
     summaryText: "老师发起签到后，你可以从这里继续进入当前课堂。",
-    actionText: "",
-    showActionButton: false
+    lessonEntryText: "",
+    showLessonEntryButton: false,
+    showQuestionEntryButton: false
   },
 
   getPendingLessonId() {
@@ -27,29 +31,37 @@ Page({
     });
   },
 
-  rebuildHomeState() {
+  async rebuildHomeState() {
     const currentUser = wx.getStorageSync("currentUser") || null;
     const pendingLessonId = this.getPendingLessonId();
     const name = String(currentUser?.name || "").trim();
     const studentId = String(currentUser?.studentId || "").trim();
     const classId = String(currentUser?.classId || "").trim();
     const hasBoundStudentSession = !!(currentUser && name && studentId);
+    const hasSignedCurrentLesson = await this.loadCurrentLessonSignState({
+      lessonId: pendingLessonId,
+      studentId
+    });
 
     let statusText = "当前暂无进行中的课堂";
     let summaryText = "老师发起签到后，你可以从这里继续进入当前课堂。";
-    let actionText = "";
-    let showActionButton = false;
+    let lessonEntryText = "";
+    let showLessonEntryButton = false;
+    let showQuestionEntryButton = false;
 
     if (hasBoundStudentSession && pendingLessonId) {
       statusText = "当前有一节待进入的课堂";
-      summaryText = "你可以继续进入本节课，完成签到或继续课堂互动。";
-      actionText = "进入当前签到";
-      showActionButton = true;
+      summaryText = hasSignedCurrentLesson
+        ? "你已完成签到，可从这里进入本节课或继续发起主动提问。"
+        : "你可以进入本节课，完成签到后再参与课堂互动。";
+      lessonEntryText = hasSignedCurrentLesson ? "进入当前课堂" : "进入当前签到";
+      showLessonEntryButton = true;
+      showQuestionEntryButton = hasSignedCurrentLesson;
     } else if (!hasBoundStudentSession && pendingLessonId) {
       statusText = "当前有一节待进入的课堂";
       summaryText = "进入后可继续完成学生身份绑定和本次签到。";
-      actionText = "进入当前签到";
-      showActionButton = true;
+      lessonEntryText = "进入当前签到";
+      showLessonEntryButton = true;
     } else if (hasBoundStudentSession) {
       summaryText = "你的学生身份已就绪。老师发起签到后，你可以从这里快速进入。";
     } else {
@@ -62,20 +74,40 @@ Page({
       name,
       studentId,
       hasBoundStudentSession,
+      hasSignedCurrentLesson,
       statusText,
       summaryText,
-      actionText,
-      showActionButton
+      lessonEntryText,
+      showLessonEntryButton,
+      showQuestionEntryButton
     });
   },
 
-  onLoad() {
-    this.rebuildHomeState();
+  async loadCurrentLessonSignState({ lessonId = "", studentId = "" } = {}) {
+    if (!lessonId || !studentId) return false;
+
+    try {
+      const res = await db.collection("attendance")
+        .where({
+          lessonId,
+          studentId
+        })
+        .limit(1)
+        .get();
+      return Array.isArray(res.data) && res.data.length > 0;
+    } catch (err) {
+      console.error("[studentHome] loadCurrentLessonSignState failed", err);
+      return false;
+    }
+  },
+
+  async onLoad() {
+    await this.rebuildHomeState();
     this.redirectToTeacherHomeIfNeeded();
   },
 
-  onShow() {
-    this.rebuildHomeState();
+  async onShow() {
+    await this.rebuildHomeState();
     this.redirectToTeacherHomeIfNeeded();
   },
 
@@ -91,6 +123,27 @@ Page({
       fail: (err) => {
         console.error("[studentHome] enterCurrentLesson failed", err);
         wx.showToast({ title: "未能打开签到页", icon: "none" });
+      }
+    });
+  },
+
+  enterQuestionEntry() {
+    const lessonId = this.getPendingLessonId();
+    if (!lessonId) {
+      wx.showToast({ title: "当前没有可进入的课堂", icon: "none" });
+      return;
+    }
+
+    if (!this.data.hasSignedCurrentLesson) {
+      wx.showToast({ title: "请先完成签到后再主动提问", icon: "none" });
+      return;
+    }
+
+    wx.navigateTo({
+      url: `/pages/studentSign/studentSign?lessonId=${encodeURIComponent(lessonId)}&entry=question`,
+      fail: (err) => {
+        console.error("[studentHome] enterQuestionEntry failed", err);
+        wx.showToast({ title: "未能打开主动提问入口", icon: "none" });
       }
     });
   }

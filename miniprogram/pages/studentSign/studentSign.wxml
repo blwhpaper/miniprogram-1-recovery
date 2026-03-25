@@ -1,5 +1,5 @@
 <view class="box">
-  <view class="title">学生签到</view>
+  <view class="title">学生课堂</view>
 
   <view wx:if="{{shouldGoRegister}}" class="register-box">
     <view class="register-tip">当前状态：待绑定</view>
