@@ -1,0 +1,44 @@
+page {
+  min-height: 100vh;
+  background: #f6f7fb;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 40rpx 32rpx;
+  box-sizing: border-box;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 48rpx 40rpx;
+  box-shadow: 0 16rpx 40rpx rgba(28, 38, 61, 0.08);
+}
+
+.title {
+  font-size: 40rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.status {
+  margin-top: 20rpx;
+  font-size: 30rpx;
+  color: #1f2937;
+}
+
+.info-block,
+.lesson-block {
+  margin-top: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.tip {
+  margin-top: 28rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: #6b7280;
+}

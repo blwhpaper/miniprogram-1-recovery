@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/studentHome/studentHome",
     "pages/index/index",
     "pages/classManager/classManager",
     "pages/classHome/classHome",

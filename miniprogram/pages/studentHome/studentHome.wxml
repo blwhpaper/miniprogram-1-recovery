@@ -1,0 +1,20 @@
+<view class="page">
+  <view class="card">
+    <view class="title">学生主页</view>
+    <view class="status">当前状态：{{statusText}}</view>
+
+    <view wx:if="{{hasBoundStudentSession}}" class="info-block">
+      <view>当前学生：{{name}}</view>
+      <view>学号：{{studentId}}</view>
+    </view>
+
+    <view wx:if="{{lessonId}}" class="lesson-block">
+      <view class="tip">{{emptyTipText}}</view>
+      <button type="primary" bindtap="enterCurrentLesson">
+        {{actionText || '进入当前签到'}}
+      </button>
+    </view>
+
+    <view wx:else class="tip">{{emptyTipText}}</view>
+  </view>
+</view>
