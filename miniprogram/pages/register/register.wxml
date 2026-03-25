@@ -16,21 +16,5 @@
     <input placeholder="请再次输入您的学号" bindinput="inputPwd2" />
   </view>
 
-  <view>
-    <text>lessonId: {{lessonId}}</text>
-  </view>
-  <view>
-    <text>studentId: {{studentId}}</text>
-  </view>
-  <view>
-    <text>name: {{name}}</text>
-  </view>
-  <view>
-    <text>debugInfo: {{debugInfo.lessonId}} | {{debugInfo.studentId}} | {{debugInfo.name}} | {{debugInfo.pendingLessonId}}</text>
-  </view>
-  <view>
-    <text>launchEntryOptions: {{debugInfo.launchEntryOptions}}</text>
-  </view>
-
   <button class="btn-register" bindtap="doRegister" type="primary">绑定</button>
 </view>

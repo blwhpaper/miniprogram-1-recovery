@@ -5,8 +5,7 @@ Page({
     confirmStudentId: "",
     studentId2: "",
     scene: "",
-    lessonId: "",
-    debugInfo: {}
+    lessonId: ""
   },
 
   safeDecode(value = "") {
@@ -147,28 +146,6 @@ Page({
   },
 
   async doRegister() {
-    const app = getApp();
-    const pendingLessonId = this.safeDecode(wx.getStorageSync("pendingLessonId") || "").trim();
-    const launchEntryOptions = app && app.globalData
-      ? app.globalData.launchEntryOptions || null
-      : null;
-    console.log("[register] debug before submit", {
-      studentId: this.data.studentId,
-      name: this.data.name,
-      lessonId: this.data.lessonId,
-      pendingLessonId,
-      launchEntryOptions
-    });
-    this.setData({
-      debugInfo: {
-        studentId: this.data.studentId,
-        name: this.data.name,
-        lessonId: this.data.lessonId,
-        pendingLessonId,
-        launchEntryOptions: JSON.stringify(launchEntryOptions)
-      }
-    });
-
     const name = this.data.name.trim();
     const studentId = this.data.studentId.trim();
     const studentId2 = String(this.data.confirmStudentId || this.data.studentId2 || "").trim();
@@ -180,8 +157,16 @@ Page({
 
     const lessonId = recoveredLessonId;
 
-    if (!name || !studentId || !studentId2) {
-      wx.showToast({ title: "请填写完整", icon: "none" });
+    if (!name) {
+      wx.showToast({ title: "请输入姓名", icon: "none" });
+      return;
+    }
+    if (!studentId) {
+      wx.showToast({ title: "请输入学号", icon: "none" });
+      return;
+    }
+    if (!studentId2) {
+      wx.showToast({ title: "请再次输入学号", icon: "none" });
       return;
     }
     if (studentId !== studentId2) {

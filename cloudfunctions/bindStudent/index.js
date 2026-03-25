@@ -45,33 +45,69 @@ exports.main = async (event) => {
   console.log('[bindStudent] normalized input', { lessonId, studentId, name })
   console.log('[bindStudent] input', { lessonId, studentId, name })
 
-  if (!studentId || !name || !lessonId) {
+  if (!name) {
     return {
       success: false,
-      msg: 'studentId, name and lessonId are required'
+      msg: '请输入姓名'
+    }
+  }
+
+  if (!studentId) {
+    return {
+      success: false,
+      msg: '请输入学号'
+    }
+  }
+
+  if (!lessonId) {
+    return {
+      success: false,
+      msg: '缺少当前签到课信息，请重新扫码'
     }
   }
 
   try {
     const { classId, roster } = await getLessonAndRoster(lessonId)
-    const isInCurrentClassRoster = roster.some((student) => {
-      return (
-        String(student.studentId || '').trim() === studentId &&
-        String(student.name || '').trim() === name
-      )
-    })
+    const normalizedName = String(name || '').trim()
+    const normalizedStudentId = String(studentId || '').trim()
+    const hasMatchedName = roster.some(
+      (student) => String(student.name || '').trim() === normalizedName
+    )
+    const hasMatchedStudentId = roster.some(
+      (student) => String(student.studentId || '').trim() === normalizedStudentId
+    )
+    const isInCurrentClassRoster = roster.some((student) => (
+      String(student.studentId || '').trim() === normalizedStudentId &&
+      String(student.name || '').trim() === normalizedName
+    ))
     console.log('[bindStudent] match result =', {
       lessonId,
       classId,
       studentId,
       name,
+      hasMatchedName,
+      hasMatchedStudentId,
       matched: isInCurrentClassRoster
     })
 
     if (!isInCurrentClassRoster) {
+      if (!hasMatchedName) {
+        return {
+          success: false,
+          msg: '该姓名不在当前班级名单中'
+        }
+      }
+
+      if (!hasMatchedStudentId) {
+        return {
+          success: false,
+          msg: '该学号不在当前班级名单中'
+        }
+      }
+
       return {
         success: false,
-        msg: '学号与姓名不在当前班级名单中'
+        msg: '姓名与学号不匹配，请输入本人信息'
       }
     }
 
