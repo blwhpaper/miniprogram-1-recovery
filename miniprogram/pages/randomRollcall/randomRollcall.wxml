@@ -8,11 +8,7 @@
           <view class="interaction-round">当前轮次：第{{currentRound}}轮</view>
         </view>
         <view
-          class="state-badge
-          {{pendingScoreLock ? 'state-badge--pending' : ''}}
-          {{!pendingScoreLock && currentCalledStudent ? 'state-badge--active' : ''}}
-          {{!pendingScoreLock && !currentCalledStudent && lastScoredStudentName ? 'state-badge--done' : ''}}
-          {{!pendingScoreLock && !currentCalledStudent && !lastScoredStudentName ? 'state-badge--idle' : ''}}"
+          class="state-badge {{pendingScoreLock ? 'state-badge--pending' : ''}} {{!pendingScoreLock && currentCalledStudent ? 'state-badge--active' : ''}} {{!pendingScoreLock && !currentCalledStudent && lastScoredStudentName ? 'state-badge--done' : ''}} {{!pendingScoreLock && !currentCalledStudent && !lastScoredStudentName ? 'state-badge--idle' : ''}}"
         >
           <text wx:if="{{pendingScoreLock}}">待评分</text>
           <text wx:elif="{{currentCalledStudent}}">点名中</text>

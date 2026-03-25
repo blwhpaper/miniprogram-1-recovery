@@ -8,10 +8,10 @@ Page({
     name: "",
     studentId: "",
     signSuccess: false,
-    hasSubmittedLeave: false,
-    entrySource: "",
     currentUser: null,
     shouldGoRegister: false,
+    hasBoundStudentSession: false,
+    canInteract: false,
     questionRequestCount: 0,
     hasPendingQuestionRequest: false,
     currentSingleChoiceTest: null,
@@ -21,6 +21,40 @@ Page({
   },
 
   testPollingTimer: null,
+
+  getHasBoundStudentSession(state = {}) {
+    const currentUser = state.currentUser !== undefined ? state.currentUser : this.data.currentUser;
+    const shouldGoRegister = state.shouldGoRegister !== undefined ? state.shouldGoRegister : this.data.shouldGoRegister;
+    const name = state.name !== undefined ? state.name : this.data.name;
+    const studentId = state.studentId !== undefined ? state.studentId : this.data.studentId;
+
+    return Boolean(
+      currentUser &&
+      !shouldGoRegister &&
+      String(name || "").trim() &&
+      String(studentId || "").trim()
+    );
+  },
+
+  getCanInteract(state = {}) {
+    const hasBoundStudentSession = state.hasBoundStudentSession !== undefined
+      ? state.hasBoundStudentSession
+      : this.getHasBoundStudentSession(state);
+    const signSuccess = state.signSuccess !== undefined ? state.signSuccess : this.data.signSuccess;
+    return Boolean(hasBoundStudentSession && signSuccess);
+  },
+
+  ensureBoundStudentSession(actionLabel = "当前操作") {
+    if (this.getHasBoundStudentSession()) return true;
+    wx.showToast({ title: `请先绑定后再${actionLabel}`, icon: "none" });
+    return false;
+  },
+
+  ensureInteractionAllowed(actionLabel = "互动") {
+    if (this.getCanInteract()) return true;
+    wx.showToast({ title: `请先完成签到后再${actionLabel}`, icon: "none" });
+    return false;
+  },
 
   getPendingLessonId() {
     return String(wx.getStorageSync("pendingLessonId") || "").trim();
@@ -42,22 +76,6 @@ Page({
   isRegisterReturn(options = {}) {
     const directLessonId = String(options.lessonId || "").trim();
     return !directLessonId && !!this.getPendingLessonId();
-  },
-
-  buildRegisterUrl(options = {}, lessonId = "") {
-    const finalLessonId = String(
-      lessonId || this.data.lessonId || this.getPendingLessonId() || ""
-    ).trim();
-    const query = [];
-    const scene = options.scene || "";
-    const q = options.q || "";
-
-    if (scene) query.push(`scene=${encodeURIComponent(scene)}`);
-    if (q) query.push(`q=${encodeURIComponent(q)}`);
-    if (finalLessonId) query.push(`lessonId=${encodeURIComponent(finalLessonId)}`);
-
-    const url = `/pages/register/register${query.length ? `?${query.join("&")}` : ""}`;
-    return url;
   },
 
   goRegister() {
@@ -151,8 +169,8 @@ Page({
     ).trim();
     const parsedLessonId = this.parseLessonIdFromOptions(mergedOptions);
     const pendingLessonId = this.getPendingLessonId();
-    const entrySource = this.isRegisterReturn(mergedOptions) ? "register_return" : "scan_entry";
-    const finalLessonId = parsedLessonId || (entrySource === "register_return" ? pendingLessonId : "");
+    const isRegisterReturn = this.isRegisterReturn(mergedOptions);
+    const finalLessonId = parsedLessonId || (isRegisterReturn ? pendingLessonId : "");
 
     if (parsedLessonId) {
       wx.setStorageSync("pendingLessonId", parsedLessonId);
@@ -198,12 +216,12 @@ Page({
         lessonId: finalLessonId,
         classId: currentUser.classId || "",
         studentId: currentUser.studentId || "",
-        hasSubmittedLeave: false,
         signSuccess: false,
         name: currentUser.name || "",
-        entrySource,
         currentUser,
-        shouldGoRegister
+        shouldGoRegister,
+        hasBoundStudentSession: !shouldGoRegister && !!currentUser && hasName && hasStudentId,
+        canInteract: false
       });
 
       if (shouldGoRegister) {
@@ -256,7 +274,10 @@ Page({
     const studentId = String(this.data.studentId || "").trim();
 
     if (!lessonId || !studentId) {
-      this.setData({ signSuccess: false });
+      this.setData({
+        signSuccess: false,
+        canInteract: false
+      });
       return false;
     }
 
@@ -269,7 +290,10 @@ Page({
         .limit(1)
         .get();
       const hasSigned = Array.isArray(res.data) && res.data.length > 0;
-      this.setData({ signSuccess: hasSigned });
+      this.setData({
+        signSuccess: hasSigned,
+        canInteract: this.getCanInteract({ signSuccess: hasSigned })
+      });
       return hasSigned;
     } catch (err) {
       console.error("[studentSign] restoreSignSuccessStatus failed", err);
@@ -499,8 +523,11 @@ Page({
   },
 
   async submitQuestionRequest() {
-    const storedUser = wx.getStorageSync("currentUser") || {};
-    const currentUser = this.data.currentUser || storedUser || {};
+    if (!this.ensureInteractionAllowed("主动提问")) {
+      return;
+    }
+
+    const currentUser = this.data.currentUser || null;
     const lessonId = String(this.data.lessonId || this.getPendingLessonId() || "").trim();
     const studentId = String(
       this.data.studentId ||
@@ -520,19 +547,6 @@ Page({
       currentUser.classId ||
       ""
     ).trim();
-
-    this.setData({
-      lessonId,
-      studentId,
-      name: studentName,
-      classId,
-      currentUser
-    });
-
-    if (!this.data.signSuccess) {
-      wx.showToast({ title: "签到后才能申请提问", icon: "none" });
-      return;
-    }
 
     const missingFields = [];
     if (!lessonId) missingFields.push("lessonId");
@@ -584,12 +598,17 @@ Page({
   },
 
   onSelectSingleChoiceAnswer(e) {
+    if (!this.getCanInteract()) return;
     const answer = String(e.currentTarget.dataset.answer || "").trim();
     if (!answer || this.data.hasSubmittedCurrentTest) return;
     this.setData({ selectedSingleChoiceAnswer: answer });
   },
 
   async submitSingleChoiceAnswer() {
+    if (!this.ensureInteractionAllowed("作答")) {
+      return;
+    }
+
     const lessonId = String(this.data.lessonId || "").trim();
     const studentId = String(this.data.studentId || "").trim();
     const studentName = String(this.data.name || "").trim();
@@ -597,11 +616,6 @@ Page({
     const currentTest = this.data.currentSingleChoiceTest || null;
     const questionId = String(currentTest?._id || "").trim();
     const selectedAnswer = String(this.data.selectedSingleChoiceAnswer || "").trim();
-
-    if (!this.data.signSuccess) {
-      wx.showToast({ title: "签到后才能答题", icon: "none" });
-      return;
-    }
 
     if (!questionId || !currentTest) {
       wx.showToast({ title: "当前没有可作答单选题", icon: "none" });
@@ -679,6 +693,10 @@ Page({
   async submitSign() {
     const { name, studentId, lessonId } = this.data;
 
+    if (!this.ensureBoundStudentSession("签到")) {
+      return;
+    }
+
     if (!name || !studentId) {
       wx.showToast({ title: "未获取到绑定学生信息", icon: "none" });
       return;
@@ -703,7 +721,10 @@ Page({
       wx.hideLoading();
 
       if (res.result && res.result.success) {
-        this.setData({ signSuccess: true });
+        this.setData({
+          signSuccess: true,
+          canInteract: this.getCanInteract({ signSuccess: true })
+        });
         wx.removeStorageSync("pendingLessonId");
         await this.ensureLessonClassId();
         await this.loadQuestionRequestState();
@@ -725,35 +746,37 @@ Page({
     }
   },
 
-  applyLeave() {
-    const { name, studentId } = this.data;
-    if (!name || !studentId) {
-      wx.showToast({ title: "未获取到绑定学生信息", icon: "none" });
-      return;
-    }
-
-    wx.chooseImage({
-      count: 1,
-      sizeType: ["compressed"],
-      success: (res) => {
-        wx.showLoading({ title: "正在上传..." });
-        
-        // 建议：此处应使用 wx.cloud.uploadFile 上传假条图片并写入 leave_requests 集合
-        // 这里为了演示流程，仅做状态提示
-        setTimeout(() => {
-          wx.hideLoading();
-          this.setData({ hasSubmittedLeave: true });
-          wx.showToast({ title: `${name}假条提交成功` });
-        }, 800);
-      }
+  resetStudentSessionState() {
+    this.clearTestPolling();
+    this.setData({
+      classId: "",
+      name: "",
+      studentId: "",
+      signSuccess: false,
+      currentUser: null,
+      shouldGoRegister: true,
+      hasBoundStudentSession: false,
+      canInteract: false,
+      questionRequestCount: 0,
+      hasPendingQuestionRequest: false,
+      currentSingleChoiceTest: null,
+      selectedSingleChoiceAnswer: "",
+      hasSubmittedCurrentTest: false,
+      currentTestRecord: null
     });
   },
 
   // 退出登录
   logout() {
-    wx.clearStorageSync();
-    wx.showToast({ title: "已退出绑定", icon: "none" });
-    wx.redirectTo({ url: "/pages/login/login" });
+    const lessonId = String(this.data.lessonId || this.getPendingLessonId() || "").trim();
+
+    wx.removeStorageSync("currentUser");
+    if (lessonId) {
+      wx.setStorageSync("pendingLessonId", lessonId);
+    }
+
+    this.resetStudentSessionState();
+    wx.showToast({ title: "已退出当前学生身份", icon: "none" });
   }
 
 });
