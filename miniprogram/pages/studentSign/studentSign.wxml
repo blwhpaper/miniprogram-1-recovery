@@ -2,13 +2,18 @@
   <view class="title">学生签到</view>
 
   <view wx:if="{{shouldGoRegister}}" class="register-box">
-    <view class="register-tip">当前还没有可用学生身份，请先绑定后再参加本次签到</view>
+    <view class="register-tip">当前状态：待绑定</view>
+    <view class="register-tip">{{registerTipText}}</view>
     <button class="register-btn" type="primary" bindtap="goRegister">
       去绑定当前签到
     </button>
   </view>
 
   <view wx:if="{{hasBoundStudentSession && !signSuccess && !shouldGoRegister}}">
+    <view class="leave-box">
+      <text class="tip">当前状态：已绑定，等待签到</text>
+      <view>请确认当前学生身份无误后完成本次签到。</view>
+    </view>
     <view class="input">
       <view>当前学生：{{name}}</view>
       <view>学号：{{studentId}}</view>
@@ -17,10 +22,21 @@
   </view>
 
   <view wx:if="{{canInteract}}">
+    <view class="leave-box">
+      <text class="tip">当前状态：已签到，可参与课堂互动</text>
+      <view wx:if="{{currentSingleChoiceTest}}">当前可用入口：主动提问、单选题作答</view>
+      <view wx:else>当前可用入口：主动提问。若老师发布单选题，会在下方显示。</view>
+    </view>
     <view class="success">✅ 签到成功</view>
     <view>主动提问申请：{{questionRequestCount}} / 3</view>
     <view wx:if="{{hasPendingQuestionRequest}}">你已有待处理提问申请</view>
-    <button bindtap="submitQuestionRequest">主动提问</button>
+    <view wx:if="{{questionRequestCount >= 3}}">当前无可用提问入口：本节课提问次数已达上限</view>
+    <button
+      wx:elif="{{!hasPendingQuestionRequest}}"
+      bindtap="submitQuestionRequest"
+    >
+      主动提问
+    </button>
 
     <view wx:if="{{currentSingleChoiceTest}}" class="leave-box">
       <text class="tip">当前单选题：{{currentSingleChoiceTest.testContent}}</text>

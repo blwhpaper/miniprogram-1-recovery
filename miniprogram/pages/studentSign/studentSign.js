@@ -10,6 +10,7 @@ Page({
     signSuccess: false,
     currentUser: null,
     shouldGoRegister: false,
+    registerTipText: "当前还没有可用学生身份，请先绑定后再参加本次签到",
     hasBoundStudentSession: false,
     canInteract: false,
     questionRequestCount: 0,
@@ -220,6 +221,9 @@ Page({
         name: currentUser.name || "",
         currentUser,
         shouldGoRegister,
+        registerTipText: shouldGoRegister
+          ? "当前还没有可用学生身份，请先绑定后再参加本次签到"
+          : "",
         hasBoundStudentSession: !shouldGoRegister && !!currentUser && hasName && hasStudentId,
         canInteract: false
       });
@@ -755,6 +759,7 @@ Page({
       signSuccess: false,
       currentUser: null,
       shouldGoRegister: true,
+      registerTipText: "你已退出当前学生身份，请重新绑定后再继续签到或互动",
       hasBoundStudentSession: false,
       canInteract: false,
       questionRequestCount: 0,
