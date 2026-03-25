@@ -5,49 +5,23 @@ Page({
     name: "",
     studentId: "",
     hasBoundStudentSession: false,
-    statusText: "当前暂无可继续的课堂签到",
+    statusText: "当前暂无进行中的课堂",
+    summaryText: "老师发起签到后，你可以从这里继续进入当前课堂。",
     actionText: "",
-    emptyTipText: "老师发起签到后，你可以从这里继续进入当前课堂。"
-  },
-
-  hasHandledFallbackRedirect: false,
-
-  safeDecode(value = "") {
-    let result = String(value || "");
-    for (let i = 0; i < 2; i++) {
-      try {
-        const decoded = decodeURIComponent(result);
-        if (decoded === result) break;
-        result = decoded;
-      } catch (err) {
-        break;
-      }
-    }
-    return result;
+    showActionButton: false
   },
 
   getPendingLessonId() {
-    return this.safeDecode(wx.getStorageSync("pendingLessonId") || "").trim();
+    return String(wx.getStorageSync("pendingLessonId") || "").trim();
   },
 
   redirectToTeacherHomeIfNeeded() {
-    if (this.hasHandledFallbackRedirect) return;
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    if (!currentTeacher) return;
 
-    const currentUser = wx.getStorageSync("currentUser") || null;
-    const pendingLessonId = this.getPendingLessonId();
-    const hasBoundStudentSession = !!(
-      currentUser &&
-      String(currentUser.name || "").trim() &&
-      String(currentUser.studentId || "").trim()
-    );
-
-    if (hasBoundStudentSession || pendingLessonId) return;
-
-    this.hasHandledFallbackRedirect = true;
     wx.reLaunch({
       url: "/pages/classManager/classManager",
       fail: (err) => {
-        this.hasHandledFallbackRedirect = false;
         console.error("[studentHome] redirect classManager failed", err);
       }
     });
@@ -61,21 +35,25 @@ Page({
     const classId = String(currentUser?.classId || "").trim();
     const hasBoundStudentSession = !!(currentUser && name && studentId);
 
-    let statusText = "当前暂无可继续的课堂签到";
+    let statusText = "当前暂无进行中的课堂";
+    let summaryText = "老师发起签到后，你可以从这里继续进入当前课堂。";
     let actionText = "";
-    let emptyTipText = "老师发起签到后，你可以从这里继续进入当前课堂。";
+    let showActionButton = false;
 
     if (hasBoundStudentSession && pendingLessonId) {
-      statusText = "当前有可继续进入的课堂签到";
-      actionText = "继续当前签到";
-      emptyTipText = "你已保留当前课堂入口，可直接返回签到页继续签到或互动。";
-    } else if (!hasBoundStudentSession && pendingLessonId) {
-      statusText = "当前有课堂签到，但还未绑定学生身份";
+      statusText = "当前有一节待进入的课堂";
+      summaryText = "你可以继续进入本节课，完成签到或继续课堂互动。";
       actionText = "进入当前签到";
-      emptyTipText = "进入后可继续完成身份绑定和签到。";
+      showActionButton = true;
+    } else if (!hasBoundStudentSession && pendingLessonId) {
+      statusText = "当前有一节待进入的课堂";
+      summaryText = "进入后可继续完成学生身份绑定和本次签到。";
+      actionText = "进入当前签到";
+      showActionButton = true;
     } else if (hasBoundStudentSession) {
-      statusText = "当前学生身份已就绪";
-      emptyTipText = "老师发起新的课堂签到后，你可以从这里快速进入。";
+      summaryText = "你的学生身份已就绪。老师发起签到后，你可以从这里快速进入。";
+    } else {
+      summaryText = "当前还没有可继续进入的课堂。老师发起签到后，你可以扫码进入。";
     }
 
     this.setData({
@@ -85,8 +63,9 @@ Page({
       studentId,
       hasBoundStudentSession,
       statusText,
+      summaryText,
       actionText,
-      emptyTipText
+      showActionButton
     });
   },
 

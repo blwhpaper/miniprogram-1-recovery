@@ -1,6 +1,7 @@
 <view class="page">
   <view class="card">
     <view class="title">学生主页</view>
+    <view class="subtitle">这里会保留你当前可继续进入的课堂入口。</view>
     <view class="status">当前状态：{{statusText}}</view>
 
     <view wx:if="{{hasBoundStudentSession}}" class="info-block">
@@ -8,13 +9,14 @@
       <view>学号：{{studentId}}</view>
     </view>
 
-    <view wx:if="{{lessonId}}" class="lesson-block">
-      <view class="tip">{{emptyTipText}}</view>
-      <button type="primary" bindtap="enterCurrentLesson">
-        {{actionText || '进入当前签到'}}
-      </button>
+    <view class="lesson-block">
+      <view class="tip">{{summaryText}}</view>
     </view>
 
-    <view wx:else class="tip">{{emptyTipText}}</view>
+    <view wx:if="{{showActionButton}}" class="action-block">
+      <button type="primary" bindtap="enterCurrentLesson">
+        {{actionText}}
+      </button>
+    </view>
   </view>
 </view>

@@ -22,6 +22,13 @@ page {
   color: #111827;
 }
 
+.subtitle {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: #6b7280;
+}
+
 .status {
   margin-top: 20rpx;
   font-size: 30rpx;
@@ -36,8 +43,11 @@ page {
   gap: 16rpx;
 }
 
-.tip {
+.action-block {
   margin-top: 28rpx;
+}
+
+.tip {
   font-size: 28rpx;
   line-height: 1.7;
   color: #6b7280;
