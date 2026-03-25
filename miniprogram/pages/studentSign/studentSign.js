@@ -235,7 +235,6 @@ Page({
 
       await this.ensureLessonClassId();
       const hasSigned = await this.restoreSignSuccessStatus();
-      await this.loadQuestionRequestState();
       await this.loadCurrentSingleChoiceTest();
       if (hasSigned) {
         this.startTestPolling();
@@ -255,7 +254,6 @@ Page({
     if (this.data.lessonId && this.data.studentId) {
       await this.ensureLessonClassId();
       const hasSigned = await this.restoreSignSuccessStatus();
-      await this.loadQuestionRequestState();
       await this.loadCurrentSingleChoiceTest();
       if (hasSigned) {
         this.startTestPolling();
@@ -731,7 +729,6 @@ Page({
           canInteract: this.getCanInteract({ signSuccess: true })
         });
         await this.ensureLessonClassId();
-        await this.loadQuestionRequestState();
         await this.loadCurrentSingleChoiceTest();
         this.startTestPolling();
         wx.showToast({ title: "签到成功", icon: "success" });

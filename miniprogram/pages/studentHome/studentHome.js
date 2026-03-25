@@ -140,7 +140,7 @@ Page({
     }
 
     wx.navigateTo({
-      url: `/pages/studentSign/studentSign?lessonId=${encodeURIComponent(lessonId)}&entry=question`,
+      url: `/pages/studentQuestion/studentQuestion?lessonId=${encodeURIComponent(lessonId)}`,
       fail: (err) => {
         console.error("[studentHome] enterQuestionEntry failed", err);
         wx.showToast({ title: "未能打开主动提问入口", icon: "none" });

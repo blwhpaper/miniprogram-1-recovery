@@ -1,0 +1,31 @@
+<view class="page">
+  <view class="card">
+    <view class="title">主动提问</view>
+    <view class="status">
+      当前状态：{{signSuccess ? '已签到，可提交提问申请' : '未签到，暂不可提问'}}
+    </view>
+
+    <view class="info-block" wx:if="{{name}}">
+      <view>当前学生：{{name}}</view>
+      <view>学号：{{studentId}}</view>
+    </view>
+
+    <view class="tip">本节课主动提问申请：{{questionRequestCount}} / 3</view>
+    <view class="tip" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
+    <view class="tip" wx:elif="{{!signSuccess}}">
+      请先进入当前课堂完成签到，再返回这里提交提问申请。
+    </view>
+    <view class="tip" wx:else>
+      提交后，老师侧会沿用现有课堂互动链路处理你的提问申请。
+    </view>
+
+    <button
+      class="submit-btn"
+      type="primary"
+      bindtap="submitQuestionRequest"
+      disabled="{{!canSubmitQuestionRequest}}"
+    >
+      提交主动提问申请
+    </button>
+  </view>
+</view>

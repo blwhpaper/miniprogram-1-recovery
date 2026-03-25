@@ -6,6 +6,7 @@
     "pages/classHome/classHome",
     "pages/studentList/studentList",
     "pages/studentSign/studentSign",
+    "pages/studentQuestion/studentQuestion",
     "pages/register/register",
     "pages/signRecord/signRecord",
     "pages/classInteraction/classInteraction",
