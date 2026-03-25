@@ -725,11 +725,11 @@ Page({
       wx.hideLoading();
 
       if (res.result && res.result.success) {
+        wx.setStorageSync("pendingLessonId", lessonId);
         this.setData({
           signSuccess: true,
           canInteract: this.getCanInteract({ signSuccess: true })
         });
-        wx.removeStorageSync("pendingLessonId");
         await this.ensureLessonClassId();
         await this.loadQuestionRequestState();
         await this.loadCurrentSingleChoiceTest();

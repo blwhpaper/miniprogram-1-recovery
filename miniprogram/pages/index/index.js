@@ -83,6 +83,58 @@ Page({
     title: "",
     content: "",
   },
+  hasStudentEntryRedirected: false,
+
+  resolveStudentEntryTarget() {
+    const app = getApp();
+    const launchOptions = app && app.globalData
+      ? app.globalData.launchEntryOptions || {}
+      : {};
+    const query = launchOptions.query || {};
+    const lessonId = String(query.lessonId || "").trim();
+    const scene = String(query.scene || "").trim();
+    const q = String(query.q || "").trim();
+    const pendingLessonId = String(wx.getStorageSync("pendingLessonId") || "").trim();
+    const params = [];
+
+    if (lessonId) {
+      params.push(`lessonId=${encodeURIComponent(lessonId)}`);
+    } else if (scene) {
+      params.push(`scene=${encodeURIComponent(scene)}`);
+    } else if (q) {
+      params.push(`q=${encodeURIComponent(q)}`);
+    } else if (pendingLessonId) {
+      params.push(`lessonId=${encodeURIComponent(pendingLessonId)}`);
+    }
+
+    if (params.length === 0) return "";
+    return `/pages/studentSign/studentSign?${params.join("&")}`;
+  },
+
+  redirectStudentEntryIfNeeded() {
+    if (this.hasStudentEntryRedirected) return;
+
+    const targetUrl = this.resolveStudentEntryTarget();
+    if (!targetUrl) return;
+
+    this.hasStudentEntryRedirected = true;
+    wx.reLaunch({
+      url: targetUrl,
+      fail: (err) => {
+        this.hasStudentEntryRedirected = false;
+        console.error("[index] redirect student entry failed", err);
+      }
+    });
+  },
+
+  onLoad() {
+    this.redirectStudentEntryIfNeeded();
+  },
+
+  onShow() {
+    this.redirectStudentEntryIfNeeded();
+  },
+
   onClickPowerInfo(e) {
     const app = getApp();
     const index = e.currentTarget.dataset.index;

@@ -207,7 +207,7 @@ Page({
         content: "绑定成功，正在返回签到页面",
         showCancel: false,
         success: () => {
-          wx.redirectTo({
+          wx.reLaunch({
             url: this.buildStudentSignUrl()
           });
         }
