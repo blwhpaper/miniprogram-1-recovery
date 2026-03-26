@@ -19,6 +19,27 @@ Page({
 
   questionPollingTimer: null,
 
+  getWishScoreStatusText(score = 0) {
+    const numericScore = Number(score || 0);
+    if (numericScore === 95) {
+      return "是不是飘飘欲仙，如在云端了？还来不的了？";
+    }
+    if (numericScore === 80) {
+      return "惊不惊喜？意不意外？想不想再来一次？";
+    }
+    if (numericScore === 60) {
+      return "不是每个愿望都那么容易实现的，要不，咱们换个“简单”点的？";
+    }
+    return "";
+  },
+
+  getWishScoreResultText(score = 0) {
+    const numericScore = Number(score || 0);
+    const wishStatusText = this.getWishScoreStatusText(numericScore);
+    if (!wishStatusText) return "";
+    return `${numericScore}分。${wishStatusText}`;
+  },
+
   syncPageState(nextState = {}) {
     const changedState = {};
 
@@ -46,8 +67,11 @@ Page({
       state.latestQuestionStatusType !== undefined ? state.latestQuestionStatusType : this.data.latestQuestionStatusType
     ).trim();
 
+    if (hasPendingQuestionRequest || latestQuestionStatusType === "approved") {
+      return true;
+    }
     if (questionRequestCount >= 3) return false;
-    return hasPendingQuestionRequest || latestQuestionStatusType === "approved";
+    return false;
   },
 
   getPendingLessonId() {
@@ -225,25 +249,29 @@ Page({
 
       let latestQuestionStatusText = "";
       let latestQuestionStatusType = "";
-      if (requestIds.size >= 3) {
-        latestQuestionStatusText = "你的三个愿望已经用完啦，下次课还有机会哦，骚年！";
-        latestQuestionStatusType = "exhausted";
-      } else if (hasPendingQuestionRequest) {
-        latestQuestionStatusText = "你已有待处理提问申请，请等待老师处理。";
+      const isQuestionQuotaExhausted =
+        requestIds.size >= 3 &&
+        !hasPendingQuestionRequest &&
+        !hasApprovedUnscoredQuestionRequest &&
+        scoredIds.size >= requestIds.size;
+
+      if (hasPendingQuestionRequest) {
+        latestQuestionStatusText = "你的愿望已飞鸽传书给老师，请静候佳音。";
         latestQuestionStatusType = "pending";
       } else if (hasApprovedUnscoredQuestionRequest) {
-        latestQuestionStatusText = "老师已经允许你提问啦，当前正在等待老师完成评分。";
+        latestQuestionStatusText = "你的愿望老师收到了，现在，用英语大胆把它说出来吧。";
         latestQuestionStatusType = "approved";
       } else if (scoredIds.size > 0) {
         const latestScoreEvent = myScoreEvents[0] || null;
         const latestScore = latestScoreEvent ? Number(latestScoreEvent.score || 0) : 0;
-        latestQuestionStatusText = latestScore
-          ? `最近一次主动提问已完成课堂评分：${latestScore}分。`
-          : "最近一次主动提问已完成课堂评分。";
+        latestQuestionStatusText = this.getWishScoreResultText(latestScore);
         latestQuestionStatusType = "scored";
       } else if (approvedIds.size > 0) {
-        latestQuestionStatusText = "最近一次主动提问已通过，等待老师点你发言。";
+        latestQuestionStatusText = "你的愿望老师收到了，现在，用英语大胆把它说出来吧。";
         latestQuestionStatusType = "approved";
+      } else if (isQuestionQuotaExhausted) {
+        latestQuestionStatusText = "你的三个愿望已经用完啦，下次课还有机会哦，骚年！";
+        latestQuestionStatusType = "exhausted";
       }
 
       const canSubmitQuestionRequest =
@@ -275,7 +303,7 @@ Page({
         nextState.pageStatusText = "已提交申请，等待老师允许";
       } else if (latestQuestionStatusType === "approved") {
         nextState.pageStatusText = "已允许提问，等待老师评分";
-      } else if (latestQuestionStatusType === "exhausted") {
+      } else if (latestQuestionStatusType === "exhausted" || isQuestionQuotaExhausted) {
         nextState.pageStatusText = "本节课提问次数已用完";
       } else if (!canSubmitQuestionRequest) {
         nextState.pageStatusText = signSuccess ? "已签到，暂不可继续提问" : "未签到，暂不可提问";

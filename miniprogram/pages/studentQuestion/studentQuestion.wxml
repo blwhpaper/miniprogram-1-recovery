@@ -10,13 +10,16 @@
       <view>学号：{{studentId}}</view>
     </view>
 
-    <view class="tip">本节课主动提问申请：{{questionRequestCount}} / 3</view>
-    <view class="tip" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
-    <view class="tip" wx:elif="{{!signSuccess}}">
-      请先进入当前课堂完成签到，再返回这里提交提问申请。
+    <view class="info-block">
+      <view class="tip">本节课主动提问申请：{{questionRequestCount}} / 3</view>
+      <view class="tip" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
+      <view class="tip" wx:elif="{{!signSuccess}}">
+        请先进入当前课堂完成签到，再返回这里提交提问申请。
+      </view>
     </view>
-    <view class="tip" wx:else>
-      提交后，老师侧会沿用现有课堂互动链路处理你的提问申请。
+
+    <view class="tip" wx:if="{{canSubmitQuestionRequest && questionRequestCount === 0}}">
+      我是阿拉丁神灯，点点我，会有惊喜哦！
     </view>
 
     <button
