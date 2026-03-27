@@ -45,11 +45,14 @@
   <view class="list-container">
     <view wx:if="{{pendingLeaveRequests.length > 0}}" class="event-list">
       <view class="lesson-header">
-        <text class="lesson-title">待审批请假申请</text>
+        <text class="lesson-title">待处理请假申请</text>
       </view>
       <view class="event-item" wx:for="{{pendingLeaveRequests}}" wx:key="_id">
         <view class="info">
           <text class="name">{{item.studentName}}</text>
+        </view>
+        <view class="sub">
+          <text>处理态：{{item.leaveRequestStatusLabel}}</text>
         </view>
         <view class="sub">
           <text wx:if="{{item.leaveApplicantStudentName}}">代提交：{{item.leaveApplicantStudentName}}</text>
@@ -76,7 +79,7 @@
             data-can-operate="{{isCurrentLessonSelected}}"
             disabled="{{!isCurrentLessonSelected}}"
           >
-            确认请假
+            确认申请
           </button>
         </view>
       </view>
@@ -96,7 +99,7 @@
       </view>
 
       <view class="sub" wx:if="{{item.hasPendingLeaveRequest && item.status !== 'leave_agree'}}">
-        <text>请假申请：待老师确认{{item.pendingLeaveApplicantName ? '（代提交：' + item.pendingLeaveApplicantName + '）' : ''}}</text>
+        <text>请假申请：待处理{{item.pendingLeaveApplicantName ? '（代提交：' + item.pendingLeaveApplicantName + '）' : ''}}</text>
       </view>
 
       <view class="btn-row">
@@ -111,7 +114,7 @@
           data-can-operate="{{item.canOperateAttendanceStatus}}"
           disabled="{{!item.canOperateAttendanceStatus}}"
         >
-          {{item.status === 'leave_agree' ? '已请假' : '请假'}}
+          设为请假
         </button>
         <button
           class="btn {{item.canOperateAttendanceStatus && item.status === 'absent' ? 'on' : ''}} {{!item.canOperateAttendanceStatus ? 'btn--disabled' : ''}}"
@@ -124,7 +127,7 @@
           data-can-operate="{{item.canOperateAttendanceStatus}}"
           disabled="{{!item.canOperateAttendanceStatus}}"
         >
-          旷课
+          设为旷课
         </button>
       </view>
 

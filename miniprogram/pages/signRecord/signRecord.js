@@ -270,6 +270,16 @@ Page({
     return this.getSignStatusLabel(String(status || "").trim() || "unsigned");
   },
 
+  getLeaveRequestStatusLabel(status = "") {
+    const normalizedStatus = String(status || "").trim() || "pending";
+    const map = {
+      pending: "待处理",
+      approved: "已确认",
+      closed: "已关闭"
+    };
+    return map[normalizedStatus] || "待处理";
+  },
+
   isSelectedCurrentLesson() {
     const lessons = Array.isArray(this.data.lessons) ? this.data.lessons : [];
     const selectedLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
@@ -782,6 +792,7 @@ Page({
       testAnswer,
       testQuestionId,
       leaveRequestStatus,
+      leaveRequestStatusLabel: this.getLeaveRequestStatusLabel(leaveRequestStatus),
       leaveRequestImageFileId,
       leaveApplicantStudentId,
       leaveApplicantStudentName,
@@ -1527,10 +1538,19 @@ Page({
       }
     }
 
+    let toastTitle = `${studentName}已设为${this.getAttendanceStatusLabel(status)}`;
+    if (targetStatus === "leave_agree") {
+      toastTitle = currentStatus === targetStatus
+        ? `${studentName}请假已取消，已恢复未生效`
+        : `${studentName}已设为请假`;
+    } else if (targetStatus === "absent") {
+      toastTitle = currentStatus === targetStatus
+        ? `${studentName}旷课已取消，已恢复未生效`
+        : `${studentName}已设为旷课`;
+    }
+
     wx.showToast({
-      title: currentStatus === targetStatus
-        ? `${studentName}已恢复未签到`
-        : `${studentName}已设为${this.getAttendanceStatusLabel(status)}`,
+      title: toastTitle,
       icon: "none"
     });
   },
@@ -1577,7 +1597,7 @@ Page({
       });
       await this.loadLessonEvents({ silent: true });
       wx.showToast({
-        title: `${studentName}请假已确认`,
+        title: `${studentName}请假申请已确认`,
         icon: "none"
       });
     } catch (err) {
