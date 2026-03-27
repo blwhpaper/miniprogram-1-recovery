@@ -11,14 +11,17 @@
 
   <view wx:if="{{hasBoundStudentSession && !signSuccess && !shouldGoRegister}}">
     <view class="leave-box">
-      <text class="tip">当前状态：已绑定，等待签到</text>
-      <view>请确认当前学生身份无误后完成本次签到。</view>
+      <text class="tip">当前状态：{{attendanceStatusText}}</text>
+      <view wx:if="{{attendanceStatus === 'leave_agree'}}">本节课已被老师标记为请假，当前无需签到。</view>
+      <view wx:elif="{{attendanceStatus === 'absent'}}">本节课已被老师标记为旷课，当前不可签到。</view>
+      <view wx:elif="{{attendanceStatus === 'leave_wait'}}">当前请假状态待确认，暂不可继续签到。</view>
+      <view wx:else>请确认当前学生身份无误后完成本次签到。</view>
     </view>
     <view class="input">
       <view>当前学生：{{name}}</view>
       <view>学号：{{studentId}}</view>
     </view>
-    <button type="primary" bindtap="submitSign">确认签到</button>
+    <button wx:if="{{attendanceStatus !== 'leave_agree' && attendanceStatus !== 'absent' && attendanceStatus !== 'leave_wait'}}" type="primary" bindtap="submitSign">确认签到</button>
   </view>
 
   <view wx:if="{{canInteract}}">
@@ -28,6 +31,20 @@
       <view wx:else>当前课堂互动入口会在老师发布后显示在下方。</view>
     </view>
     <view class="success">✅ 签到成功</view>
+
+    <view class="leave-box">
+      <text class="tip">请假申请</text>
+      <view>当前为签到后代请假入口，请填写需请假的本班学生姓名。</view>
+      <input
+        class="leave-name-input"
+        placeholder="请输入请假人姓名"
+        value="{{leaveRequestTargetName}}"
+        bindinput="onInputLeaveRequestTargetName"
+      />
+      <button bindtap="chooseLeaveRequestImage">上传假条图片</button>
+      <image wx:if="{{leaveRequestImageTempPath}}" class="leave-img" src="{{leaveRequestImageTempPath}}" mode="aspectFill" />
+      <button type="primary" bindtap="submitLeaveRequest">提交请假申请</button>
+    </view>
 
     <view wx:if="{{currentSingleChoiceTest}}" class="leave-box">
       <text class="tip">当前单选题：{{currentSingleChoiceTest.testContent}}</text>

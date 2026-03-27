@@ -12,7 +12,12 @@ Page({
     shouldGoRegister: false,
     registerTipText: "当前还没有可用学生身份，请先绑定后再参加本次签到",
     hasBoundStudentSession: false,
+    attendanceStatus: "unsigned",
+    attendanceStatusText: "未签到",
     canInteract: false,
+    leaveRequestTargetName: "",
+    leaveRequestImageTempPath: "",
+    leaveRequestImageFileId: "",
     questionRequestCount: 0,
     hasPendingQuestionRequest: false,
     currentSingleChoiceTest: null,
@@ -57,8 +62,54 @@ Page({
     return false;
   },
 
+  getAttendanceStatusLabel(status = "") {
+    const normalizedStatus = String(status || "").trim();
+    const map = {
+      signed: "已签到",
+      unsigned: "未签到",
+      absent: "旷课",
+      leave_wait: "待审批",
+      leave_agree: "请假"
+    };
+    return map[normalizedStatus || "unsigned"] || "未签到";
+  },
+
+  getLeaveRequestCloudPath(tempFilePath = "") {
+    const extensionMatch = String(tempFilePath || "").match(/\.([^.\/?#]+)(?:[?#].*)?$/);
+    const extension = extensionMatch ? extensionMatch[1] : "jpg";
+    const lessonId = this.resolveLessonId() || "lesson";
+    const studentId = String(this.data.studentId || "").trim() || "student";
+    return `leave-request/${lessonId}/${studentId}_${Date.now()}.${extension}`;
+  },
+
   getPendingLessonId() {
     return String(wx.getStorageSync("pendingLessonId") || "").trim();
+  },
+
+  resolveLessonId() {
+    return String(this.data.lessonId || this.getPendingLessonId() || "").trim();
+  },
+
+  async resolveLessonContext() {
+    const lessonId = this.resolveLessonId();
+    const studentId = String(this.data.studentId || "").trim();
+    const studentName = String(this.data.name || "").trim();
+    let classId = String(this.data.classId || "").trim();
+
+    if (!classId && lessonId) {
+      classId = String((await this.ensureLessonClassId()) || "").trim();
+    }
+
+    if (lessonId && lessonId !== String(this.data.lessonId || "").trim()) {
+      this.setData({ lessonId });
+    }
+
+    return {
+      lessonId,
+      classId,
+      studentId,
+      studentName
+    };
   },
 
   getLaunchEntryParams() {
@@ -80,7 +131,7 @@ Page({
   },
 
   goRegister() {
-    const lessonId = String(this.data.lessonId || "").trim();
+    const lessonId = this.resolveLessonId();
 
     if (!lessonId) {
       wx.showToast({ title: "请重新扫码老师二维码", icon: "none" });
@@ -218,6 +269,11 @@ Page({
         classId: currentUser.classId || "",
         studentId: currentUser.studentId || "",
         signSuccess: false,
+        attendanceStatus: "unsigned",
+        attendanceStatusText: "未签到",
+        leaveRequestTargetName: "",
+        leaveRequestImageTempPath: "",
+        leaveRequestImageFileId: "",
         name: currentUser.name || "",
         currentUser,
         shouldGoRegister,
@@ -234,11 +290,9 @@ Page({
       }
 
       await this.ensureLessonClassId();
-      const hasSigned = await this.restoreSignSuccessStatus();
+      await this.restoreSignSuccessStatus();
       await this.loadCurrentSingleChoiceTest();
-      if (hasSigned) {
-        this.startTestPolling();
-      }
+      this.startTestPolling();
     } catch (err) {
       wx.hideLoading();
       console.error("getMyUser failed:", err);
@@ -247,19 +301,15 @@ Page({
   },
 
   async onShow() {
-    const pendingLessonId = this.getPendingLessonId();
-    if (!this.data.lessonId && pendingLessonId) {
-      this.setData({ lessonId: pendingLessonId });
+    const lessonId = this.resolveLessonId();
+    if (!this.data.lessonId && lessonId) {
+      this.setData({ lessonId });
     }
-    if (this.data.lessonId && this.data.studentId) {
+    if (lessonId && this.data.studentId) {
       await this.ensureLessonClassId();
-      const hasSigned = await this.restoreSignSuccessStatus();
+      await this.restoreSignSuccessStatus();
       await this.loadCurrentSingleChoiceTest();
-      if (hasSigned) {
-        this.startTestPolling();
-      } else {
-        this.clearTestPolling();
-      }
+      this.startTestPolling();
     }
   },
 
@@ -272,12 +322,14 @@ Page({
   },
 
   async restoreSignSuccessStatus() {
-    const lessonId = String(this.data.lessonId || "").trim();
+    const lessonId = this.resolveLessonId();
     const studentId = String(this.data.studentId || "").trim();
 
     if (!lessonId || !studentId) {
       this.setData({
         signSuccess: false,
+        attendanceStatus: "unsigned",
+        attendanceStatusText: "未签到",
         canInteract: false
       });
       return false;
@@ -291,15 +343,274 @@ Page({
         })
         .limit(1)
         .get();
-      const hasSigned = Array.isArray(res.data) && res.data.length > 0;
+      const attendanceDoc = Array.isArray(res.data) ? res.data[0] || null : null;
+      const attendanceStatus = String(
+        attendanceDoc?.status ||
+        attendanceDoc?.attendanceStatus ||
+        "unsigned"
+      ).trim() || "unsigned";
+      const hasSigned = attendanceStatus === "signed";
       this.setData({
         signSuccess: hasSigned,
+        attendanceStatus,
+        attendanceStatusText: this.getAttendanceStatusLabel(attendanceStatus),
         canInteract: this.getCanInteract({ signSuccess: hasSigned })
       });
       return hasSigned;
     } catch (err) {
       console.error("[studentSign] restoreSignSuccessStatus failed", err);
       return false;
+    }
+  },
+
+  async saveCurrentAttendanceStatus(nextStatus = "") {
+    const { lessonId, classId, studentId, studentName } = await this.resolveLessonContext();
+    const status = String(nextStatus || "").trim();
+
+    if (!lessonId || !classId || !studentId || !studentName || !status) {
+      wx.showToast({ title: "当前课堂信息不完整", icon: "none" });
+      return false;
+    }
+
+    try {
+      const existedRes = await db.collection("attendance")
+        .where({
+          lessonId,
+          studentId
+        })
+        .limit(1)
+        .get();
+      const existed = Array.isArray(existedRes.data) ? existedRes.data[0] || null : null;
+      const payload = {
+        lessonId,
+        classId,
+        studentId,
+        studentName,
+        status,
+        attendanceStatus: status,
+        updatedAt: db.serverDate()
+      };
+
+      if (existed && existed._id) {
+        await db.collection("attendance").doc(existed._id).update({
+          data: payload
+        });
+      } else {
+        await db.collection("attendance").add({
+          data: payload
+        });
+      }
+
+      return true;
+    } catch (err) {
+      console.error("[studentSign] saveCurrentAttendanceStatus failed", err);
+      wx.showToast({ title: "请假状态提交失败", icon: "none" });
+      return false;
+    }
+  },
+
+  async chooseLeaveRequestImage() {
+    if (!this.ensureBoundStudentSession("请假申请")) {
+      return;
+    }
+
+    try {
+      const res = await wx.chooseMedia({
+        count: 1,
+        mediaType: ["image"],
+        sourceType: ["album", "camera"]
+      });
+      const tempFilePath = String(res.tempFiles?.[0]?.tempFilePath || "").trim();
+      if (!tempFilePath) return;
+      this.setData({
+        leaveRequestImageTempPath: tempFilePath
+      });
+    } catch (err) {
+      if (err?.errMsg && err.errMsg.includes("cancel")) return;
+      console.error("[studentSign] chooseLeaveRequestImage failed", err);
+      wx.showToast({ title: "选择假条失败", icon: "none" });
+    }
+  },
+
+  onInputLeaveRequestTargetName(e) {
+    this.setData({
+      leaveRequestTargetName: String(e.detail?.value || "").trim()
+    });
+  },
+
+  async submitLeaveRequest() {
+    if (!this.ensureBoundStudentSession("请假申请")) {
+      return;
+    }
+
+    if (!this.data.signSuccess) {
+      wx.showToast({ title: "请先签到后再申请请假", icon: "none" });
+      return;
+    }
+
+    if (this.data.attendanceStatus === "leave_agree") {
+      wx.showToast({ title: "当前已请假", icon: "none" });
+      return;
+    }
+
+    if (this.data.attendanceStatus === "absent") {
+      wx.showToast({ title: "当前已被标记为旷课", icon: "none" });
+      return;
+    }
+
+    const tempFilePath = String(this.data.leaveRequestImageTempPath || "").trim();
+    if (!tempFilePath) {
+      wx.showToast({ title: "请先上传假条图片", icon: "none" });
+      return;
+    }
+
+    const applicantStudentId = String(this.data.studentId || "").trim();
+    const applicantStudentName = String(this.data.name || "").trim();
+    const requestedStudentNameInput = String(this.data.leaveRequestTargetName || "").trim();
+
+    if (!requestedStudentNameInput) {
+      wx.showToast({ title: "请填写请假人姓名", icon: "none" });
+      return;
+    }
+
+    const { lessonId, classId } = await this.resolveLessonContext();
+
+    if (!lessonId || !classId || !applicantStudentId || !applicantStudentName) {
+      wx.showToast({ title: "当前课堂信息不完整", icon: "none" });
+      return;
+    }
+
+    try {
+      const classRes = await db.collection("classes").doc(classId).get();
+      const roster = Array.isArray(classRes.data?.roster) ? classRes.data.roster : [];
+      const matchedStudents = roster.filter((item) => {
+        const rosterName = String(item?.name || "").trim();
+        return rosterName === requestedStudentNameInput;
+      });
+
+      if (matchedStudents.length === 0) {
+        wx.showToast({ title: "当前学生不在班级名单中", icon: "none" });
+        return;
+      }
+
+      if (matchedStudents.length > 1) {
+        wx.showToast({ title: "班级中存在同名学生，请联系老师处理", icon: "none" });
+        return;
+      }
+
+      const matchedStudent = matchedStudents[0] || {};
+      const requestedStudentId = String(
+        matchedStudent?.studentId || matchedStudent?.id || ""
+      ).trim();
+      const requestedStudentName = String(
+        matchedStudent?.name || requestedStudentNameInput
+      ).trim();
+
+      if (!requestedStudentId || !requestedStudentName) {
+        wx.showToast({ title: "请假学生信息不完整", icon: "none" });
+        return;
+      }
+
+      if (requestedStudentId === applicantStudentId) {
+        wx.showToast({ title: "不能为当前已签到学生本人申请请假", icon: "none" });
+        return;
+      }
+
+      const attendanceRes = await db.collection("attendance")
+        .where({
+          lessonId,
+          studentId: requestedStudentId
+        })
+        .limit(1)
+        .get();
+      const currentAttendance = Array.isArray(attendanceRes.data) ? attendanceRes.data[0] || null : null;
+      const currentAttendanceStatus = String(
+        currentAttendance?.status ||
+        currentAttendance?.attendanceStatus ||
+        "unsigned"
+      ).trim() || "unsigned";
+
+      if (currentAttendanceStatus === "leave_agree") {
+        wx.showToast({ title: "该学生当前已请假", icon: "none" });
+        return;
+      }
+
+      if (currentAttendanceStatus === "absent") {
+        wx.showToast({ title: "该学生当前已被标记为旷课", icon: "none" });
+        return;
+      }
+
+      wx.showLoading({ title: "提交中...", mask: true });
+      const uploadRes = await wx.cloud.uploadFile({
+        cloudPath: this.getLeaveRequestCloudPath(tempFilePath),
+        filePath: tempFilePath
+      });
+      const imageFileId = String(uploadRes.fileID || "").trim();
+      if (!imageFileId) {
+        wx.hideLoading();
+        wx.showToast({ title: "假条上传失败", icon: "none" });
+        return;
+      }
+
+      const existedRes = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          studentId: requestedStudentId,
+          type: "leave_request"
+        })
+        .get();
+      const existedPending = (existedRes.data || []).find(
+        (item) => String(item.payload?.status || "").trim() === "pending"
+      );
+
+      const payload = {
+        status: "pending",
+        imageFileId,
+        applicantStudentId,
+        applicantStudentName,
+        requestedStudentId,
+        requestedStudentName,
+        submittedAt: db.serverDate()
+      };
+
+      if (existedPending && existedPending._id) {
+        await db.collection("lessonEvent").doc(existedPending._id).update({
+          data: {
+            payload,
+            updatedAt: db.serverDate()
+          }
+        });
+      } else {
+        await db.collection("lessonEvent").add({
+          data: {
+            lessonId,
+            classId,
+            studentId: requestedStudentId,
+            studentName: requestedStudentName,
+            type: "leave_request",
+            score: 0,
+            round: 0,
+            payload,
+            createdAt: db.serverDate(),
+            createdBy: "student"
+          }
+        });
+      }
+
+      wx.hideLoading();
+      this.setData({
+        leaveRequestTargetName: "",
+        leaveRequestImageTempPath: "",
+        leaveRequestImageFileId: imageFileId
+      });
+      wx.showToast({
+        title: `已为${requestedStudentName}提交请假申请`,
+        icon: "none"
+      });
+    } catch (err) {
+      wx.hideLoading();
+      console.error("[studentSign] submitLeaveRequest failed", err);
+      wx.showToast({ title: "请假申请失败，请稍后重试", icon: "none" });
     }
   },
 
@@ -315,15 +626,25 @@ Page({
   },
 
   async ensureLessonClassId() {
-    const lessonId = String(this.data.lessonId || "").trim();
+    const lessonId = this.resolveLessonId();
     const studentId = String(this.data.studentId || "").trim();
-    if (!lessonId || this.data.classId) return this.data.classId;
+    if (this.data.classId) {
+      if (lessonId && lessonId !== String(this.data.lessonId || "").trim()) {
+        this.setData({ lessonId });
+      }
+      return String(this.data.classId || "").trim();
+    }
+
+    if (!lessonId) return "";
 
     try {
       const res = await db.collection("lessons").doc(lessonId).get();
       const lessonClassId = String(res.data?.classId || "").trim();
       if (lessonClassId) {
-        this.setData({ classId: lessonClassId });
+        this.setData({
+          lessonId,
+          classId: lessonClassId
+        });
         return lessonClassId;
       }
     } catch (err) {
@@ -342,7 +663,10 @@ Page({
         .get();
       const attendanceClassId = String(attendanceRes.data?.[0]?.classId || "").trim();
       if (attendanceClassId) {
-        this.setData({ classId: attendanceClassId });
+        this.setData({
+          lessonId,
+          classId: attendanceClassId
+        });
         return attendanceClassId;
       }
     } catch (err) {
@@ -381,7 +705,7 @@ Page({
   },
 
   async loadCurrentSingleChoiceTest() {
-    const lessonId = String(this.data.lessonId || "").trim();
+    const lessonId = this.resolveLessonId();
     const studentId = String(this.data.studentId || "").trim();
 
     if (!lessonId || !studentId || !this.data.signSuccess) {
@@ -443,12 +767,17 @@ Page({
   },
 
   startTestPolling() {
-    const lessonId = String(this.data.lessonId || "").trim();
-    if (!lessonId || !this.data.signSuccess) return;
+    const lessonId = this.resolveLessonId();
+    const studentId = String(this.data.studentId || "").trim();
+    if (!lessonId || !studentId) return;
 
     this.clearTestPolling();
     this.testPollingTimer = setInterval(() => {
-      this.loadCurrentSingleChoiceTest();
+      this.restoreSignSuccessStatus()
+        .then(() => this.loadCurrentSingleChoiceTest())
+        .catch((err) => {
+          console.error("[studentSign] polling refresh failed", err);
+        });
     }, 5000);
   },
 
@@ -693,7 +1022,9 @@ Page({
   },
 
   async submitSign() {
-    const { name, studentId, lessonId } = this.data;
+    const name = String(this.data.name || "").trim();
+    const studentId = String(this.data.studentId || "").trim();
+    const lessonId = this.resolveLessonId();
 
     if (!this.ensureBoundStudentSession("签到")) {
       return;
@@ -724,11 +1055,8 @@ Page({
 
       if (res.result && res.result.success) {
         wx.setStorageSync("pendingLessonId", lessonId);
-        this.setData({
-          signSuccess: true,
-          canInteract: this.getCanInteract({ signSuccess: true })
-        });
         await this.ensureLessonClassId();
+        await this.restoreSignSuccessStatus();
         await this.loadCurrentSingleChoiceTest();
         this.startTestPolling();
         wx.showToast({ title: "签到成功", icon: "success" });
@@ -754,6 +1082,11 @@ Page({
       name: "",
       studentId: "",
       signSuccess: false,
+      attendanceStatus: "unsigned",
+      attendanceStatusText: "未签到",
+      leaveRequestTargetName: "",
+      leaveRequestImageTempPath: "",
+      leaveRequestImageFileId: "",
       currentUser: null,
       shouldGoRegister: true,
       registerTipText: "你已退出当前学生身份，请重新绑定后再继续签到或互动",

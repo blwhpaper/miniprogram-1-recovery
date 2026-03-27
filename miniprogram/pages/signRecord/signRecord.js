@@ -23,6 +23,7 @@ Page({
     currentRound: 1,
     currentRoundCalledIds: [],
     pendingScoreLock: false,
+    pendingLeaveRequests: [],
     pendingQuestionRequests: [],
     currentQuestionRequest: null,
     currentPublishedTest: null,
@@ -147,19 +148,24 @@ Page({
 
     this.fetchAttendanceOnce(lessonId);
     this.startAttendancePolling(lessonId);
+    this.loadLessonEvents({ silent: true });
+    this.startLessonEventPolling(lessonId);
   },
 
   onUnload() {
     this.clearAttendancePolling();
+    this.clearLessonEventPolling();
   },
 
   onHide() {
     this.clearAttendancePolling();
+    this.clearLessonEventPolling();
   },
 
   async onPullDownRefresh() {
     try {
       await this.refreshAttendance();
+      await this.loadLessonEvents({ silent: true });
     } finally {
       wx.stopPullDownRefresh();
     }
@@ -259,6 +265,76 @@ Page({
     });
   },
 
+  getAttendanceStatusLabel(status = "") {
+    return this.getSignStatusLabel(String(status || "").trim() || "unsigned");
+  },
+
+  getMatchedAttendanceDoc(student = {}) {
+    const studentId = String(student.studentId || "").trim();
+    const studentName = String(student.name || student.studentName || "").trim();
+    const attendanceDocs = Array.isArray(this.latestAttendanceDocs) ? this.latestAttendanceDocs : [];
+
+    return attendanceDocs.find((doc) => {
+      const docStudentId = String(doc.studentId || "").trim();
+      const docStudentName = String(doc.studentName || "").trim();
+
+      if (studentId && docStudentId) {
+        return docStudentId === studentId;
+      }
+
+      return !!studentName && docStudentName === studentName;
+    }) || null;
+  },
+
+  async saveAttendanceStatus(student = {}, nextStatus = "") {
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    const classId = String(this.data.classId || "").trim();
+    const studentId = String(student.studentId || "").trim();
+    const studentName = String(student.name || student.studentName || "").trim();
+    const status = String(nextStatus || "").trim();
+
+    if (!lessonId || !classId || !studentName || !status) {
+      wx.showToast({
+        title: "缺少状态信息",
+        icon: "none"
+      });
+      return false;
+    }
+
+    try {
+      const existed = this.getMatchedAttendanceDoc({ studentId, name: studentName });
+      const payload = {
+        lessonId,
+        classId,
+        studentId,
+        studentName,
+        status,
+        attendanceStatus: status,
+        updatedAt: db.serverDate()
+      };
+
+      if (existed && existed._id) {
+        await db.collection("attendance").doc(existed._id).update({
+          data: payload
+        });
+      } else {
+        await db.collection("attendance").add({
+          data: payload
+        });
+      }
+
+      await this.fetchAttendanceOnce(lessonId);
+      return true;
+    } catch (err) {
+      console.error("[signRecord] saveAttendanceStatus failed", err);
+      wx.showToast({
+        title: "状态更新失败，请稍后重试",
+        icon: "none"
+      });
+      return false;
+    }
+  },
+
   refreshExportDisabledState() {
     const { lessonsLoading, statsLoading, list, stats } = this.data;
     const isListInvalid = !Array.isArray(list) || list.length === 0;
@@ -311,6 +387,7 @@ Page({
       rollcall: "随机点名",
       answer_score: "回答得分",
       student_question: "主动提问",
+      leave_request: "请假申请",
       test_publish: "测试发布",
       test_record: "随堂测试",
       question_request: "提问申请",
@@ -362,6 +439,37 @@ Page({
     });
   },
 
+  getLeaveRequestStateSignature(pendingLeaveRequests = []) {
+    return JSON.stringify(
+      (pendingLeaveRequests || []).map((item) => ({
+        _id: String(item._id || ""),
+        studentId: String(item.studentId || ""),
+        studentName: String(item.studentName || ""),
+        applicantStudentName: String(item.leaveApplicantStudentName || ""),
+        imageFileId: String(item.leaveRequestImageFileId || ""),
+        leaveRequestStatus: String(item.leaveRequestStatus || "")
+      }))
+    );
+  },
+
+  getLatestLeaveRequestByStudent(student = {}) {
+    const studentId = String(student.studentId || "").trim();
+    const studentName = String(student.studentName || student.name || "").trim();
+    const lessonEvents = Array.isArray(this.data.lessonEvents) ? this.data.lessonEvents : [];
+
+    const matchedEvents = lessonEvents.filter((item) => {
+      if (item.type !== "leave_request") return false;
+      const itemStudentId = String(item.studentId || "").trim();
+      const itemStudentName = String(item.studentName || "").trim();
+      if (studentId && itemStudentId) {
+        return itemStudentId === studentId;
+      }
+      return !!studentName && itemStudentName === studentName;
+    });
+
+    return matchedEvents.sort((a, b) => this.getEventTimestamp(b) - this.getEventTimestamp(a))[0] || null;
+  },
+
   getAttendanceListSignature(list = []) {
     return JSON.stringify(
       (list || []).map((item) => ({
@@ -369,6 +477,8 @@ Page({
         name: String(item.name || item.studentName || "").trim(),
         status: String(item.status || "").trim(),
         statusLabel: String(item.statusLabel || "").trim(),
+        hasPendingLeaveRequest: !!item.hasPendingLeaveRequest,
+        pendingLeaveApplicantName: String(item.pendingLeaveApplicantName || "").trim(),
         attendanceScoreText: String(item.attendanceScoreText || "").trim(),
         answerScoreText: String(item.answerScoreText || "").trim(),
         answerScoreAvgText: String(item.answerScoreAvgText || "").trim(),
@@ -536,6 +646,17 @@ Page({
 
   mergeInteractionIntoList(baseList, lessonEvents = []) {
     const interactionScoreMap = this.buildInteractionScoreMap(lessonEvents);
+    const pendingLeaveRequestMap = new Map();
+
+    (lessonEvents || [])
+      .filter((item) => item.type === "leave_request" && item.leaveRequestStatus === "pending")
+      .forEach((item) => {
+        const studentKey = this.getStudentUniqueId(item);
+        if (!studentKey) return;
+        pendingLeaveRequestMap.set(studentKey, {
+          applicantStudentName: String(item.leaveApplicantStudentName || "").trim()
+        });
+      });
 
     return (baseList || []).map((item) => {
       const studentKey = this.getStudentUniqueId(item);
@@ -544,6 +665,7 @@ Page({
         questionScores: [],
         testScores: []
       };
+      const pendingLeaveRequest = pendingLeaveRequestMap.get(studentKey) || null;
       const answerScoreAvg = this.getAverageScore(interaction.answerScores);
       const questionScoreAvg = this.getAverageScore(interaction.questionScores);
       const testScoreAvg = this.getAverageScore(interaction.testScores);
@@ -564,6 +686,8 @@ Page({
         testScoreText: interaction.testScores.join(" / "),
         testScoreAvg,
         testScoreAvgText: this.formatScore(testScoreAvg),
+        hasPendingLeaveRequest: !!pendingLeaveRequest,
+        pendingLeaveApplicantName: String(pendingLeaveRequest?.applicantStudentName || "").trim(),
         attendanceScore: lessonScoreDetail.attendanceScore,
         attendanceScoreText: lessonScoreDetail.attendanceScoreText,
         lessonScore: lessonScoreDetail.lessonScore,
@@ -607,6 +731,12 @@ Page({
     const testContent = String(payload.content || "").trim();
     const testAnswer = String(payload.answer || "").trim();
     const testQuestionId = String(payload.questionId || item._id || "").trim();
+    const leaveRequestStatus = String(payload.status || "").trim();
+    const leaveRequestImageFileId = String(payload.imageFileId || "").trim();
+    const leaveApplicantStudentId = String(payload.applicantStudentId || "").trim();
+    const leaveApplicantStudentName = String(payload.applicantStudentName || "").trim();
+    const leaveRequestedStudentId = String(payload.requestedStudentId || item.studentId || "").trim();
+    const leaveRequestedStudentName = String(payload.requestedStudentName || item.studentName || "").trim();
     const testOptions = Array.isArray(payload.options)
       ? payload.options.map((option) => String(option || "").trim()).filter(Boolean)
       : [];
@@ -627,6 +757,12 @@ Page({
       testContent,
       testAnswer,
       testQuestionId,
+      leaveRequestStatus,
+      leaveRequestImageFileId,
+      leaveApplicantStudentId,
+      leaveApplicantStudentName,
+      leaveRequestedStudentId,
+      leaveRequestedStudentName,
       testOptions,
       testOptionsText: testOptions.join(" / "),
       testCorrectAnswer,
@@ -806,6 +942,22 @@ Page({
     }
   },
 
+  rebuildLeaveRequestState(lessonEvents = []) {
+    const pendingLeaveRequests = lessonEvents.filter((item) => {
+      if (item.type !== "leave_request") return false;
+      return String(item.leaveRequestStatus || "pending").trim() === "pending";
+    });
+
+    const nextSignature = this.getLeaveRequestStateSignature(pendingLeaveRequests);
+    const currentSignature = this.getLeaveRequestStateSignature(this.data.pendingLeaveRequests);
+
+    if (nextSignature !== currentSignature) {
+      this.setData({
+        pendingLeaveRequests
+      });
+    }
+  },
+
   rebuildCurrentTestState(lessonEvents = []) {
     const publishedTests = lessonEvents
       .filter((item) => item.type === "test_publish" && item.testType === "single_choice")
@@ -875,6 +1027,7 @@ Page({
       }
       this.rebuildStudentDisplayList({ lessonEvents });
       this.rebuildRollcallState(lessonEvents);
+      this.rebuildLeaveRequestState(lessonEvents);
       this.rebuildQuestionRequestState(lessonEvents);
       this.rebuildCurrentTestState(lessonEvents);
       return lessonEvents;
@@ -885,6 +1038,7 @@ Page({
       }
       this.rebuildStudentDisplayList({ lessonEvents: [] });
       this.rebuildRollcallState([]);
+      this.rebuildLeaveRequestState([]);
       this.rebuildQuestionRequestState([]);
       this.rebuildCurrentTestState([]);
       return [];
@@ -905,6 +1059,7 @@ Page({
       currentRound: 1,
       currentRoundCalledIds: [],
       pendingScoreLock: false,
+      pendingLeaveRequests: [],
       pendingQuestionRequests: [],
       currentQuestionRequest: null,
       currentPublishedTest: null,
@@ -1295,6 +1450,109 @@ Page({
       title: "回答得分已记录",
       icon: "none"
     });
+  },
+
+  async onTapSetAttendanceStatus(e) {
+    const targetStatus = String(e.currentTarget.dataset.status || "").trim();
+    const currentStatus = String(e.currentTarget.dataset.currentStatus || "").trim();
+    const studentId = String(e.currentTarget.dataset.studentId || "").trim();
+    const studentName = String(e.currentTarget.dataset.studentName || "").trim();
+    const status = currentStatus === targetStatus ? "unsigned" : targetStatus;
+
+    if (!targetStatus || !studentName) {
+      wx.showToast({
+        title: "学生状态信息无效",
+        icon: "none"
+      });
+      return;
+    }
+
+    const success = await this.saveAttendanceStatus({
+      studentId,
+      name: studentName
+    }, status);
+
+    if (!success) return;
+
+    const targetLeaveRequest = this.getLatestLeaveRequestByStudent({
+      studentId,
+      studentName
+    });
+
+    if (targetLeaveRequest?._id) {
+      const nextRequestStatus = status === "leave_agree" ? "approved" : "closed";
+      try {
+        await db.collection("lessonEvent").doc(targetLeaveRequest._id).update({
+          data: {
+            payload: {
+              ...(targetLeaveRequest.payload || {}),
+              status: nextRequestStatus,
+              updatedAt: db.serverDate()
+            },
+            updatedAt: db.serverDate()
+          }
+        });
+        await this.loadLessonEvents({ silent: true });
+      } catch (err) {
+        console.error("[signRecord] resolve pending leave request failed", err);
+      }
+    }
+
+    wx.showToast({
+      title: currentStatus === targetStatus
+        ? `${studentName}已恢复未签到`
+        : `${studentName}已设为${this.getAttendanceStatusLabel(status)}`,
+      icon: "none"
+    });
+  },
+
+  async onTapApproveLeaveRequest(e) {
+    const requestId = String(e.currentTarget.dataset.requestId || "").trim();
+    const studentId = String(e.currentTarget.dataset.studentId || "").trim();
+    const studentName = String(e.currentTarget.dataset.studentName || "").trim();
+
+    if (!requestId || !studentName) {
+      wx.showToast({
+        title: "请假申请无效",
+        icon: "none"
+      });
+      return;
+    }
+
+    const success = await this.saveAttendanceStatus({
+      studentId,
+      name: studentName
+    }, "leave_agree");
+
+    if (!success) return;
+
+    const targetRequest = (this.data.pendingLeaveRequests || []).find(
+      (item) => String(item._id || "").trim() === requestId
+    );
+
+    try {
+      await db.collection("lessonEvent").doc(requestId).update({
+        data: {
+          payload: {
+            ...(targetRequest?.payload || {}),
+            status: "approved",
+            approvedAt: db.serverDate()
+          },
+          updatedAt: db.serverDate()
+        }
+      });
+      await this.loadLessonEvents({ silent: true });
+      wx.showToast({
+        title: `${studentName}请假已确认`,
+        icon: "none"
+      });
+    } catch (err) {
+      console.error("[signRecord] approve leave request failed", err);
+      wx.showToast({
+        title: "请假确认失败，请稍后重试",
+        icon: "none"
+      });
+    }
   },
 
   async onTapAddStudentQuestion(e) {
@@ -1705,12 +1963,15 @@ Page({
     const nextLessonId = String(lessonId || "").trim();
     if (!nextLessonId) {
       this.clearAttendancePolling();
+      this.clearLessonEventPolling();
       const list = this.cloneBaseRosterList();
       this.setData({
         lessonId: "",
         selectedLessonId: "",
         currentStats: null,
-        list
+        list,
+        lessonEvents: [],
+        pendingLeaveRequests: []
       });
       this.refreshExportDisabledState();
       this.refreshStats();
@@ -1718,6 +1979,7 @@ Page({
     }
 
     this.clearAttendancePolling();
+    this.clearLessonEventPolling();
 
     const baseList = this.cloneBaseRosterList();
     this.setData({
@@ -1731,6 +1993,8 @@ Page({
 
     await this.fetchAttendanceOnce(nextLessonId);
     this.startAttendancePolling(nextLessonId);
+    await this.loadLessonEvents({ silent: true });
+    this.startLessonEventPolling(nextLessonId);
     await this.loadStats();
   },
 

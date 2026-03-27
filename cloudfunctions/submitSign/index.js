@@ -66,13 +66,36 @@ exports.main = async (event) => {
 
     const existing = await db.collection('attendance').where({
       lessonId: lessonId,
-      studentOpenid: OPENID
+      studentId: String(user.studentId || '').trim()
     }).limit(1).get()
 
     if (existing.data.length > 0) {
+      const existedDoc = existing.data[0] || {}
+      const existedStatus = String(existedDoc.status || existedDoc.attendanceStatus || '').trim()
+      if (existedStatus === 'unsigned') {
+        await db.collection('attendance').doc(existedDoc._id).update({
+          data: {
+            studentOpenid: OPENID,
+            signTime: db.serverDate(),
+            status: 'signed',
+            attendanceStatus: 'signed'
+          }
+        })
+
+        return {
+          success: true,
+          msg: 'Sign-in successful'
+        }
+      }
+      const statusMsgMap = {
+        signed: '你已完成签到',
+        leave_agree: '当前已请假',
+        leave_wait: '当前请假待确认',
+        absent: '当前已被老师标记为旷课'
+      }
       return {
         success: false,
-        msg: 'You have already signed in'
+        msg: statusMsgMap[existedStatus] || '当前签到状态已存在'
       }
     }
 

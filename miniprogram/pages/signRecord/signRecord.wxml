@@ -43,6 +43,43 @@
   </view>
 
   <view class="list-container">
+    <view wx:if="{{pendingLeaveRequests.length > 0}}" class="event-list">
+      <view class="lesson-header">
+        <text class="lesson-title">待审批请假申请</text>
+      </view>
+      <view class="event-item" wx:for="{{pendingLeaveRequests}}" wx:key="_id">
+        <view class="info">
+          <text class="name">{{item.studentName}}</text>
+        </view>
+        <view class="sub">
+          <text wx:if="{{item.leaveApplicantStudentName}}">代提交：{{item.leaveApplicantStudentName}}</text>
+        </view>
+        <view class="sub">
+          <text>{{item.displayTime}}</text>
+        </view>
+        <image
+          wx:if="{{item.leaveRequestImageFileId}}"
+          class="leave-img"
+          src="{{item.leaveRequestImageFileId}}"
+          mode="aspectFill"
+          bindtap="previewImg"
+          data-src="{{item.leaveRequestImageFileId}}"
+        />
+        <view class="score-btn-group">
+          <button
+            class="score-btn"
+            size="mini"
+            bindtap="onTapApproveLeaveRequest"
+            data-request-id="{{item._id}}"
+            data-student-id="{{item.studentId}}"
+            data-student-name="{{item.studentName}}"
+          >
+            确认请假
+          </button>
+        </view>
+      </view>
+    </view>
+
     <view class="card" wx:for="{{list}}" wx:key="studentId" wx:for-item="item" wx:for-index="index" id="item-{{index}}">
       <view class="info">
         <text class="name">学生姓名：{{item.name}}</text>
@@ -54,6 +91,35 @@
 
       <view class="sub">
         <text>状态：{{item.statusLabel || (item.status === 'signed' ? '已签到' : '未签到')}}</text>
+      </view>
+
+      <view class="sub" wx:if="{{item.hasPendingLeaveRequest && item.status !== 'leave_agree'}}">
+        <text>请假申请：待老师确认{{item.pendingLeaveApplicantName ? '（代提交：' + item.pendingLeaveApplicantName + '）' : ''}}</text>
+      </view>
+
+      <view class="btn-row">
+        <button
+          class="btn {{item.status === 'leave_agree' ? 'on' : ''}}"
+          size="mini"
+          bindtap="onTapSetAttendanceStatus"
+          data-status="leave_agree"
+          data-current-status="{{item.status}}"
+          data-student-id="{{item.studentId}}"
+          data-student-name="{{item.name}}"
+        >
+          {{item.status === 'leave_agree' ? '已请假' : '请假'}}
+        </button>
+        <button
+          class="btn {{item.status === 'absent' ? 'on' : ''}}"
+          size="mini"
+          bindtap="onTapSetAttendanceStatus"
+          data-status="absent"
+          data-current-status="{{item.status}}"
+          data-student-id="{{item.studentId}}"
+          data-student-name="{{item.name}}"
+        >
+          旷课
+        </button>
       </view>
 
       <view class="sub" wx:if="{{item.lessonScoreText}}">

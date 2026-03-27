@@ -7,6 +7,7 @@ Page({
     name: "",
     studentId: "",
     hasBoundStudentSession: false,
+    currentLessonAttendanceStatus: "unsigned",
     hasSignedCurrentLesson: false,
     statusText: "当前暂无进行中的课堂",
     summaryText: "老师发起签到后，你可以从这里继续进入当前课堂。",
@@ -38,10 +39,11 @@ Page({
     const studentId = String(currentUser?.studentId || "").trim();
     const classId = String(currentUser?.classId || "").trim();
     const hasBoundStudentSession = !!(currentUser && name && studentId);
-    const hasSignedCurrentLesson = await this.loadCurrentLessonSignState({
+    const currentLessonAttendanceStatus = await this.loadCurrentLessonAttendanceStatus({
       lessonId: pendingLessonId,
       studentId
     });
+    const hasSignedCurrentLesson = currentLessonAttendanceStatus === "signed";
 
     let statusText = "当前暂无进行中的课堂";
     let summaryText = "老师发起签到后，你可以从这里继续进入当前课堂。";
@@ -50,13 +52,30 @@ Page({
     let showQuestionEntryButton = false;
 
     if (hasBoundStudentSession && pendingLessonId) {
-      statusText = "当前有一节待进入的课堂";
-      summaryText = hasSignedCurrentLesson
-        ? "你已完成签到，可从这里进入本节课或继续发起主动提问。"
-        : "你可以进入本节课，完成签到后再参与课堂互动。";
-      lessonEntryText = hasSignedCurrentLesson ? "进入当前课堂" : "进入当前签到";
-      showLessonEntryButton = true;
-      showQuestionEntryButton = hasSignedCurrentLesson;
+      if (currentLessonAttendanceStatus === "leave_agree") {
+        statusText = "当前课次状态：已请假";
+        summaryText = "本节课已被老师标记为请假，当前无需签到或参与互动。";
+        lessonEntryText = "查看当前课堂";
+        showLessonEntryButton = true;
+      } else if (currentLessonAttendanceStatus === "absent") {
+        statusText = "当前课次状态：旷课";
+        summaryText = "本节课已被老师标记为旷课，当前不可签到或参与互动。";
+        lessonEntryText = "查看当前课堂";
+        showLessonEntryButton = true;
+      } else if (currentLessonAttendanceStatus === "leave_wait") {
+        statusText = "当前课次状态：待审批";
+        summaryText = "当前请假状态待确认，暂不可继续签到或互动。";
+        lessonEntryText = "查看当前课堂";
+        showLessonEntryButton = true;
+      } else {
+        statusText = "当前有一节待进入的课堂";
+        summaryText = hasSignedCurrentLesson
+          ? "你已完成签到，可从这里进入本节课或继续发起主动提问。"
+          : "你可以进入本节课，完成签到后再参与课堂互动。";
+        lessonEntryText = hasSignedCurrentLesson ? "进入当前课堂" : "进入当前签到";
+        showLessonEntryButton = true;
+        showQuestionEntryButton = hasSignedCurrentLesson;
+      }
     } else if (!hasBoundStudentSession && pendingLessonId) {
       statusText = "当前有一节待进入的课堂";
       summaryText = "进入后可继续完成学生身份绑定和本次签到。";
@@ -74,6 +93,7 @@ Page({
       name,
       studentId,
       hasBoundStudentSession,
+      currentLessonAttendanceStatus,
       hasSignedCurrentLesson,
       statusText,
       summaryText,
@@ -83,8 +103,8 @@ Page({
     });
   },
 
-  async loadCurrentLessonSignState({ lessonId = "", studentId = "" } = {}) {
-    if (!lessonId || !studentId) return false;
+  async loadCurrentLessonAttendanceStatus({ lessonId = "", studentId = "" } = {}) {
+    if (!lessonId || !studentId) return "unsigned";
 
     try {
       const res = await db.collection("attendance")
@@ -94,10 +114,15 @@ Page({
         })
         .limit(1)
         .get();
-      return Array.isArray(res.data) && res.data.length > 0;
+      const attendanceDoc = Array.isArray(res.data) ? res.data[0] || null : null;
+      return String(
+        attendanceDoc?.status ||
+        attendanceDoc?.attendanceStatus ||
+        "unsigned"
+      ).trim() || "unsigned";
     } catch (err) {
-      console.error("[studentHome] loadCurrentLessonSignState failed", err);
-      return false;
+      console.error("[studentHome] loadCurrentLessonAttendanceStatus failed", err);
+      return "unsigned";
     }
   },
 
