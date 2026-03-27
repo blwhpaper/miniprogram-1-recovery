@@ -79,6 +79,10 @@
   border-radius:999rpx;
   line-height:1.6;
 }
+.score-btn--disabled {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
 .lesson-section { margin-bottom:20rpx; }
 .lesson-header { margin-bottom:12rpx; }
 .lesson-title { font-size:26rpx; font-weight:600; color:#333; }
@@ -162,6 +166,7 @@
 .btn-row { display:flex; gap:16rpx; margin-top:20rpx; }
 .btn { flex:1; height:68rpx; line-height:68rpx; font-size:24rpx; border-radius:12rpx; background:#f2f5f9; }
 .btn.on { background:#2f77ff; color:#fff; }
+.btn--disabled { opacity: 0.5; }
 
 .empty { text-align:center; color:#aaa; margin-top:200rpx; }
 

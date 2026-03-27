@@ -51,7 +51,7 @@ exports.main = async (event) => {
       .map((lesson) => String(lesson._id || '').trim())
       .filter(Boolean)
 
-    const signedCountByLessonId = new Map()
+    const statsCountByLessonId = new Map()
 
     if (lessonIds.length > 0) {
       const attendanceList = await getAllByQuery('attendance', {
@@ -61,24 +61,52 @@ exports.main = async (event) => {
       attendanceList.forEach((item) => {
         const lessonId = String(item.lessonId || '').trim()
         if (!lessonId) return
-        signedCountByLessonId.set(
-          lessonId,
-          (signedCountByLessonId.get(lessonId) || 0) + 1
-        )
+        const status = String(item.status || item.attendanceStatus || 'unsigned').trim() || 'unsigned'
+        const current = statsCountByLessonId.get(lessonId) || {
+          signedCount: 0,
+          absentCount: 0,
+          leaveWaitCount: 0,
+          leaveAgreeCount: 0
+        }
+
+        if (status === 'signed') {
+          current.signedCount += 1
+        } else if (status === 'absent') {
+          current.absentCount += 1
+        } else if (status === 'leave_wait') {
+          current.leaveWaitCount += 1
+        } else if (status === 'leave_agree') {
+          current.leaveAgreeCount += 1
+        }
+
+        statsCountByLessonId.set(lessonId, current)
       })
     }
 
     const stats = lessons.map((lesson) => {
       const lessonId = String(lesson._id || '').trim()
-      const signedCount = signedCountByLessonId.get(lessonId) || 0
-      const unsignedCount = Math.max(rosterCount - signedCount, 0)
+      const lessonCount = statsCountByLessonId.get(lessonId) || {
+        signedCount: 0,
+        absentCount: 0,
+        leaveWaitCount: 0,
+        leaveAgreeCount: 0
+      }
+      const signedCount = Number(lessonCount.signedCount || 0)
+      const absentCount = Number(lessonCount.absentCount || 0)
+      const leaveWaitCount = Number(lessonCount.leaveWaitCount || 0)
+      const leaveAgreeCount = Number(lessonCount.leaveAgreeCount || 0)
+      const accountedCount = signedCount + absentCount + leaveWaitCount + leaveAgreeCount
+      const unsignedCount = Math.max(rosterCount - accountedCount, 0)
 
       return {
         lessonId,
         startTime: lesson.startTime || null,
         rosterCount,
         signedCount,
-        unsignedCount
+        unsignedCount,
+        absentCount,
+        leaveWaitCount,
+        leaveAgreeCount
       }
     })
 

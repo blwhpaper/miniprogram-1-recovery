@@ -33,6 +33,7 @@ Page({
     absentCount: 0,
     waitCount: 0,
     leaveCount: 0,
+    isCurrentLessonSelected: false,
     jumpCursor: {}
   },
 
@@ -267,6 +268,19 @@ Page({
 
   getAttendanceStatusLabel(status = "") {
     return this.getSignStatusLabel(String(status || "").trim() || "unsigned");
+  },
+
+  isSelectedCurrentLesson() {
+    const lessons = Array.isArray(this.data.lessons) ? this.data.lessons : [];
+    const selectedLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    const currentLessonId = String(lessons[0]?._id || "").trim();
+    return !!selectedLessonId && !!currentLessonId && selectedLessonId === currentLessonId;
+  },
+
+  canOperateAttendanceStatus(item = {}) {
+    if (!this.isSelectedCurrentLesson()) return false;
+    const status = String(item.status || "").trim() || "unsigned";
+    return status === "unsigned" || status === "leave_agree" || status === "absent";
   },
 
   getMatchedAttendanceDoc(student = {}) {
@@ -707,15 +721,25 @@ Page({
       : this.data.lessonEvents;
     const baseList = this.cloneBaseRosterList();
     const attendanceMergedList = this.mergeAttendanceIntoList(baseList, attendanceDocs);
-    const list = this.mergeInteractionIntoList(attendanceMergedList, lessonEvents);
+    const list = this.mergeInteractionIntoList(attendanceMergedList, lessonEvents).map((item) => ({
+      ...item,
+      canOperateAttendanceStatus: this.canOperateAttendanceStatus(item)
+    }));
+    const isCurrentLessonSelected = this.isSelectedCurrentLesson();
     const nextSignature = this.getAttendanceListSignature(list);
     const currentSignature = this.getAttendanceListSignature(this.data.list);
 
     if (nextSignature === currentSignature) {
+      if (this.data.isCurrentLessonSelected !== isCurrentLessonSelected) {
+        this.setData({ isCurrentLessonSelected });
+      }
       return list;
     }
 
-    this.setData({ list });
+    this.setData({
+      list,
+      isCurrentLessonSelected
+    });
     this.refreshSignedStudents();
     this.refreshExportDisabledState();
     this.refreshStats();
@@ -1457,6 +1481,7 @@ Page({
     const currentStatus = String(e.currentTarget.dataset.currentStatus || "").trim();
     const studentId = String(e.currentTarget.dataset.studentId || "").trim();
     const studentName = String(e.currentTarget.dataset.studentName || "").trim();
+    const canOperate = !!e.currentTarget.dataset.canOperate;
     const status = currentStatus === targetStatus ? "unsigned" : targetStatus;
 
     if (!targetStatus || !studentName) {
@@ -1464,6 +1489,10 @@ Page({
         title: "学生状态信息无效",
         icon: "none"
       });
+      return;
+    }
+
+    if (!canOperate) {
       return;
     }
 
@@ -1510,12 +1539,17 @@ Page({
     const requestId = String(e.currentTarget.dataset.requestId || "").trim();
     const studentId = String(e.currentTarget.dataset.studentId || "").trim();
     const studentName = String(e.currentTarget.dataset.studentName || "").trim();
+    const canOperate = !!e.currentTarget.dataset.canOperate;
 
     if (!requestId || !studentName) {
       wx.showToast({
         title: "请假申请无效",
         icon: "none"
       });
+      return;
+    }
+
+    if (!canOperate) {
       return;
     }
 
@@ -1814,19 +1848,32 @@ Page({
           .where({ lessonId })
           .get();
         const attendanceList = res.data || [];
-        const signedSet = new Set(
-          attendanceList
-            .map(item => String(item.studentId || "").trim())
-            .filter(Boolean)
-        );
+        const attendanceByStudentId = new Map();
+        const attendanceByName = new Map();
+
+        attendanceList.forEach((item) => {
+          const studentId = String(item.studentId || "").trim();
+          const studentName = String(item.studentName || "").trim();
+          if (studentId) attendanceByStudentId.set(studentId, item);
+          if (studentName) attendanceByName.set(studentName, item);
+        });
 
         detailList = roster.map((student) => {
           const studentId = String(student.studentId || student.id || "").trim();
           const name = String(student.name || student.studentName || "").trim();
+          const matchedAttendance =
+            (studentId && attendanceByStudentId.get(studentId)) ||
+            (name && attendanceByName.get(name)) ||
+            null;
+          const status = String(
+            matchedAttendance?.status ||
+            matchedAttendance?.attendanceStatus ||
+            "unsigned"
+          ).trim() || "unsigned";
           return {
             studentId,
             name,
-            status: signedSet.has(studentId) ? "signed" : "unsigned"
+            status
           };
         });
       } catch (err) {

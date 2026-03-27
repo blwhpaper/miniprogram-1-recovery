@@ -67,12 +67,14 @@
         />
         <view class="score-btn-group">
           <button
-            class="score-btn"
+            class="score-btn {{!isCurrentLessonSelected ? 'score-btn--disabled' : ''}}"
             size="mini"
             bindtap="onTapApproveLeaveRequest"
             data-request-id="{{item._id}}"
             data-student-id="{{item.studentId}}"
             data-student-name="{{item.studentName}}"
+            data-can-operate="{{isCurrentLessonSelected}}"
+            disabled="{{!isCurrentLessonSelected}}"
           >
             确认请假
           </button>
@@ -99,24 +101,28 @@
 
       <view class="btn-row">
         <button
-          class="btn {{item.status === 'leave_agree' ? 'on' : ''}}"
+          class="btn {{item.canOperateAttendanceStatus && item.status === 'leave_agree' ? 'on' : ''}} {{!item.canOperateAttendanceStatus ? 'btn--disabled' : ''}}"
           size="mini"
           bindtap="onTapSetAttendanceStatus"
           data-status="leave_agree"
           data-current-status="{{item.status}}"
           data-student-id="{{item.studentId}}"
           data-student-name="{{item.name}}"
+          data-can-operate="{{item.canOperateAttendanceStatus}}"
+          disabled="{{!item.canOperateAttendanceStatus}}"
         >
           {{item.status === 'leave_agree' ? '已请假' : '请假'}}
         </button>
         <button
-          class="btn {{item.status === 'absent' ? 'on' : ''}}"
+          class="btn {{item.canOperateAttendanceStatus && item.status === 'absent' ? 'on' : ''}} {{!item.canOperateAttendanceStatus ? 'btn--disabled' : ''}}"
           size="mini"
           bindtap="onTapSetAttendanceStatus"
           data-status="absent"
           data-current-status="{{item.status}}"
           data-student-id="{{item.studentId}}"
           data-student-name="{{item.name}}"
+          data-can-operate="{{item.canOperateAttendanceStatus}}"
+          disabled="{{!item.canOperateAttendanceStatus}}"
         >
           旷课
         </button>

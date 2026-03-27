@@ -1245,19 +1245,32 @@ Page({
           .where({ lessonId })
           .get();
         const attendanceList = res.data || [];
-        const signedSet = new Set(
-          attendanceList
-            .map(item => String(item.studentId || "").trim())
-            .filter(Boolean)
-        );
+        const attendanceByStudentId = new Map();
+        const attendanceByName = new Map();
+
+        attendanceList.forEach((item) => {
+          const studentId = String(item.studentId || "").trim();
+          const studentName = String(item.studentName || "").trim();
+          if (studentId) attendanceByStudentId.set(studentId, item);
+          if (studentName) attendanceByName.set(studentName, item);
+        });
 
         detailList = roster.map((student) => {
           const studentId = String(student.studentId || student.id || "").trim();
           const name = String(student.name || student.studentName || "").trim();
+          const matchedAttendance =
+            (studentId && attendanceByStudentId.get(studentId)) ||
+            (name && attendanceByName.get(name)) ||
+            null;
+          const status = String(
+            matchedAttendance?.status ||
+            matchedAttendance?.attendanceStatus ||
+            "unsigned"
+          ).trim() || "unsigned";
           return {
             studentId,
             name,
-            status: signedSet.has(studentId) ? "signed" : "unsigned"
+            status
           };
         });
       } catch (err) {
