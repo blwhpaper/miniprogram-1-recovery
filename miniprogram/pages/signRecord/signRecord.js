@@ -1692,18 +1692,13 @@ Page({
   },
 
   resolveInitialLessonId(lessons = []) {
-    const currentLessonId = String(this.data.lessonId || "").trim();
-    const selectedLessonId = String(this.data.selectedLessonId || "").trim();
-    const candidateLessonId = selectedLessonId || currentLessonId;
-
-    if (candidateLessonId) {
-      const matched = lessons.some((lesson) => String(lesson._id || "").trim() === candidateLessonId);
-      if (matched || lessons.length === 0) {
-        return candidateLessonId;
-      }
+    if (lessons.length > 0) {
+      return String(lessons[0]?._id || "").trim();
     }
 
-    return String(lessons[0]?._id || "").trim();
+    const currentLessonId = String(this.data.lessonId || "").trim();
+    const selectedLessonId = String(this.data.selectedLessonId || "").trim();
+    return String(selectedLessonId || currentLessonId || "").trim();
   },
 
   async switchLesson(lessonId) {
