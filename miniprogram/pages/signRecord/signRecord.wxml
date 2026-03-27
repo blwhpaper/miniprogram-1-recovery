@@ -32,7 +32,7 @@
             bindtap="onSelectLesson"
             data-lesson-id="{{item._id}}"
           >
-            <text class="lesson-item-title">课次 {{index + 1}}</text>
+            <text class="lesson-item-title">课次 {{lessons.length - index}}</text>
             <text class="lesson-item-id">{{item._id}}</text>
           </view>
         </view>

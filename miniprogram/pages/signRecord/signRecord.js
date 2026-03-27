@@ -1832,13 +1832,37 @@ Page({
    * 重新计算统计数字
    */
   refreshStats() {
-    const list = this.data.list;
+    const list = Array.isArray(this.data.list) ? this.data.list : [];
+    const signCount = list.filter((i) => i.status === "signed").length;
+    const unsignCount = list.filter((i) => i.status === "unsigned").length;
+    const absentCount = list.filter((i) => i.status === "absent").length;
+    const waitCount = list.filter((i) => i.status === "leave_wait").length;
+    const leaveCount = list.filter((i) => i.status === "leave_agree").length;
+    const currentStats = this.data.currentStats
+      ? {
+        ...this.data.currentStats,
+        lessonId: String(
+          this.data.currentStats.lessonId ||
+          this.data.selectedLessonId ||
+          this.data.lessonId ||
+          ""
+        ).trim(),
+        rosterCount: Number(this.data.currentStats.rosterCount || list.length || 0),
+        signedCount: signCount,
+        unsignedCount: unsignCount,
+        absentCount,
+        leaveWaitCount: waitCount,
+        leaveAgreeCount: leaveCount
+      }
+      : null;
+
     this.setData({
-      signCount: list.filter(i => i.status === "signed").length,
-      unsignCount: list.filter(i => i.status === "unsigned").length,
-      absentCount: list.filter(i => i.status === "absent").length,
-      waitCount: list.filter(i => i.status === "leave_wait").length,
-      leaveCount: list.filter(i => i.status === "leave_agree").length,
+      signCount,
+      unsignCount,
+      absentCount,
+      waitCount,
+      leaveCount,
+      currentStats
     });
   },
 

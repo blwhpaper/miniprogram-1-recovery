@@ -938,10 +938,6 @@ Page({
     ].join(":");
   },
 
-  getSignStatusLabel(status) {
-    return status === "signed" ? "已签到" : "未签到";
-  },
-
   async onTapRandomRollcall() {
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
     if (!lessonId) {
