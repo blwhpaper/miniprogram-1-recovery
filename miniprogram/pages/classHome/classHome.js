@@ -1,16 +1,154 @@
+const db = wx.cloud.database()
+
 Page({
   data: {
     classId: "",
     lessonId: "",
-    qrcode: ""
+    qrcode: "",
+    debugAppEnv: "",
+    debugCreateLessonEnv: "",
+    debugCreateSignCodeEnv: "",
+    debugLessonVerifyText: "",
+    debugQrScene: ""
+  },
+
+  restoringCurrentLessonQr: false,
+
+  getQrCodeStorageKey(classId = "", lessonId = "") {
+    const normalizedClassId = String(classId || "").trim()
+    const normalizedLessonId = String(lessonId || "").trim()
+    if (!normalizedClassId || !normalizedLessonId) return ""
+    return `LATEST_QRCODE_${normalizedClassId}_${normalizedLessonId}`
+  },
+
+  getCachedQrCode(classId = "", lessonId = "") {
+    const storageKey = this.getQrCodeStorageKey(classId, lessonId)
+    if (!storageKey) return ""
+    return String(wx.getStorageSync(storageKey) || "").trim()
+  },
+
+  cacheQrCode(classId = "", lessonId = "", qrcode = "") {
+    const storageKey = this.getQrCodeStorageKey(classId, lessonId)
+    const normalizedQrCode = String(qrcode || "").trim()
+    if (!storageKey || !normalizedQrCode) return
+    wx.setStorageSync(storageKey, normalizedQrCode)
+  },
+
+  clearCachedQrCode(classId = "", lessonId = "") {
+    const storageKey = this.getQrCodeStorageKey(classId, lessonId)
+    if (!storageKey) return
+    wx.removeStorageSync(storageKey)
   },
 
   onLoad(options) {
     const classId = String(options.classId || options.id || "").trim()
+    const app = getApp()
 
     this.setData({
-      classId
+      classId,
+      debugAppEnv: String(app?.globalData?.env || "").trim()
     })
+
+    this.restoreCurrentLessonQr()
+  },
+
+  onShow() {
+    this.restoreCurrentLessonQr()
+  },
+
+  async getActiveLessonById(lessonId = "") {
+    const normalizedLessonId = String(lessonId || "").trim()
+    if (!normalizedLessonId) return null
+
+    try {
+      const res = await db.collection("lessons").doc(normalizedLessonId).get()
+      const lesson = res.data || null
+      if (!lesson) return null
+      return String(lesson.status || "").trim() === "active" ? lesson : null
+    } catch (err) {
+      console.warn("[classHome] getActiveLessonById failed", {
+        lessonId: normalizedLessonId,
+        err
+      })
+      return null
+    }
+  },
+
+  async buildQrCodeForLesson(lessonId = "") {
+    const normalizedLessonId = String(lessonId || "").trim()
+    const classId = String(this.data.classId || "").trim()
+    if (!normalizedLessonId) return false
+
+    const qrRes = await wx.cloud.callFunction({
+      name: "createSignCode",
+      data: { lessonId: normalizedLessonId }
+    })
+
+    if (!qrRes.result || !qrRes.result.success || !qrRes.result.buffer) {
+      throw new Error(qrRes.result?.err?.message || "生成签到码失败")
+    }
+
+    const qrScene = String(qrRes.result?.scene || "").trim()
+    if (qrScene && qrScene !== normalizedLessonId) {
+      throw new Error("二维码参数与当前课次 id 不一致")
+    }
+
+    const base64 = wx.arrayBufferToBase64(qrRes.result.buffer)
+    const imgUrl = "data:image/png;base64," + base64
+
+    this.setData({
+      lessonId: normalizedLessonId,
+      qrcode: imgUrl,
+      debugCreateSignCodeEnv: String(qrRes.result?.env || "").trim(),
+      debugQrScene: qrScene
+    })
+    this.cacheQrCode(classId, normalizedLessonId, imgUrl)
+
+    return true
+  },
+
+  async restoreCurrentLessonQr() {
+    const classId = String(this.data.classId || "").trim()
+    if (!classId || this.data.qrcode || this.restoringCurrentLessonQr) return
+
+    const cachedLessonId = String(
+      this.data.lessonId || wx.getStorageSync(`LATEST_LESSON_${classId}`) || ""
+    ).trim()
+    if (!cachedLessonId) return
+
+    this.restoringCurrentLessonQr = true
+
+    try {
+      const lesson = await this.getActiveLessonById(cachedLessonId)
+      if (!lesson) {
+        wx.removeStorageSync(`LATEST_LESSON_${classId}`)
+        this.clearCachedQrCode(classId, cachedLessonId)
+        this.setData({
+          lessonId: "",
+          qrcode: ""
+        })
+        return
+      }
+
+      const activeLessonId = String(lesson._id || cachedLessonId).trim()
+      const cachedQrCode = this.getCachedQrCode(classId, activeLessonId)
+      if (cachedQrCode) {
+        this.setData({
+          lessonId: activeLessonId,
+          qrcode: cachedQrCode
+        })
+        return
+      }
+
+      this.setData({
+        lessonId: activeLessonId
+      })
+      await this.buildQrCodeForLesson(activeLessonId)
+    } catch (err) {
+      console.error("[classHome] restoreCurrentLessonQr failed", err)
+    } finally {
+      this.restoringCurrentLessonQr = false
+    }
   },
 
   /**
@@ -43,23 +181,21 @@ Page({
       if (!lessonId) {
         throw new Error("创建课程成功但未返回 lessonId")
       }
+      console.log("[classHome] createLesson result", {
+        lessonId,
+        result: lessonRes.result || null
+      })
       wx.setStorageSync(`LATEST_LESSON_${classId}`, lessonId)
-      this.setData({ lessonId })
-
-      // 第二步：使用 lessonId 生成二维码（云端鉴权并绑定参数）
-      const qrRes = await wx.cloud.callFunction({
-        name: "createSignCode",
-        data: { lessonId: lessonId }
+      this.setData({
+        lessonId,
+        debugCreateLessonEnv: String(lessonRes.result?.env || "").trim(),
+        debugLessonVerifyText: lessonRes.result?.verifyExists
+          ? `verify=yes classId=${String(lessonRes.result?.verifyClassId || "").trim() || "-"} status=${String(lessonRes.result?.verifyStatus || "").trim() || "-"}`
+          : "verify=no"
       })
 
-      if (!qrRes.result || !qrRes.result.success || !qrRes.result.buffer) {
-        throw new Error(qrRes.result?.err?.message || "生成签到码失败")
-      }
-
-      const base64 = wx.arrayBufferToBase64(qrRes.result.buffer)
-      const imgUrl = "data:image/png;base64," + base64
-
-      this.setData({ qrcode: imgUrl })
+      // 第二步：使用 lessonId 生成二维码（云端鉴权并绑定参数）
+      await this.buildQrCodeForLesson(lessonId)
       wx.hideLoading()
       wx.showToast({ title: "签到已开启", icon: "success" })
 
