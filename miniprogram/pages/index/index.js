@@ -83,56 +83,73 @@ Page({
     title: "",
     content: "",
   },
-  hasStudentEntryRedirected: false,
+  hasHomeRedirected: false,
 
-  resolveStudentEntryTarget() {
+  buildStudentHomeUrl(params = {}) {
+    const queryParams = [];
+    const lessonId = String(params.lessonId || "").trim();
+    const scene = String(params.scene || "").trim();
+    const q = String(params.q || "").trim();
+
+    if (lessonId) {
+      queryParams.push(`lessonId=${encodeURIComponent(lessonId)}`);
+    } else if (scene) {
+      queryParams.push(`scene=${encodeURIComponent(scene)}`);
+    } else if (q) {
+      queryParams.push(`q=${encodeURIComponent(q)}`);
+    }
+
+    return queryParams.length
+      ? `/pages/studentHome/studentHome?${queryParams.join("&")}`
+      : "/pages/studentHome/studentHome";
+  },
+
+  resolveHomeTarget() {
     const app = getApp();
     const launchOptions = app && app.globalData
       ? app.globalData.launchEntryOptions || {}
       : {};
     const query = launchOptions.query || {};
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
     const lessonId = String(query.lessonId || "").trim();
     const scene = String(query.scene || "").trim();
     const q = String(query.q || "").trim();
     const pendingLessonId = String(wx.getStorageSync("pendingLessonId") || "").trim();
-    const params = [];
+    const studentEntryParams = {
+      lessonId: lessonId || pendingLessonId,
+      scene,
+      q
+    };
 
-    if (lessonId) {
-      params.push(`lessonId=${encodeURIComponent(lessonId)}`);
-    } else if (scene) {
-      params.push(`scene=${encodeURIComponent(scene)}`);
-    } else if (q) {
-      params.push(`q=${encodeURIComponent(q)}`);
-    } else if (pendingLessonId) {
-      params.push(`lessonId=${encodeURIComponent(pendingLessonId)}`);
+    if (currentTeacher) {
+      return "/pages/classManager/classManager";
     }
 
-    if (params.length === 0) return "";
-    return `/pages/studentHome/studentHome?${params.join("&")}`;
+    return this.buildStudentHomeUrl(studentEntryParams);
   },
 
-  redirectStudentEntryIfNeeded() {
-    if (this.hasStudentEntryRedirected) return;
+  redirectHomeIfNeeded() {
+    if (this.hasHomeRedirected) return;
 
-    const targetUrl = this.resolveStudentEntryTarget();
+    const targetUrl = this.resolveHomeTarget();
     if (!targetUrl) return;
 
-    this.hasStudentEntryRedirected = true;
+    this.hasHomeRedirected = true;
     wx.reLaunch({
       url: targetUrl,
       fail: (err) => {
-        this.hasStudentEntryRedirected = false;
-        console.error("[index] redirect student entry failed", err);
+        this.hasHomeRedirected = false;
+        console.error("[index] redirect home failed", err);
       }
     });
   },
 
   onLoad() {
-    this.redirectStudentEntryIfNeeded();
+    this.redirectHomeIfNeeded();
   },
 
   onShow() {
-    this.redirectStudentEntryIfNeeded();
+    this.redirectHomeIfNeeded();
   },
 
   onClickPowerInfo(e) {

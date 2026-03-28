@@ -4,12 +4,22 @@ Page({
   },
 
   onLoad() {
+    this.ensureTeacherSession()
     this.loadClasses()
+  },
+
+  ensureTeacherSession() {
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
+    if (currentTeacher) return currentTeacher
+
+    const fallbackTeacher = "default"
+    wx.setStorageSync("CURRENT_TEACHER", fallbackTeacher)
+    return fallbackTeacher
   },
 
   // 按当前老师加载班级（数据隔离）
   loadClasses() {
-    let teacher = wx.getStorageSync("CURRENT_TEACHER") || "default"
+    let teacher = this.ensureTeacherSession()
     let list = wx.getStorageSync("CLASS_LIST_" + teacher) || [
       { id: "C1", name: "智控2501" },
       { id: "C2", name: "智控2502" },
@@ -20,7 +30,7 @@ Page({
 
   // 保存（按老师隔离）
   saveClasses(list) {
-    let teacher = wx.getStorageSync("CURRENT_TEACHER") || "default"
+    let teacher = this.ensureTeacherSession()
     wx.setStorageSync("CLASS_LIST_" + teacher, list)
     this.setData({ classList: list })
   },
