@@ -2,6 +2,10 @@ const db = wx.cloud.database();
 const _ = db.command;
 
 Page({
+  currentEntryLessonId: "",
+  lastEntrySyncMeta: null,
+  lastPendingClearReason: "",
+
   data: {
     lessonId: "",
     classId: "",
@@ -18,8 +22,30 @@ Page({
     currentLessonScoreText: "",
     currentLessonScoreBreakdownText: "",
     showLessonScoreSummary: false,
-    statusText: "当前暂无进行中的课堂",
-    summaryText: "老师发起签到后，你可以从这里继续进入当前课堂。",
+    pageLeadText: "当前课入口",
+    statusText: "当前课状态同步中",
+    summaryText: "正在刷新当前课与入口状态，请稍候。",
+    debugEntryLessonId: "",
+    debugPendingLessonId: "",
+    debugResolvedLessonId: "",
+    debugLessonAccessState: "",
+    debugLessonResolveMode: "",
+    debugCloudExists: "",
+    debugCloudAttendanceStatus: "",
+    debugCloudModeOn: "on",
+    debugCloudResult: "",
+    debugCloudRequestLessonId: "",
+    debugCloudResolvedBy: "",
+    debugDidSyncEntryPending: "no",
+    debugPendingWriteValue: "",
+    debugPendingReadBackValue: "",
+    debugPendingSource: "none",
+    debugLastPendingClearReason: "",
+    debugClearReason: "",
+    debugRawErrCode: "",
+    debugRawError: "",
+    debugRawMessage: "",
+    debugRawErrMsg: "",
     lessonEntryText: "",
     lessonEntryMode: "lesson",
     showLessonEntryButton: false,
@@ -30,11 +56,149 @@ Page({
     return String(wx.getStorageSync("pendingLessonId") || "").trim();
   },
 
+  getLaunchEntryParams() {
+    const app = getApp();
+    const launchOptions = app && app.globalData
+      ? app.globalData.launchEntryOptions || {}
+      : {};
+    const query = launchOptions.query || {};
+    return {
+      lessonId: String(query.lessonId || "").trim(),
+      scene: String(query.scene || "").trim(),
+      q: String(query.q || "").trim()
+    };
+  },
+
+  parseLessonIdFromOptions(options = {}) {
+    const safeDecode = (value = "") => {
+      let result = String(value || "");
+      for (let i = 0; i < 2; i += 1) {
+        try {
+          const decoded = decodeURIComponent(result);
+          if (decoded === result) break;
+          result = decoded;
+        } catch (err) {
+          break;
+        }
+      }
+      return result;
+    };
+
+    const getLessonIdFromQuery = (value = "") => {
+      const decodedValue = safeDecode(value).trim();
+      if (!decodedValue) return "";
+
+      const queryString = decodedValue.includes("?")
+        ? decodedValue.split("?")[1]
+        : decodedValue;
+      const params = {};
+
+      queryString.split("&").forEach((item) => {
+        if (!item) return;
+        const [rawKey = "", ...rest] = item.split("=");
+        params[safeDecode(rawKey)] = safeDecode(rest.join("="));
+      });
+
+      return params.lessonId || params.scene || "";
+    };
+
+    const directLessonId = safeDecode(options.lessonId || "").trim();
+    if (directLessonId) return directLessonId;
+
+    const scene = safeDecode(options.scene || "").trim();
+    if (scene) {
+      if (scene.includes("=") || scene.includes("&")) {
+        return getLessonIdFromQuery(scene);
+      }
+      return scene;
+    }
+
+    const q = safeDecode(options.q || "").trim();
+    if (q) {
+      if (q.includes("lessonId=") || q.includes("scene=") || q.includes("?")) {
+        return getLessonIdFromQuery(q);
+      }
+      return q;
+    }
+
+    return "";
+  },
+
+  syncPendingLessonIdFromEntry(options = {}) {
+    const launchEntryParams = this.getLaunchEntryParams();
+    const mergedOptions = {
+      ...launchEntryParams,
+      ...options
+    };
+    const parsedLessonId = this.parseLessonIdFromOptions(mergedOptions);
+    let didSyncEntryPending = "no";
+    let pendingWriteValue = "";
+
+    if (parsedLessonId) {
+      pendingWriteValue = parsedLessonId;
+      this.currentEntryLessonId = parsedLessonId;
+      wx.setStorageSync("pendingLessonId", parsedLessonId);
+      didSyncEntryPending = "yes";
+    } else if (this.currentEntryLessonId) {
+      pendingWriteValue = this.currentEntryLessonId;
+    }
+    const pendingReadBackValue = this.getPendingLessonId();
+    this.lastEntrySyncMeta = {
+      didSyncEntryPending,
+      pendingWriteValue,
+      pendingReadBackValue
+    };
+    return parsedLessonId || this.currentEntryLessonId || "";
+  },
+
   clearPendingLessonIdIfMatch(lessonId = "") {
     const normalizedLessonId = String(lessonId || "").trim();
     if (!normalizedLessonId) return;
     if (this.getPendingLessonId() !== normalizedLessonId) return;
     wx.removeStorageSync("pendingLessonId");
+    this.lastPendingClearReason = this.lastPendingClearReason || "clearPendingLessonIdIfMatch";
+  },
+
+  getLessonErrorDebug(err) {
+    return {
+      rawErrCode: String(err?.errCode ?? "").trim(),
+      rawError: String(err?.error || "").trim(),
+      rawMessage: String(err?.message || "").trim(),
+      rawErrMsg: String(err?.errMsg || "").trim()
+    };
+  },
+
+  getLessonNotFoundReason(err) {
+    const errorDebug = this.getLessonErrorDebug(err);
+    const candidates = [
+      ["error", errorDebug.rawError],
+      ["message", errorDebug.rawMessage],
+      ["errMsg", errorDebug.rawErrMsg]
+    ];
+
+    for (let i = 0; i < candidates.length; i += 1) {
+      const [field, rawValue] = candidates[i];
+      const value = String(rawValue || "").toLowerCase();
+      if (!value) continue;
+
+      if (value.includes("document with _id") && value.includes("does not exist")) {
+        return `${field}:document_with_id_does_not_exist`;
+      }
+
+      if (value.includes("document not exists")) {
+        return `${field}:document_not_exists`;
+      }
+
+      if (value.includes("document not exist")) {
+        return `${field}:document_not_exist`;
+      }
+
+      if (value.includes("cannot find document")) {
+        return `${field}:cannot_find_document`;
+      }
+    }
+
+    return "";
   },
 
   async getReadableLesson(lessonId = "", logLabel = "") {
@@ -51,6 +215,151 @@ Page({
       });
       this.clearPendingLessonIdIfMatch(normalizedLessonId);
       return null;
+    }
+  },
+
+  async inspectCurrentLessonCandidate(lessonId = "", logLabel = "") {
+    const normalizedLessonId = String(lessonId || "").trim();
+    if (!normalizedLessonId) {
+      return {
+        lessonId: "",
+        lesson: null,
+        accessState: "empty",
+        clearReason: "",
+        errorDebug: this.getLessonErrorDebug(null)
+      };
+    }
+
+    try {
+      const lessonRes = await db.collection("lessons").doc(normalizedLessonId).get();
+      return {
+        lessonId: normalizedLessonId,
+        lesson: lessonRes.data || null,
+        accessState: lessonRes.data ? "readable" : "empty",
+        clearReason: lessonRes.data ? "readable" : "empty",
+        errorDebug: this.getLessonErrorDebug(null)
+      };
+    } catch (err) {
+      const errorDebug = this.getLessonErrorDebug(err);
+      const notFoundReason = this.getLessonNotFoundReason(err);
+      console.warn(`[studentHome] ${logLabel || "inspectCurrentLessonCandidate"} lesson access fallback`, {
+        lessonId: normalizedLessonId,
+        err,
+        errorDebug,
+        notFoundReason
+      });
+
+      if (notFoundReason) {
+        this.lastPendingClearReason = `inspect:${notFoundReason}`;
+        this.clearPendingLessonIdIfMatch(normalizedLessonId);
+        return {
+          lessonId: "",
+          lesson: null,
+          accessState: "missing",
+          clearReason: `clear_pending:${notFoundReason}`,
+          errorDebug
+        };
+      }
+
+      return {
+        lessonId: normalizedLessonId,
+        lesson: null,
+        accessState: "opaque",
+        clearReason: "keep_pending:uncertain_read_error",
+        errorDebug
+      };
+    }
+  },
+
+  async resolveCurrentLessonByClass(classId = "") {
+    const normalizedClassId = String(classId || "").trim();
+    if (!normalizedClassId) return null;
+
+    try {
+      const res = await db.collection("lessons")
+        .where({
+          classId: normalizedClassId,
+          status: "active"
+        })
+        .get();
+      const lessons = Array.isArray(res.data) ? res.data : [];
+      if (lessons.length === 0) return null;
+
+      const getLessonTimestamp = (item = {}) => {
+        const rawValue = item.startTime || item.createdAt;
+        if (!rawValue) return 0;
+        if (typeof rawValue?.toDate === "function") {
+          const date = rawValue.toDate();
+          return date instanceof Date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+        }
+        const date = rawValue instanceof Date ? rawValue : new Date(rawValue);
+        return date instanceof Date && !Number.isNaN(date.getTime()) ? date.getTime() : 0;
+      };
+
+      lessons.sort((left, right) => {
+        return getLessonTimestamp(right) - getLessonTimestamp(left);
+      });
+
+      return lessons[0] || null;
+    } catch (err) {
+      console.warn("[studentHome] resolveCurrentLessonByClass failed", {
+        classId: normalizedClassId,
+        err
+      });
+      return null;
+    }
+  },
+
+  async syncCurrentUser() {
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "getMyUser"
+      });
+      const result = res.result || {};
+      if (result.success && result.bound && result.user) {
+        wx.setStorageSync("currentUser", result.user);
+        return result.user;
+      }
+      if (result.success && !result.bound) {
+        wx.removeStorageSync("currentUser");
+        return null;
+      }
+    } catch (err) {
+      console.warn("[studentHome] syncCurrentUser failed", err);
+    }
+
+    return wx.getStorageSync("currentUser") || null;
+  },
+
+  async resolveStudentLessonEntryByCloud({ lessonId = "", classId = "" } = {}) {
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "resolveStudentLessonEntry",
+        data: {
+          lessonId: String(lessonId || "").trim(),
+          classId: String(classId || "").trim()
+        }
+      });
+      const result = res.result || {};
+      if (!result.success) {
+        console.warn("[studentHome] resolveStudentLessonEntryByCloud failed", result);
+      }
+      return result;
+    } catch (err) {
+      console.warn("[studentHome] resolveStudentLessonEntryByCloud failed", err);
+      return {
+        success: false,
+        exists: false,
+        readable: false,
+        lessonId: "",
+        classId: String(classId || "").trim(),
+        lessonStatus: "",
+        attendanceStatus: "",
+        canEnterCurrentLesson: false,
+        statusHint: "error",
+        resolvedBy: "error",
+        notFound: false
+      };
     }
   },
 
@@ -387,39 +696,64 @@ Page({
     }
   },
 
-  async rebuildHomeState() {
-    const currentUser = wx.getStorageSync("currentUser") || null;
+  async rebuildHomeState(currentUserInput = undefined, options = {}) {
+    const currentUser = currentUserInput !== undefined
+      ? currentUserInput
+      : (wx.getStorageSync("currentUser") || null);
     const name = String(currentUser?.name || "").trim();
     const studentId = String(currentUser?.studentId || "").trim();
     const classId = String(currentUser?.classId || "").trim();
     const hasBoundStudentSession = !!(currentUser && name && studentId);
-    const pendingLessonId = this.getPendingLessonId();
-    const safePendingLesson = pendingLessonId
-      ? await this.getReadableLesson(pendingLessonId, "rebuildHomeState")
-      : null;
-    const safePendingLessonId = safePendingLesson ? pendingLessonId : "";
-    const currentLeaveRequestResult = hasBoundStudentSession
+    const entryLessonId = String(options.entryLessonId || "").trim();
+    const storagePendingLessonId = this.getPendingLessonId();
+    const retainedEntryLessonId = String(this.currentEntryLessonId || "").trim();
+    const pendingLessonId = String(
+      storagePendingLessonId ||
+      entryLessonId ||
+      retainedEntryLessonId ||
+      ""
+    ).trim();
+    const pendingSource = storagePendingLessonId
+      ? "storage"
+      : pendingLessonId
+        ? "entry"
+        : "none";
+    const cloudLessonEntry = await this.resolveStudentLessonEntryByCloud({
+      lessonId: pendingLessonId,
+      classId
+    });
+    const cloudResolvedLessonId = String(
+      cloudLessonEntry?.exists && cloudLessonEntry?.canEnterCurrentLesson
+        ? cloudLessonEntry.lessonId || ""
+        : ""
+    ).trim();
+    const cloudAttendanceStatus = String(cloudLessonEntry?.attendanceStatus || "").trim();
+    const currentLeaveRequestResult = hasBoundStudentSession && !cloudResolvedLessonId
       ? await this.loadCurrentLeaveRequestResult({
-        lessonId: safePendingLessonId,
+        lessonId: "",
         applicantStudentId: studentId
       })
       : null;
     const resolvedLessonId = String(
       currentLeaveRequestResult?.lessonId ||
-      safePendingLessonId ||
+      cloudResolvedLessonId ||
       ""
     ).trim();
 
     if (resolvedLessonId && resolvedLessonId !== pendingLessonId) {
       wx.setStorageSync("pendingLessonId", resolvedLessonId);
-    } else if (!resolvedLessonId && pendingLessonId) {
+      this.currentEntryLessonId = resolvedLessonId;
+    } else if (!resolvedLessonId && pendingLessonId && cloudLessonEntry?.notFound) {
+      this.lastPendingClearReason = "rebuild:cloud_not_found";
       this.clearPendingLessonIdIfMatch(pendingLessonId);
     }
 
-    const currentLessonAttendanceStatus = await this.loadCurrentLessonAttendanceStatus({
-      lessonId: resolvedLessonId,
-      studentId
-    });
+    const currentLessonAttendanceStatus = resolvedLessonId
+      ? (cloudAttendanceStatus || await this.loadCurrentLessonAttendanceStatus({
+        lessonId: resolvedLessonId,
+        studentId
+      }))
+      : "unsigned";
     const currentLessonScoreSummary = await this.loadCurrentLessonScoreSummary({
       lessonId: resolvedLessonId,
       studentId,
@@ -431,7 +765,8 @@ Page({
     const currentLeaveRequestTargetName = String(currentLeaveRequestResult?.requestedStudentName || "").trim();
 
     let statusText = "当前暂无进行中的课堂";
-    let summaryText = "老师发起签到后，你可以从这里继续进入当前课堂。";
+    let summaryText = "当前没有可继续进入的课堂，老师发起后会直接显示在这里。";
+    let pageLeadText = "当前课入口";
     let lessonEntryText = "";
     let lessonEntryMode = "lesson";
     let showLessonEntryButton = false;
@@ -446,6 +781,7 @@ Page({
       );
 
       if (shouldShowLeaveResultEntry) {
+        pageLeadText = "当前课状态";
         const leaveResultText = currentLessonAttendanceStatus === "leave_agree"
           ? "已请假"
           : currentLeaveRequestStatusText;
@@ -460,38 +796,50 @@ Page({
         lessonEntryMode = "leave_result";
         showLessonEntryButton = true;
       } else if (currentLessonAttendanceStatus === "absent") {
+        pageLeadText = "当前课状态";
         statusText = "当前课次状态：旷课";
         summaryText = "本节课已被老师标记为旷课，当前不可签到或参与互动。";
-        lessonEntryText = "查看当前课堂";
+        lessonEntryText = "继续进入当前课堂";
         showLessonEntryButton = true;
       } else if (currentLessonAttendanceStatus === "leave_wait") {
+        pageLeadText = "当前课状态";
         statusText = "当前课次状态：待审批";
         summaryText = "当前请假状态待审批，暂不可继续签到或互动。";
-        lessonEntryText = "查看当前课堂";
+        lessonEntryText = "继续进入当前课堂";
         showLessonEntryButton = true;
       } else {
-        statusText = "当前有一节待进入的课堂";
+        pageLeadText = hasSignedCurrentLesson
+          ? "当前课状态"
+          : "当前课状态";
+        statusText = hasSignedCurrentLesson
+          ? "当前课次状态：已签到，可继续进入"
+          : "当前课次状态：可进入当前课";
         summaryText = hasSignedCurrentLesson
-          ? "你已完成签到，可从这里进入本节课或继续发起主动提问。"
+          ? "你已完成签到，可继续进入当前课堂或发起主动提问。"
           : "你可以进入本节课，完成签到后再参与课堂互动。";
-        lessonEntryText = hasSignedCurrentLesson ? "进入当前课堂" : "进入当前签到";
+        lessonEntryText = "继续进入当前课堂";
         showLessonEntryButton = true;
         showQuestionEntryButton = hasSignedCurrentLesson;
       }
     } else if (!hasBoundStudentSession && resolvedLessonId) {
-      statusText = "当前有一节待进入的课堂";
+      pageLeadText = "当前课入口";
+      statusText = "当前课次状态：可进入当前课";
       summaryText = "进入后可继续完成学生身份绑定和本次签到。";
-      lessonEntryText = "进入当前签到";
+      lessonEntryText = "继续进入当前课堂";
       showLessonEntryButton = true;
     } else if (hasBoundStudentSession) {
-      summaryText = "你的学生身份已就绪。老师发起签到后，你可以从这里快速进入。";
+      pageLeadText = "当前课入口";
+      statusText = "当前暂无进行中的课堂";
+      summaryText = "当前没有可继续进入的课堂，老师发起后会直接显示在这里。";
     } else {
-      summaryText = "当前还没有可继续进入的课堂。老师发起签到后，你可以扫码进入。";
+      pageLeadText = "当前课入口";
+      statusText = "当前暂无进行中的课堂";
+      summaryText = "当前没有可继续进入的课堂，请等待老师发起或重新扫码进入。";
     }
 
     this.setData({
       lessonId: resolvedLessonId,
-      classId,
+      classId: String(cloudLessonEntry?.classId || classId || "").trim(),
       name,
       studentId,
       hasBoundStudentSession,
@@ -501,12 +849,38 @@ Page({
       currentLessonScoreText: currentLessonScoreSummary.lessonScoreText,
       currentLessonScoreBreakdownText: currentLessonScoreSummary.lessonScoreBreakdownText,
       showLessonScoreSummary: currentLessonScoreSummary.showLessonScoreSummary,
+      pageLeadText,
       hasSignedCurrentLesson,
       currentLeaveRequestStatus,
       currentLeaveRequestStatusText,
       currentLeaveRequestTargetName,
       statusText,
       summaryText,
+      debugEntryLessonId: entryLessonId,
+      debugPendingLessonId: this.getPendingLessonId(),
+      debugResolvedLessonId: resolvedLessonId,
+      debugLessonAccessState: cloudLessonEntry?.exists
+        ? "cloud_exists"
+        : cloudLessonEntry?.notFound
+          ? "cloud_missing"
+          : "cloud_empty",
+      debugLessonResolveMode: "cloud",
+      debugCloudExists: String(!!cloudLessonEntry?.exists),
+      debugCloudAttendanceStatus: cloudAttendanceStatus,
+      debugCloudModeOn: "on",
+      debugCloudResult: String(cloudLessonEntry?.success ? "success" : "fail"),
+      debugCloudRequestLessonId: pendingLessonId,
+      debugCloudResolvedBy: String(cloudLessonEntry?.resolvedBy || "").trim(),
+      debugDidSyncEntryPending: String(this.lastEntrySyncMeta?.didSyncEntryPending || "no"),
+      debugPendingWriteValue: String(this.lastEntrySyncMeta?.pendingWriteValue || ""),
+      debugPendingReadBackValue: String(this.lastEntrySyncMeta?.pendingReadBackValue || ""),
+      debugPendingSource: pendingSource,
+      debugLastPendingClearReason: String(this.lastPendingClearReason || ""),
+      debugClearReason: String(cloudLessonEntry?.statusHint || "").trim(),
+      debugRawErrCode: "",
+      debugRawError: "",
+      debugRawMessage: String(cloudLessonEntry?.msg || "").trim(),
+      debugRawErrMsg: "",
       lessonEntryText,
       lessonEntryMode,
       showLessonEntryButton,
@@ -537,13 +911,17 @@ Page({
     }
   },
 
-  async onLoad() {
-    await this.rebuildHomeState();
+  async onLoad(options = {}) {
+    const entryLessonId = this.syncPendingLessonIdFromEntry(options);
+    const currentUser = await this.syncCurrentUser();
+    await this.rebuildHomeState(currentUser, { entryLessonId });
     this.redirectToTeacherHomeIfNeeded();
   },
 
   async onShow() {
-    await this.rebuildHomeState();
+    const entryLessonId = this.syncPendingLessonIdFromEntry();
+    const currentUser = await this.syncCurrentUser();
+    await this.rebuildHomeState(currentUser, { entryLessonId });
     this.redirectToTeacherHomeIfNeeded();
   },
 
@@ -556,8 +934,8 @@ Page({
 
     const entryMode = String(this.data.lessonEntryMode || "lesson").trim();
     const url = entryMode === "leave_result"
-      ? `/pages/studentSign/studentSign?lessonId=${encodeURIComponent(lessonId)}&entryMode=leave_result`
-      : `/pages/studentSign/studentSign?lessonId=${encodeURIComponent(lessonId)}`;
+      ? `/pages/studentSign/studentSign?lessonId=${encodeURIComponent(lessonId)}&entryMode=leave_result&source=student_home`
+      : `/pages/studentSign/studentSign?lessonId=${encodeURIComponent(lessonId)}&source=student_home`;
 
     wx.navigateTo({
       url,
