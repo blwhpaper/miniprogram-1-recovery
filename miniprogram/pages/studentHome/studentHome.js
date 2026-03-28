@@ -1,4 +1,5 @@
 const db = wx.cloud.database();
+const _ = db.command;
 
 Page({
   data: {
@@ -8,10 +9,15 @@ Page({
     studentId: "",
     hasBoundStudentSession: false,
     currentLessonAttendanceStatus: "unsigned",
+    currentLessonAttendanceStatusText: "未签到",
     hasSignedCurrentLesson: false,
     currentLeaveRequestStatus: "",
     currentLeaveRequestStatusText: "",
     currentLeaveRequestTargetName: "",
+    currentLessonAttendanceScoreText: "",
+    currentLessonScoreText: "",
+    currentLessonScoreBreakdownText: "",
+    showLessonScoreSummary: false,
     statusText: "当前暂无进行中的课堂",
     summaryText: "老师发起签到后，你可以从这里继续进入当前课堂。",
     lessonEntryText: "",
@@ -68,6 +74,181 @@ Page({
       closed: "已关闭"
     };
     return map[normalizedStatus] || "";
+  },
+
+  getAttendanceStatusLabel(status = "") {
+    const normalizedStatus = String(status || "").trim();
+    const map = {
+      signed: "已签到",
+      unsigned: "未签到",
+      absent: "旷课",
+      leave_wait: "待审批",
+      leave_agree: "已请假"
+    };
+    return map[normalizedStatus || "unsigned"] || "未签到";
+  },
+
+  parseScore(value) {
+    if (value === "" || value === null || typeof value === "undefined") {
+      return null;
+    }
+
+    const score = Number(value);
+    return Number.isFinite(score) ? score : null;
+  },
+
+  formatScore(value) {
+    if (!Number.isFinite(value)) return "";
+    const fixedScore = Math.round(value * 100) / 100;
+    return Number.isInteger(fixedScore)
+      ? String(fixedScore)
+      : fixedScore.toFixed(2).replace(/\.?0+$/, "");
+  },
+
+  getAverageScore(scoreList = []) {
+    const validScores = (scoreList || []).filter((score) => Number.isFinite(score));
+    if (validScores.length === 0) return null;
+    const total = validScores.reduce((sum, score) => sum + score, 0);
+    return Math.round((total / validScores.length) * 100) / 100;
+  },
+
+  buildLessonScoreDetail(status = "", options = {}) {
+    const normalizedStatus = String(status || "").trim();
+    const answerScoreAvg = Number.isFinite(options.answerScoreAvg) ? options.answerScoreAvg : null;
+    const questionScoreAvg = Number.isFinite(options.questionScoreAvg) ? options.questionScoreAvg : null;
+    const testScoreAvg = Number.isFinite(options.testScoreAvg) ? options.testScoreAvg : null;
+
+    if (normalizedStatus === "leave_agree") {
+      return {
+        attendanceScoreText: "60",
+        lessonScoreText: "60",
+        lessonScoreBreakdownText: "请假60"
+      };
+    }
+
+    if (normalizedStatus === "absent") {
+      return {
+        attendanceScoreText: "0",
+        lessonScoreText: "0",
+        lessonScoreBreakdownText: "旷课0"
+      };
+    }
+
+    const applicableItems = [];
+    if (normalizedStatus === "signed") {
+      applicableItems.push({
+        label: "到课",
+        score: 80
+      });
+    }
+    if (Number.isFinite(answerScoreAvg)) {
+      applicableItems.push({
+        label: "随机点名",
+        score: answerScoreAvg
+      });
+    }
+    if (Number.isFinite(questionScoreAvg)) {
+      applicableItems.push({
+        label: "主动提问",
+        score: questionScoreAvg
+      });
+    }
+    if (Number.isFinite(testScoreAvg)) {
+      applicableItems.push({
+        label: "随堂测试",
+        score: testScoreAvg
+      });
+    }
+
+    if (applicableItems.length === 0) {
+      return {
+        attendanceScoreText: normalizedStatus === "signed" ? "80" : "",
+        lessonScoreText: "",
+        lessonScoreBreakdownText: ""
+      };
+    }
+
+    const lessonScore = this.getAverageScore(applicableItems.map((item) => item.score));
+    return {
+      attendanceScoreText: normalizedStatus === "signed" ? "80" : "",
+      lessonScoreText: this.formatScore(lessonScore),
+      lessonScoreBreakdownText: applicableItems
+        .map((item) => `${item.label}${this.formatScore(item.score)}`)
+        .join(" / ")
+    };
+  },
+
+  async loadCurrentLessonScoreSummary({ lessonId = "", studentId = "", attendanceStatus = "" } = {}) {
+    if (!lessonId || !studentId) {
+      return {
+        attendanceStatusText: this.getAttendanceStatusLabel(attendanceStatus),
+        attendanceScoreText: "",
+        lessonScoreText: "",
+        lessonScoreBreakdownText: "",
+        showLessonScoreSummary: false
+      };
+    }
+
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          studentId,
+          type: _.in(["answer_score", "question_score", "test_record"])
+        })
+        .get();
+      const lessonEvents = Array.isArray(res.data) ? res.data : [];
+      const answerScores = [];
+      const questionScores = [];
+      const testScores = [];
+
+      lessonEvents.forEach((item) => {
+        const score = this.parseScore(item.score);
+        if (!Number.isFinite(score)) return;
+
+        if (item.type === "answer_score") {
+          answerScores.push(score);
+          return;
+        }
+
+        if (item.type === "question_score") {
+          questionScores.push(score);
+          return;
+        }
+
+        if (item.type === "test_record") {
+          testScores.push(score);
+        }
+      });
+
+      const scoreDetail = this.buildLessonScoreDetail(attendanceStatus, {
+        answerScoreAvg: this.getAverageScore(answerScores),
+        questionScoreAvg: this.getAverageScore(questionScores),
+        testScoreAvg: this.getAverageScore(testScores)
+      });
+
+      return {
+        attendanceStatusText: this.getAttendanceStatusLabel(attendanceStatus),
+        attendanceScoreText: scoreDetail.attendanceScoreText,
+        lessonScoreText: scoreDetail.lessonScoreText,
+        lessonScoreBreakdownText: scoreDetail.lessonScoreBreakdownText,
+        showLessonScoreSummary: Boolean(
+          this.getAttendanceStatusLabel(attendanceStatus) ||
+          scoreDetail.attendanceScoreText ||
+          scoreDetail.lessonScoreText ||
+          scoreDetail.lessonScoreBreakdownText
+        )
+      };
+    } catch (err) {
+      console.error("[studentHome] loadCurrentLessonScoreSummary failed", err);
+      return {
+        attendanceStatusText: this.getAttendanceStatusLabel(attendanceStatus),
+        attendanceScoreText: "",
+        lessonScoreText: "",
+        lessonScoreBreakdownText: "",
+        showLessonScoreSummary: Boolean(attendanceStatus)
+      };
+    }
   },
 
   getLeaveRequestEventTimestamp(item = {}) {
@@ -239,6 +420,11 @@ Page({
       lessonId: resolvedLessonId,
       studentId
     });
+    const currentLessonScoreSummary = await this.loadCurrentLessonScoreSummary({
+      lessonId: resolvedLessonId,
+      studentId,
+      attendanceStatus: currentLessonAttendanceStatus
+    });
     const hasSignedCurrentLesson = currentLessonAttendanceStatus === "signed";
     const currentLeaveRequestStatus = String(currentLeaveRequestResult?.requestStatus || "").trim();
     const currentLeaveRequestStatusText = String(currentLeaveRequestResult?.requestStatusText || "").trim();
@@ -310,6 +496,11 @@ Page({
       studentId,
       hasBoundStudentSession,
       currentLessonAttendanceStatus,
+      currentLessonAttendanceStatusText: currentLessonScoreSummary.attendanceStatusText,
+      currentLessonAttendanceScoreText: currentLessonScoreSummary.attendanceScoreText,
+      currentLessonScoreText: currentLessonScoreSummary.lessonScoreText,
+      currentLessonScoreBreakdownText: currentLessonScoreSummary.lessonScoreBreakdownText,
+      showLessonScoreSummary: currentLessonScoreSummary.showLessonScoreSummary,
       hasSignedCurrentLesson,
       currentLeaveRequestStatus,
       currentLeaveRequestStatusText,

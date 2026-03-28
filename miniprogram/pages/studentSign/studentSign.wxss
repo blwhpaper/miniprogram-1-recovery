@@ -106,7 +106,8 @@
 }
 
 .leave-summary,
-.leave-result {
+.leave-result,
+.leave-result-card {
   margin-top: 20rpx;
   padding: 20rpx 24rpx;
   background: #fafafa;

@@ -36,11 +36,31 @@ page {
 }
 
 .info-block,
-.lesson-block {
+.lesson-block,
+.summary-block {
   margin-top: 28rpx;
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+}
+
+.summary-block {
+  padding: 24rpx 28rpx;
+  border-radius: 20rpx;
+  background: #f9fafb;
+  color: #1f2937;
+}
+
+.summary-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.summary-tip {
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: #6b7280;
 }
 
 .action-block {

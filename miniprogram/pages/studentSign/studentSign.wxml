@@ -9,7 +9,20 @@
     </button>
   </view>
 
-  <view wx:if="{{hasBoundStudentSession && !signSuccess && !shouldGoRegister}}">
+  <view wx:if="{{isLeaveResultView && hasBoundStudentSession && !shouldGoRegister}}" class="leave-box">
+    <text class="tip">本课请假结果</text>
+    <view class="leave-result-card">
+      <view>代提交人：{{name}}</view>
+      <view wx:if="{{ownLeaveResultTargetName}}">请假对象：{{ownLeaveResultTargetName}}</view>
+      <view>处理结果：{{ownLeaveResultStatusText || '-'}}</view>
+      <view wx:if="{{ownLeaveResultTimeText}}">结果时间：{{ownLeaveResultTimeText}}</view>
+    </view>
+    <view class="leave-feedback {{ownLeaveResultStatusText === '已请假' ? 'leave-feedback--matched' : ownLeaveResultStatusText === '待审批' ? 'leave-feedback--idle' : 'leave-feedback--not_found'}}">
+      {{ownLeaveResultTipText}}
+    </view>
+  </view>
+
+  <view wx:if="{{!isLeaveResultView && hasBoundStudentSession && !signSuccess && !shouldGoRegister}}">
     <view class="leave-box">
       <text class="tip">当前状态：{{attendanceStatusText}}</text>
       <view wx:if="{{attendanceStatus === 'leave_agree'}}">本节课已被老师标记为请假，当前无需签到。</view>
@@ -24,7 +37,7 @@
     <button wx:if="{{attendanceStatus !== 'leave_agree' && attendanceStatus !== 'absent' && attendanceStatus !== 'leave_wait'}}" type="primary" bindtap="submitSign">确认签到</button>
   </view>
 
-  <view wx:if="{{canInteract}}">
+  <view wx:if="{{!isLeaveResultView && canInteract}}">
     <view class="leave-box">
       <text class="tip">当前状态：已签到，可参与课堂互动</text>
       <view wx:if="{{currentSingleChoiceTest}}">当前可用入口：单选题作答</view>

@@ -9,6 +9,16 @@
       <view>学号：{{studentId}}</view>
     </view>
 
+    <view wx:if="{{hasBoundStudentSession && showLessonScoreSummary}}" class="summary-block">
+      <view class="summary-title">本课汇总</view>
+      <view>出勤状态：{{currentLessonAttendanceStatusText || '-'}}</view>
+      <view>出勤分：{{currentLessonAttendanceScoreText || '-'}}</view>
+      <view>课堂积分：{{currentLessonScoreText || '-'}}</view>
+      <view wx:if="{{currentLessonScoreBreakdownText}}" class="summary-tip">
+        积分构成：{{currentLessonScoreBreakdownText}}
+      </view>
+    </view>
+
     <view class="lesson-block">
       <view class="tip">{{summaryText}}</view>
     </view>
