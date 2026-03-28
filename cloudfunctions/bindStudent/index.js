@@ -130,6 +130,13 @@ exports.main = async (event) => {
         }
       }
 
+      await db.collection('users').doc(existingUser._id).update({
+        data: {
+          lessonId,
+          classId
+        }
+      })
+
       return {
         success: true,
         msg: '已完成绑定',
@@ -149,6 +156,8 @@ exports.main = async (event) => {
       role: 'student',
       studentId,
       name,
+      lessonId,
+      classId,
       bound: true,
       bindTime: db.serverDate()
     }
