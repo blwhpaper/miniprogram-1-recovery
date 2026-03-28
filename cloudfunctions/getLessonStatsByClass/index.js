@@ -27,12 +27,16 @@ async function getAllByQuery(collectionName, whereQuery, pageSize = 100) {
 
 exports.main = async (event) => {
   const classId = String(event.classId || '').trim()
+  const lessonId = String(event.lessonId || '').trim()
+  const includeHistory = event.includeHistory !== false
 
   if (!classId) {
     return {
       success: false,
       msg: 'classId is required',
-      stats: []
+      stats: [],
+      currentStats: null,
+      historyIncluded: includeHistory
     }
   }
 
@@ -40,6 +44,57 @@ exports.main = async (event) => {
     const classRes = await db.collection('classes').doc(classId).get()
     const roster = Array.isArray(classRes.data?.roster) ? classRes.data.roster : []
     const rosterCount = roster.length
+
+    if (!includeHistory && lessonId) {
+      const [lessonRes, attendanceList] = await Promise.all([
+        db.collection('lessons').doc(lessonId).get(),
+        getAllByQuery('attendance', { lessonId })
+      ])
+
+      const lessonCount = {
+        signedCount: 0,
+        absentCount: 0,
+        leaveWaitCount: 0,
+        leaveAgreeCount: 0
+      }
+
+      ;(attendanceList || []).forEach((item) => {
+        const status = String(item.status || item.attendanceStatus || 'unsigned').trim() || 'unsigned'
+
+        if (status === 'signed') {
+          lessonCount.signedCount += 1
+        } else if (status === 'absent') {
+          lessonCount.absentCount += 1
+        } else if (status === 'leave_wait') {
+          lessonCount.leaveWaitCount += 1
+        } else if (status === 'leave_agree') {
+          lessonCount.leaveAgreeCount += 1
+        }
+      })
+
+      const signedCount = Number(lessonCount.signedCount || 0)
+      const absentCount = Number(lessonCount.absentCount || 0)
+      const leaveWaitCount = Number(lessonCount.leaveWaitCount || 0)
+      const leaveAgreeCount = Number(lessonCount.leaveAgreeCount || 0)
+      const accountedCount = signedCount + absentCount + leaveWaitCount + leaveAgreeCount
+      const unsignedCount = Math.max(rosterCount - accountedCount, 0)
+
+      return {
+        success: true,
+        stats: [],
+        currentStats: {
+          lessonId,
+          startTime: lessonRes.data?.startTime || null,
+          rosterCount,
+          signedCount,
+          unsignedCount,
+          absentCount,
+          leaveWaitCount,
+          leaveAgreeCount
+        },
+        historyIncluded: false
+      }
+    }
 
     const lessonsRes = await db.collection('lessons')
       .where({ classId })
@@ -112,13 +167,19 @@ exports.main = async (event) => {
 
     return {
       success: true,
-      stats
+      stats,
+      currentStats: lessonId
+        ? (stats.find((item) => String(item.lessonId || '').trim() === lessonId) || null)
+        : null,
+      historyIncluded: true
     }
   } catch (err) {
     return {
       success: false,
       msg: '系统错误: ' + err.message,
-      stats: []
+      stats: [],
+      currentStats: null,
+      historyIncluded: includeHistory
     }
   }
 }

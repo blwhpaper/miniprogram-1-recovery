@@ -44,6 +44,9 @@ Page({
   latestAttendanceDocs: [],
   recentAnswerScoreKeys: new Set(),
   isInitializing: false,
+  statsRequestKey: "",
+  statsRequestPromise: null,
+  historyStatsLoadedClassId: "",
 
   normalizeRosterItem(student) {
     if (typeof student === "string") {
@@ -200,7 +203,7 @@ Page({
         this.refreshSignedStudents();
         this.refreshExportDisabledState();
         this.refreshStats();
-        void this.loadStats();
+        void this.loadStats({ includeHistory: false });
       }
     } finally {
       this.isInitializing = false;
@@ -208,47 +211,119 @@ Page({
     }
   },
 
-  async loadStats() {
+  async loadStats(options = {}) {
     const classId = String(this.data.classId || "").trim();
-    const lessonId = String(this.data.lessonId || this.data.selectedLessonId || "").trim();
+    const lessonId = String(
+      options.lessonId ||
+      this.data.lessonId ||
+      this.data.selectedLessonId ||
+      ""
+    ).trim();
+    const includeHistory = options.includeHistory !== false;
     if (!classId) return;
+
+    const requestKey = `${classId}::${lessonId}::${includeHistory ? "history" : "current"}`;
+    const currentStatsLessonId = String(this.data.currentStats?.lessonId || "").trim();
+    const hasHistoryStats =
+      this.historyStatsLoadedClassId === classId &&
+      Array.isArray(this.data.stats) &&
+      this.data.stats.length > 0;
+
+    if (!includeHistory && lessonId && currentStatsLessonId === lessonId) {
+      return this.data.currentStats;
+    }
+
+    if (includeHistory && hasHistoryStats) {
+      return this.data.stats;
+    }
+
+    if (this.statsRequestPromise && this.statsRequestKey === requestKey) {
+      return this.statsRequestPromise;
+    }
 
     this.setData({ statsLoading: true });
     this.refreshExportDisabledState();
-    try {
+    const requestPromise = (async () => {
+      try {
       const res = await wx.cloud.callFunction({
         name: "getLessonStatsByClass",
-        data: { classId }
+        data: {
+          classId,
+          lessonId,
+          includeHistory
+        }
       });
 
+      if (this.statsRequestPromise !== requestPromise) {
+        return null;
+      }
+
       if (res.result && res.result.success) {
-        const stats = Array.isArray(res.result.stats) ? res.result.stats : [];
-        const currentStats =
-          stats.find(item => String(item.lessonId || "").trim() === lessonId) || null;
+        const historyIncluded = res.result.historyIncluded !== false;
+        const nextStats = historyIncluded
+          ? (Array.isArray(res.result.stats) ? res.result.stats : [])
+          : this.data.stats;
+        const activeLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+        const currentStats = historyIncluded
+          ? (res.result.currentStats ||
+            nextStats.find(item => String(item.lessonId || "").trim() === activeLessonId) || null)
+          : (activeLessonId === lessonId
+            ? (res.result.currentStats || null)
+            : this.data.currentStats || null);
+
+        if (historyIncluded) {
+          this.historyStatsLoadedClassId = classId;
+        }
 
         this.setData({
-          stats,
+          stats: nextStats,
           currentStats
         });
         this.refreshExportDisabledState();
+        return currentStats;
       } else {
-        this.setData({
+        if (includeHistory) {
+          this.historyStatsLoadedClassId = "";
+        }
+        this.setData(includeHistory
+          ? {
+            stats: [],
+            currentStats: null
+          }
+          : {
+            currentStats: null
+          });
+        this.refreshExportDisabledState();
+        return null;
+      }
+      } catch (err) {
+      console.error("[signRecord] loadStats failed", err);
+      if (includeHistory) {
+        this.historyStatsLoadedClassId = "";
+      }
+      this.setData(includeHistory
+        ? {
           stats: [],
           currentStats: null
+        }
+        : {
+          currentStats: null
         });
-        this.refreshExportDisabledState();
+      this.refreshExportDisabledState();
+      return null;
+      } finally {
+        if (this.statsRequestPromise === requestPromise) {
+          this.statsRequestPromise = null;
+          this.statsRequestKey = "";
+          this.setData({ statsLoading: false });
+          this.refreshExportDisabledState();
+        }
       }
-    } catch (err) {
-      console.error("[signRecord] loadStats failed", err);
-      this.setData({
-        stats: [],
-        currentStats: null
-      });
-      this.refreshExportDisabledState();
-    } finally {
-      this.setData({ statsLoading: false });
-      this.refreshExportDisabledState();
-    }
+    })();
+
+    this.statsRequestKey = requestKey;
+    this.statsRequestPromise = requestPromise;
+    return requestPromise;
   },
 
   escapeCsv(value) {
@@ -1816,7 +1891,7 @@ Page({
     let stats = Array.isArray(this.data.stats) ? this.data.stats : [];
 
     if (stats.length === 0) {
-      await this.loadStats();
+      await this.loadStats({ includeHistory: true });
       stats = Array.isArray(this.data.stats) ? this.data.stats : [];
     }
 
@@ -2072,7 +2147,10 @@ Page({
     this.startAttendancePolling(nextLessonId);
     void this.loadLessonEvents({ silent: true });
     this.startLessonEventPolling(nextLessonId);
-    void this.loadStats();
+    void this.loadStats({
+      lessonId: nextLessonId,
+      includeHistory: false
+    });
   },
 
   onSelectLesson(e) {
