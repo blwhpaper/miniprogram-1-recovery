@@ -365,7 +365,7 @@ Page({
 
   redirectToTeacherHomeIfNeeded() {
     const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
-    if (!currentTeacher) return;
+    if (!currentTeacher) return false;
 
     wx.reLaunch({
       url: "/pages/classManager/classManager",
@@ -373,6 +373,7 @@ Page({
         console.error("[studentHome] redirect classManager failed", err);
       }
     });
+    return true;
   },
 
   getLeaveRequestStatusLabel(status = "") {
@@ -912,17 +913,17 @@ Page({
   },
 
   async onLoad(options = {}) {
+    if (this.redirectToTeacherHomeIfNeeded()) return;
     const entryLessonId = this.syncPendingLessonIdFromEntry(options);
     const currentUser = await this.syncCurrentUser();
     await this.rebuildHomeState(currentUser, { entryLessonId });
-    this.redirectToTeacherHomeIfNeeded();
   },
 
   async onShow() {
+    if (this.redirectToTeacherHomeIfNeeded()) return;
     const entryLessonId = this.syncPendingLessonIdFromEntry();
     const currentUser = await this.syncCurrentUser();
     await this.rebuildHomeState(currentUser, { entryLessonId });
-    this.redirectToTeacherHomeIfNeeded();
   },
 
   enterCurrentLesson() {
