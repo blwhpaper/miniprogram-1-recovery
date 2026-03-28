@@ -5,6 +5,8 @@ Page({
     classId: "",
     lessonId: "",
     qrcode: "",
+    currentLessonStatusText: "当前暂无进行中的课堂",
+    showEndLessonButton: false,
     debugAppEnv: "",
     debugCreateLessonEnv: "",
     debugCreateSignCodeEnv: "",
@@ -13,6 +15,9 @@ Page({
   },
 
   restoringCurrentLessonQr: false,
+  lessonEndPromptTimer: null,
+  lessonAutoEndTimer: null,
+  currentLifecycleLessonId: "",
 
   getQrCodeStorageKey(classId = "", lessonId = "") {
     const normalizedClassId = String(classId || "").trim()
@@ -56,22 +61,101 @@ Page({
     this.restoreCurrentLessonQr()
   },
 
-  async getActiveLessonById(lessonId = "") {
+  onHide() {
+    this.clearLessonLifecycleTimers()
+  },
+
+  onUnload() {
+    this.clearLessonLifecycleTimers()
+  },
+
+  getLessonTimestamp(value) {
+    const rawValue = value && typeof value.toDate === "function" ? value.toDate() : value
+    const date = rawValue instanceof Date ? rawValue : new Date(rawValue)
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date.getTime() : 0
+  },
+
+  clearLessonLifecycleTimers() {
+    if (this.lessonEndPromptTimer) {
+      clearTimeout(this.lessonEndPromptTimer)
+    }
+    if (this.lessonAutoEndTimer) {
+      clearTimeout(this.lessonAutoEndTimer)
+    }
+    this.lessonEndPromptTimer = null
+    this.lessonAutoEndTimer = null
+    this.currentLifecycleLessonId = ""
+  },
+
+  async resolveCurrentLessonByCloud({ classId = "", lessonId = "" } = {}) {
+    const normalizedClassId = String(classId || "").trim()
     const normalizedLessonId = String(lessonId || "").trim()
-    if (!normalizedLessonId) return null
+    if (!normalizedClassId) {
+      return {
+        ok: false,
+        lesson: null,
+        reason: "invalid"
+      }
+    }
 
     try {
-      const res = await db.collection("lessons").doc(normalizedLessonId).get()
-      const lesson = res.data || null
-      if (!lesson) return null
-      return String(lesson.status || "").trim() === "active" ? lesson : null
-    } catch (err) {
-      console.warn("[classHome] getActiveLessonById failed", {
-        lessonId: normalizedLessonId,
-        err
+      const res = await wx.cloud.callFunction({
+        name: "resolveClassCurrentLesson",
+        data: {
+          classId: normalizedClassId,
+          lessonId: normalizedLessonId
+        }
       })
-      return null
+      const result = res.result || {}
+      if (!result.success) {
+        console.warn("[classHome] resolveCurrentLessonByCloud failed", result)
+        return {
+          ok: false,
+          lesson: null,
+          reason: "failed",
+          message: String(result.msg || "").trim()
+        }
+      }
+      return {
+        ok: true,
+        lesson: result.lesson || null,
+        reason: result.lesson ? "resolved" : "empty",
+        autoEndedLessonIds: Array.isArray(result.autoEndedLessonIds) ? result.autoEndedLessonIds : []
+      }
+    } catch (err) {
+      console.warn("[classHome] resolveCurrentLessonByCloud failed", err)
+      return {
+        ok: false,
+        lesson: null,
+        reason: "failed",
+        message: String(err?.message || err?.errMsg || "").trim()
+      }
     }
+  },
+
+  async tryRestoreQrByLessonId(lessonId = "") {
+    const normalizedLessonId = String(lessonId || "").trim()
+    const classId = String(this.data.classId || "").trim()
+    if (!normalizedLessonId || !classId) return false
+
+    const cachedQrCode = this.getCachedQrCode(classId, normalizedLessonId)
+    if (cachedQrCode) {
+      this.setData({
+        lessonId: normalizedLessonId,
+        qrcode: cachedQrCode,
+        currentLessonStatusText: "当前课进行中",
+        showEndLessonButton: true
+      })
+      return true
+    }
+
+    this.setData({
+      lessonId: normalizedLessonId,
+      currentLessonStatusText: "当前课进行中",
+      showEndLessonButton: true
+    })
+    await this.buildQrCodeForLesson(normalizedLessonId)
+    return true
   },
 
   async buildQrCodeForLesson(lessonId = "") {
@@ -107,43 +191,155 @@ Page({
     return true
   },
 
+  async endCurrentLesson({ lessonId = "", silent = false } = {}) {
+    const classId = String(this.data.classId || "").trim()
+    const normalizedLessonId = String(lessonId || this.data.lessonId || "").trim()
+    if (!classId || !normalizedLessonId) return false
+
+    try {
+      await db.collection("lessons").doc(normalizedLessonId).update({
+        data: {
+          status: "ended",
+          endTime: db.serverDate()
+        }
+      })
+      wx.removeStorageSync(`LATEST_LESSON_${classId}`)
+      this.clearCachedQrCode(classId, normalizedLessonId)
+      this.clearLessonLifecycleTimers()
+      this.setData({
+        lessonId: "",
+        qrcode: "",
+        currentLessonStatusText: "当前暂无进行中的课堂",
+        showEndLessonButton: false
+      })
+      if (!silent) {
+        wx.showToast({ title: "当前课已结束", icon: "success" })
+      }
+      return true
+    } catch (err) {
+      console.error("[classHome] endCurrentLesson failed", err)
+      if (!silent) {
+        wx.showToast({ title: "下课失败，请稍后重试", icon: "none" })
+      }
+      return false
+    }
+  },
+
+  scheduleLessonLifecycle(lesson = null) {
+    this.clearLessonLifecycleTimers()
+    const lessonId = String(lesson?._id || lesson?.lessonId || this.data.lessonId || "").trim()
+    if (!lessonId) return
+
+    const startTimestamp = this.getLessonTimestamp(lesson?.startTime || lesson?.createdAt)
+    if (!startTimestamp) return
+
+    const now = Date.now()
+    const promptDelay = startTimestamp + (100 * 60 * 1000) - now
+    const autoEndDelay = startTimestamp + (115 * 60 * 1000) - now
+
+    this.currentLifecycleLessonId = lessonId
+
+    if (promptDelay <= 0) {
+      this.promptEndLessonIfNeeded(lessonId)
+    } else {
+      this.lessonEndPromptTimer = setTimeout(() => {
+        this.promptEndLessonIfNeeded(lessonId)
+      }, promptDelay)
+    }
+
+    if (autoEndDelay <= 0) {
+      this.endCurrentLesson({ lessonId, silent: true })
+    } else {
+      this.lessonAutoEndTimer = setTimeout(() => {
+        this.endCurrentLesson({ lessonId, silent: true })
+      }, autoEndDelay)
+    }
+  },
+
+  promptEndLessonIfNeeded(lessonId = "") {
+    const normalizedLessonId = String(lessonId || "").trim()
+    if (!normalizedLessonId || normalizedLessonId !== String(this.data.lessonId || "").trim()) return
+
+    wx.showModal({
+      title: "提示下课",
+      content: "当前课已进行满 100 分钟，是否现在下课？",
+      confirmText: "立即下课",
+      cancelText: "暂不下课",
+      success: (res) => {
+        if (res.confirm) {
+          this.endCurrentLesson({ lessonId: normalizedLessonId })
+        }
+      }
+    })
+  },
+
   async restoreCurrentLessonQr() {
     const classId = String(this.data.classId || "").trim()
-    if (!classId || this.data.qrcode || this.restoringCurrentLessonQr) return
+    if (!classId || this.restoringCurrentLessonQr) return
 
-    const cachedLessonId = String(
-      this.data.lessonId || wx.getStorageSync(`LATEST_LESSON_${classId}`) || ""
-    ).trim()
-    if (!cachedLessonId) return
+    const cachedLessonId = String(this.data.lessonId || wx.getStorageSync(`LATEST_LESSON_${classId}`) || "").trim()
 
     this.restoringCurrentLessonQr = true
 
     try {
-      const lesson = await this.getActiveLessonById(cachedLessonId)
-      if (!lesson) {
-        wx.removeStorageSync(`LATEST_LESSON_${classId}`)
-        this.clearCachedQrCode(classId, cachedLessonId)
-        this.setData({
-          lessonId: "",
-          qrcode: ""
-        })
-        return
-      }
+      const resolveResult = await this.resolveCurrentLessonByCloud({
+        classId,
+        lessonId: cachedLessonId
+      })
 
-      const activeLessonId = String(lesson._id || cachedLessonId).trim()
-      const cachedQrCode = this.getCachedQrCode(classId, activeLessonId)
-      if (cachedQrCode) {
+      if (resolveResult.ok && resolveResult.lesson) {
+        const lesson = resolveResult.lesson
+        const activeLessonId = String(lesson._id || cachedLessonId).trim()
+        wx.setStorageSync(`LATEST_LESSON_${classId}`, activeLessonId)
+        const cachedQrCode = this.getCachedQrCode(classId, activeLessonId)
+        if (cachedQrCode) {
+          this.setData({
+            lessonId: activeLessonId,
+            qrcode: cachedQrCode,
+            currentLessonStatusText: "当前课进行中",
+            showEndLessonButton: true
+          })
+          this.scheduleLessonLifecycle(lesson)
+          return
+        }
+
         this.setData({
           lessonId: activeLessonId,
-          qrcode: cachedQrCode
+          currentLessonStatusText: "当前课进行中",
+          showEndLessonButton: true
         })
+        await this.buildQrCodeForLesson(activeLessonId)
+        this.scheduleLessonLifecycle(lesson)
         return
       }
 
-      this.setData({
-        lessonId: activeLessonId
-      })
-      await this.buildQrCodeForLesson(activeLessonId)
+      if (!resolveResult.ok && cachedLessonId) {
+        const restoredByLessonId = await this.tryRestoreQrByLessonId(cachedLessonId)
+        if (restoredByLessonId) {
+          wx.setStorageSync(`LATEST_LESSON_${classId}`, cachedLessonId)
+          return
+        }
+      }
+
+      if (!resolveResult.ok) {
+        console.warn("[classHome] restoreCurrentLessonQr fallback failed", resolveResult)
+        return
+      }
+
+      if (!resolveResult.lesson) {
+        if (cachedLessonId) {
+          wx.removeStorageSync(`LATEST_LESSON_${classId}`)
+          this.clearCachedQrCode(classId, cachedLessonId)
+        }
+        this.clearLessonLifecycleTimers()
+        this.setData({
+          lessonId: "",
+          qrcode: "",
+          currentLessonStatusText: "当前暂无进行中的课堂",
+          showEndLessonButton: false
+        })
+        return
+      }
     } catch (err) {
       console.error("[classHome] restoreCurrentLessonQr failed", err)
     } finally {
@@ -167,6 +363,20 @@ Page({
     wx.showLoading({ title: "正在开启签到...", mask: true })
 
     try {
+      const currentLessonResult = await this.resolveCurrentLessonByCloud({ classId })
+      const existedActiveLesson = currentLessonResult.ok ? currentLessonResult.lesson : null
+      if (existedActiveLesson) {
+        wx.setStorageSync(`LATEST_LESSON_${classId}`, String(existedActiveLesson._id || "").trim())
+        await this.restoreCurrentLessonQr()
+        wx.hideLoading()
+        wx.showToast({ title: "当前课进行中，已恢复二维码", icon: "none" })
+        return
+      }
+
+      if (!currentLessonResult.ok && String(currentLessonResult.reason || "").trim() === "failed") {
+        throw new Error(currentLessonResult.message || "当前课状态获取失败")
+      }
+
       // 第一步：在云端创建一节“课”（Lesson），获取唯一 ID
       const lessonRes = await wx.cloud.callFunction({
         name: "createLesson",
@@ -196,6 +406,14 @@ Page({
 
       // 第二步：使用 lessonId 生成二维码（云端鉴权并绑定参数）
       await this.buildQrCodeForLesson(lessonId)
+      this.setData({
+        currentLessonStatusText: "当前课进行中",
+        showEndLessonButton: true
+      })
+      this.scheduleLessonLifecycle({
+        _id: lessonId,
+        startTime: new Date()
+      })
       wx.hideLoading()
       wx.showToast({ title: "签到已开启", icon: "success" })
 
@@ -234,6 +452,26 @@ Page({
 
     wx.navigateTo({
       url: `/pages/classInteraction/classInteraction?classId=${classId}&lessonId=${lessonId}`
+    })
+  },
+
+  confirmEndCurrentLesson() {
+    const lessonId = String(this.data.lessonId || "").trim()
+    if (!lessonId) {
+      wx.showToast({ title: "当前没有进行中的课堂", icon: "none" })
+      return
+    }
+
+    wx.showModal({
+      title: "确认下课",
+      content: "下课后将结束当前课并收起二维码，是否继续？",
+      confirmText: "确认下课",
+      cancelText: "取消",
+      success: (res) => {
+        if (res.confirm) {
+          this.endCurrentLesson({ lessonId })
+        }
+      }
     })
   }
 })

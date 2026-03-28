@@ -1,5 +1,9 @@
 <button bindtap="createSignCode" type="primary">生成签到码</button>
 
+<view style="margin-top:20rpx;color:#666;">
+  {{currentLessonStatusText}}
+</view>
+
 <view wx:if="{{!qrcode}}" style="margin-top:30rpx;color:#999;">
   二维码将显示在这里
 </view>
@@ -21,3 +25,7 @@
   bindtap="goToClassInteraction">
   进入课堂互动
 </view>
+
+<button wx:if="{{showEndLessonButton}}" bindtap="confirmEndCurrentLesson" type="warn" style="margin-top:30rpx;">
+  下课
+</button>

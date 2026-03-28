@@ -119,12 +119,12 @@ Page({
     });
   },
 
-  buildStudentSignUrl() {
+  buildStudentHomeUrl() {
     const { lessonId } = this.resolveEntryParams();
     console.log("[register] navigate back lessonId =", lessonId);
     return lessonId
-      ? `/pages/studentSign/studentSign?lessonId=${encodeURIComponent(lessonId)}`
-      : "/pages/studentSign/studentSign";
+      ? `/pages/studentHome/studentHome?lessonId=${encodeURIComponent(lessonId)}`
+      : "/pages/studentHome/studentHome";
   },
 
   inputName(e) {
@@ -204,11 +204,11 @@ Page({
 
       wx.showModal({
         title: "绑定成功",
-        content: "绑定成功，正在返回签到页面",
+        content: "绑定成功，正在返回学生主页",
         showCancel: false,
         success: () => {
           wx.reLaunch({
-            url: this.buildStudentSignUrl()
+            url: this.buildStudentHomeUrl()
           });
         }
       });

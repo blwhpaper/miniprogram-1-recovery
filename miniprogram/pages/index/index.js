@@ -108,7 +108,7 @@ Page({
     }
 
     if (params.length === 0) return "";
-    return `/pages/studentSign/studentSign?${params.join("&")}`;
+    return `/pages/studentHome/studentHome?${params.join("&")}`;
   },
 
   redirectStudentEntryIfNeeded() {

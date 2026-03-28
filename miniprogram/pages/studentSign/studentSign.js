@@ -682,6 +682,7 @@ Page({
       ...options
     };
     const entryMode = String(mergedOptions.entryMode || "").trim();
+    const source = String(mergedOptions.source || "").trim();
 
     const hasRawEntryParams = !!String(
       mergedOptions.lessonId || mergedOptions.scene || mergedOptions.q || ""
@@ -705,6 +706,17 @@ Page({
         title: "进入失败",
         content: message,
         showCancel: false
+      });
+      return;
+    }
+
+    if (entryMode !== "leave_result" && source !== "student_home" && hasRawEntryParams) {
+      const homeUrl = `/pages/studentHome/studentHome?lessonId=${encodeURIComponent(finalLessonId)}`;
+      wx.reLaunch({
+        url: homeUrl,
+        fail: (err) => {
+          console.error("[studentSign] redirect studentHome failed", err);
+        }
       });
       return;
     }
@@ -1105,6 +1117,22 @@ Page({
       console.error("[studentSign] submitLeaveRequest failed", err);
       wx.showToast({ title: "请假申请失败，请稍后重试", icon: "none" });
     }
+  },
+
+  goLeaveRequestPage() {
+    const lessonId = this.resolveLessonId();
+    if (!lessonId) {
+      wx.showToast({ title: "当前没有可进入的课堂", icon: "none" });
+      return;
+    }
+
+    wx.navigateTo({
+      url: `/pages/studentLeave/studentLeave?lessonId=${encodeURIComponent(lessonId)}`,
+      fail: (err) => {
+        console.error("[studentSign] goLeaveRequestPage failed", err);
+        wx.showToast({ title: "未能打开请假申请页", icon: "none" });
+      }
+    });
   },
 
   getQuestionStudentKey() {
