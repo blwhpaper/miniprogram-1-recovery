@@ -6,6 +6,8 @@ Page({
     lessonId: "",
     classId: "",
     classRoster: [],
+    entryMode: "",
+    isLeaveResultView: false,
     name: "",
     studentId: "",
     signSuccess: false,
@@ -31,6 +33,14 @@ Page({
     leaveRequestLastSubmittedStatusText: "",
     leaveRequestLastSubmittedTimeText: "",
     leaveRequestLastSubmittedTitle: "",
+    ownLeaveResultStatus: "",
+    ownLeaveResultStatusText: "",
+    ownLeaveResultTimeText: "",
+    ownLeaveResultApplicantName: "",
+    ownLeaveResultApplicantId: "",
+    ownLeaveResultTargetId: "",
+    ownLeaveResultTargetName: "",
+    ownLeaveResultTipText: "",
     questionRequestCount: 0,
     hasPendingQuestionRequest: false,
     currentSingleChoiceTest: null,
@@ -105,6 +115,25 @@ Page({
     return map[normalizedStatus] || "已提交";
   },
 
+  getOwnLeaveResultStatusText(attendanceStatus = "", requestStatus = "") {
+    const normalizedAttendanceStatus = String(attendanceStatus || "").trim();
+    const normalizedRequestStatus = String(requestStatus || "").trim();
+
+    if (normalizedAttendanceStatus === "leave_agree" || normalizedRequestStatus === "approved") {
+      return "已请假";
+    }
+
+    if (normalizedRequestStatus === "pending") {
+      return "待审批";
+    }
+
+    if (normalizedRequestStatus === "closed") {
+      return "已关闭";
+    }
+
+    return "";
+  },
+
   formatSimpleDateTime(value) {
     const rawValue = value && typeof value.toDate === "function" ? value.toDate() : value;
     const date = rawValue instanceof Date ? rawValue : new Date(rawValue);
@@ -146,6 +175,62 @@ Page({
 
   getPendingLessonId() {
     return String(wx.getStorageSync("pendingLessonId") || "").trim();
+  },
+
+  clearPendingLessonIdIfMatch(lessonId = "") {
+    const normalizedLessonId = String(lessonId || "").trim();
+    if (!normalizedLessonId) return;
+    if (this.getPendingLessonId() !== normalizedLessonId) return;
+    wx.removeStorageSync("pendingLessonId");
+  },
+
+  applyInvalidLeaveResultState(message = "当前课次已失效，暂时无法查看本课请假结果。") {
+    this.clearTestPolling();
+    this.setData({
+      lessonId: "",
+      classId: "",
+      classRoster: [],
+      signSuccess: false,
+      attendanceStatus: "unsigned",
+      attendanceStatusText: "未签到",
+      canInteract: false,
+      canSubmitLeaveRequest: false,
+      leaveRequestLastSubmittedEventId: "",
+      leaveRequestLastSubmittedName: "",
+      leaveRequestLastSubmittedStatus: "",
+      leaveRequestLastSubmittedStatusText: "",
+      leaveRequestLastSubmittedTimeText: "",
+      leaveRequestLastSubmittedTitle: "",
+      ownLeaveResultStatus: "",
+      ownLeaveResultStatusText: "",
+      ownLeaveResultTimeText: "",
+      ownLeaveResultApplicantName: String(this.data.name || "").trim(),
+      ownLeaveResultApplicantId: String(this.data.studentId || "").trim(),
+      ownLeaveResultTargetId: "",
+      ownLeaveResultTargetName: "",
+      ownLeaveResultTipText: message,
+      currentSingleChoiceTest: null,
+      selectedSingleChoiceAnswer: "",
+      hasSubmittedCurrentTest: false,
+      currentTestRecord: null
+    });
+  },
+
+  async getReadableLesson(lessonId = "", logLabel = "") {
+    const normalizedLessonId = String(lessonId || "").trim();
+    if (!normalizedLessonId) return null;
+
+    try {
+      const lessonRes = await db.collection("lessons").doc(normalizedLessonId).get();
+      return lessonRes.data || null;
+    } catch (err) {
+      console.warn(`[studentSign] ${logLabel || "getReadableLesson"} skip invalid lesson`, {
+        lessonId: normalizedLessonId,
+        err
+      });
+      this.clearPendingLessonIdIfMatch(normalizedLessonId);
+      return null;
+    }
   },
 
   resolveLessonId() {
@@ -395,6 +480,104 @@ Page({
     }
   },
 
+  async loadOwnLeaveResult() {
+    const lessonId = this.resolveLessonId();
+    const applicantStudentId = String(this.data.studentId || "").trim();
+    const applicantStudentName = String(this.data.name || "").trim();
+
+    if (!lessonId || !applicantStudentId) {
+      this.setData({
+        ownLeaveResultStatus: "",
+        ownLeaveResultStatusText: "",
+        ownLeaveResultTimeText: "",
+        ownLeaveResultApplicantName: "",
+        ownLeaveResultApplicantId: "",
+        ownLeaveResultTargetId: "",
+        ownLeaveResultTargetName: "",
+        ownLeaveResultTipText: ""
+      });
+      return null;
+    }
+
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          type: "leave_request"
+        })
+        .limit(100)
+        .get();
+      const matched = (res.data || [])
+        .filter((item) => {
+          const payload = item?.payload || {};
+          return String(payload.applicantStudentId || "").trim() === applicantStudentId;
+        })
+        .sort((left, right) => this.getLeaveRequestEventTimestamp(right) - this.getLeaveRequestEventTimestamp(left))[0] || null;
+
+      if (!matched) {
+        this.setData({
+          ownLeaveResultStatus: "",
+          ownLeaveResultStatusText: "",
+          ownLeaveResultTimeText: "",
+          ownLeaveResultApplicantName: applicantStudentName,
+          ownLeaveResultApplicantId: applicantStudentId,
+          ownLeaveResultTargetId: "",
+          ownLeaveResultTargetName: "",
+          ownLeaveResultTipText: "当前没有可查看的本课请假结果。"
+        });
+        return null;
+      }
+
+      const payload = matched.payload || {};
+      const requestStatus = String(payload.status || "").trim() || "pending";
+      const requestedStudentId = String(payload.requestedStudentId || matched.studentId || "").trim();
+      const requestedStudentName = String(payload.requestedStudentName || matched.studentName || "").trim();
+      let requestedAttendanceStatus = "";
+
+      if (requestedStudentId) {
+        try {
+          const attendanceRes = await db.collection("attendance")
+            .where({
+              lessonId,
+              studentId: requestedStudentId
+            })
+            .limit(1)
+            .get();
+          const attendanceDoc = Array.isArray(attendanceRes.data) ? attendanceRes.data[0] || null : null;
+          requestedAttendanceStatus = String(
+            attendanceDoc?.status ||
+            attendanceDoc?.attendanceStatus ||
+            ""
+          ).trim();
+        } catch (err) {
+          console.error("[studentSign] loadOwnLeaveResult attendance failed", err);
+        }
+      }
+
+      const ownLeaveResultStatusText = this.getOwnLeaveResultStatusText(requestedAttendanceStatus, requestStatus);
+      const ownLeaveResultTipText = ownLeaveResultStatusText === "已请假"
+        ? `你代${requestedStudentName || "该学生"}提交的请假申请已通过`
+        : ownLeaveResultStatusText === "待审批"
+          ? `你代${requestedStudentName || "该学生"}提交的请假申请仍在等待老师处理`
+          : `你代${requestedStudentName || "该学生"}提交的请假申请已关闭`;
+
+      this.setData({
+        ownLeaveResultStatus: requestStatus,
+        ownLeaveResultStatusText,
+        ownLeaveResultTimeText: this.formatSimpleDateTime(payload.approvedAt || payload.submittedAt || matched.updatedAt || matched.createdAt),
+        ownLeaveResultApplicantName: String(payload.applicantStudentName || applicantStudentName).trim(),
+        ownLeaveResultApplicantId: String(payload.applicantStudentId || applicantStudentId).trim(),
+        ownLeaveResultTargetId: requestedStudentId,
+        ownLeaveResultTargetName: requestedStudentName,
+        ownLeaveResultTipText
+      });
+      return matched;
+    } catch (err) {
+      console.error("[studentSign] loadOwnLeaveResult failed", err);
+      return null;
+    }
+  },
+
   getLaunchEntryParams() {
     const app = getApp();
     const launchOptions = app && app.globalData
@@ -498,6 +681,7 @@ Page({
       ...launchEntryParams,
       ...options
     };
+    const entryMode = String(mergedOptions.entryMode || "").trim();
 
     const hasRawEntryParams = !!String(
       mergedOptions.lessonId || mergedOptions.scene || mergedOptions.q || ""
@@ -550,6 +734,8 @@ Page({
       this.setData({
         lessonId: finalLessonId,
         classId: currentUser.classId || "",
+        entryMode,
+        isLeaveResultView: entryMode === "leave_result",
         studentId: currentUser.studentId || "",
         signSuccess: false,
         attendanceStatus: "unsigned",
@@ -572,9 +758,14 @@ Page({
         return;
       }
 
-      await this.ensureLessonClassId();
+      const resolvedClassId = await this.ensureLessonClassId();
+      if (this.data.isLeaveResultView && !resolvedClassId) {
+        this.applyInvalidLeaveResultState();
+        return;
+      }
       await this.loadClassRoster();
       await this.restoreSignSuccessStatus();
+      await this.loadOwnLeaveResult();
       await this.loadLatestLeaveRequestSubmission("history");
       await this.loadCurrentSingleChoiceTest();
       this.startTestPolling();
@@ -591,9 +782,14 @@ Page({
       this.setData({ lessonId });
     }
     if (lessonId && this.data.studentId) {
-      await this.ensureLessonClassId();
+      const resolvedClassId = await this.ensureLessonClassId();
+      if (this.data.isLeaveResultView && !resolvedClassId) {
+        this.applyInvalidLeaveResultState();
+        return;
+      }
       await this.loadClassRoster();
       await this.restoreSignSuccessStatus();
+      await this.loadOwnLeaveResult();
       await this.loadLatestLeaveRequestSubmission("history");
       await this.loadCurrentSingleChoiceTest();
       this.startTestPolling();
@@ -925,27 +1121,26 @@ Page({
   async ensureLessonClassId() {
     const lessonId = this.resolveLessonId();
     const studentId = String(this.data.studentId || "").trim();
-    if (this.data.classId) {
-      if (lessonId && lessonId !== String(this.data.lessonId || "").trim()) {
-        this.setData({ lessonId });
-      }
-      return String(this.data.classId || "").trim();
-    }
-
     if (!lessonId) return "";
 
-    try {
-      const res = await db.collection("lessons").doc(lessonId).get();
-      const lessonClassId = String(res.data?.classId || "").trim();
-      if (lessonClassId) {
-        this.setData({
-          lessonId,
-          classId: lessonClassId
-        });
-        return lessonClassId;
+    const shouldValidateLesson = this.data.isLeaveResultView || !this.data.classId;
+    let lessonClassId = "";
+
+    if (shouldValidateLesson) {
+      const lesson = await this.getReadableLesson(lessonId, "ensureLessonClassId");
+      lessonClassId = String(lesson?.classId || "").trim();
+      if (!lesson) {
+        return "";
       }
-    } catch (err) {
-      console.error("[studentSign] ensureLessonClassId failed", err);
+    }
+
+    const nextClassId = lessonClassId || String(this.data.classId || "").trim();
+    if (nextClassId) {
+      this.setData({
+        lessonId,
+        classId: nextClassId
+      });
+      return nextClassId;
     }
 
     if (!studentId) return "";
@@ -1071,7 +1266,8 @@ Page({
     this.clearTestPolling();
     this.testPollingTimer = setInterval(() => {
       this.restoreSignSuccessStatus()
-        .then(() => this.loadCurrentSingleChoiceTest())
+        .then(() => this.loadOwnLeaveResult())
+        .then(() => this.data.isLeaveResultView ? null : this.loadCurrentSingleChoiceTest())
         .catch((err) => {
           console.error("[studentSign] polling refresh failed", err);
         });
@@ -1377,6 +1573,8 @@ Page({
     this.setData({
       classId: "",
       classRoster: [],
+      entryMode: "",
+      isLeaveResultView: false,
       name: "",
       studentId: "",
       signSuccess: false,
@@ -1397,6 +1595,14 @@ Page({
       leaveRequestLastSubmittedStatusText: "",
       leaveRequestLastSubmittedTimeText: "",
       leaveRequestLastSubmittedTitle: "",
+      ownLeaveResultStatus: "",
+      ownLeaveResultStatusText: "",
+      ownLeaveResultTimeText: "",
+      ownLeaveResultApplicantName: "",
+      ownLeaveResultApplicantId: "",
+      ownLeaveResultTargetId: "",
+      ownLeaveResultTargetName: "",
+      ownLeaveResultTipText: "",
       currentUser: null,
       shouldGoRegister: true,
       registerTipText: "你已退出当前学生身份，请重新绑定后再继续签到或互动",
