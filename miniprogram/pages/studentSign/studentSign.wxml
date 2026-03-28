@@ -34,16 +34,40 @@
 
     <view class="leave-box">
       <text class="tip">请假申请</text>
-      <view>当前为签到后代请假入口，请填写需请假的本班学生姓名。</view>
+      <view>当前入口用于帮本班其他学生提交请假。</view>
+      <view class="leave-step">1. 填写请假人姓名</view>
       <input
         class="leave-name-input"
         placeholder="请输入请假人姓名"
         value="{{leaveRequestTargetName}}"
         bindinput="onInputLeaveRequestTargetName"
       />
+      <view class="leave-feedback leave-feedback--{{leaveRequestTargetStatus}}">
+        {{leaveRequestTargetStatusText}}
+      </view>
+      <view class="leave-step">2. 上传假条图片</view>
       <button bindtap="chooseLeaveRequestImage">上传假条图片</button>
+      <view class="leave-feedback {{leaveRequestImageTempPath ? 'leave-feedback--matched' : 'leave-feedback--empty'}}">
+        {{leaveRequestImageTempPath ? '假条图片已选择，可继续提交' : '请上传本次请假的假条图片'}}
+      </view>
       <image wx:if="{{leaveRequestImageTempPath}}" class="leave-img" src="{{leaveRequestImageTempPath}}" mode="aspectFill" />
-      <button type="primary" bindtap="submitLeaveRequest">提交请假申请</button>
+      <view class="leave-step">3. 确认并提交</view>
+      <view class="leave-summary" wx:if="{{leaveRequestMatchedStudentName || leaveRequestImageTempPath}}">
+        <view>提交对象：{{leaveRequestMatchedStudentName || '待选择'}}</view>
+        <view>假条材料：{{leaveRequestImageTempPath ? '已上传' : '未上传'}}</view>
+      </view>
+      <button type="primary" bindtap="submitLeaveRequest" disabled="{{!canSubmitLeaveRequest || leaveRequestSubmitting}}" loading="{{leaveRequestSubmitting}}">
+        提交请假申请
+      </button>
+      <view class="leave-feedback {{canSubmitLeaveRequest ? 'leave-feedback--matched' : 'leave-feedback--empty'}}">
+        {{canSubmitLeaveRequest ? '信息已齐，可以提交' : '请先完成姓名匹配和假条上传'}}
+      </view>
+      <view wx:if="{{leaveRequestLastSubmittedName}}" class="leave-result">
+        <view class="leave-result__title">{{leaveRequestLastSubmittedTitle || '最近一次代提交记录'}}</view>
+        <view>提交对象：{{leaveRequestLastSubmittedName}}</view>
+        <view>当前记录：{{leaveRequestLastSubmittedStatusText}}</view>
+        <view wx:if="{{leaveRequestLastSubmittedTimeText}}">提交时间：{{leaveRequestLastSubmittedTimeText}}</view>
+      </view>
     </view>
 
     <view wx:if="{{currentSingleChoiceTest}}" class="leave-box">

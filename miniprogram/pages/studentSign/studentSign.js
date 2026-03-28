@@ -5,6 +5,7 @@ Page({
   data: {
     lessonId: "",
     classId: "",
+    classRoster: [],
     name: "",
     studentId: "",
     signSuccess: false,
@@ -16,8 +17,20 @@ Page({
     attendanceStatusText: "未签到",
     canInteract: false,
     leaveRequestTargetName: "",
+    leaveRequestTargetStatus: "empty",
+    leaveRequestTargetStatusText: "先填写需请假的本班学生姓名",
+    leaveRequestMatchedStudentId: "",
+    leaveRequestMatchedStudentName: "",
     leaveRequestImageTempPath: "",
     leaveRequestImageFileId: "",
+    leaveRequestSubmitting: false,
+    canSubmitLeaveRequest: false,
+    leaveRequestLastSubmittedEventId: "",
+    leaveRequestLastSubmittedName: "",
+    leaveRequestLastSubmittedStatus: "",
+    leaveRequestLastSubmittedStatusText: "",
+    leaveRequestLastSubmittedTimeText: "",
+    leaveRequestLastSubmittedTitle: "",
     questionRequestCount: 0,
     hasPendingQuestionRequest: false,
     currentSingleChoiceTest: null,
@@ -82,6 +95,55 @@ Page({
     return `leave-request/${lessonId}/${studentId}_${Date.now()}.${extension}`;
   },
 
+  getLeaveRequestStatusLabel(status = "") {
+    const normalizedStatus = String(status || "").trim() || "pending";
+    const map = {
+      pending: "已提交",
+      approved: "已确认",
+      closed: "已关闭"
+    };
+    return map[normalizedStatus] || "已提交";
+  },
+
+  formatSimpleDateTime(value) {
+    const rawValue = value && typeof value.toDate === "function" ? value.toDate() : value;
+    const date = rawValue instanceof Date ? rawValue : new Date(rawValue);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return "";
+    }
+
+    const pad = (num) => String(num).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  },
+
+  getLeaveRequestEventTimestamp(item = {}) {
+    const payload = item?.payload || {};
+    const candidateList = [payload.submittedAt, item.updatedAt, item.createdAt];
+
+    for (let i = 0; i < candidateList.length; i += 1) {
+      const rawValue = candidateList[i];
+      if (!rawValue) continue;
+
+      if (typeof rawValue?.toDate === "function") {
+        const date = rawValue.toDate();
+        if (date instanceof Date && !Number.isNaN(date.getTime())) {
+          return date.getTime();
+        }
+      }
+
+      if (rawValue instanceof Date && !Number.isNaN(rawValue.getTime())) {
+        return rawValue.getTime();
+      }
+
+      const date = new Date(rawValue);
+      if (!Number.isNaN(date.getTime())) {
+        return date.getTime();
+      }
+    }
+
+    return 0;
+  },
+
   getPendingLessonId() {
     return String(wx.getStorageSync("pendingLessonId") || "").trim();
   },
@@ -110,6 +172,227 @@ Page({
       studentId,
       studentName
     };
+  },
+
+  updateLeaveRequestTargetMatch(targetName = "") {
+    const requestedStudentNameInput = String(targetName || "").trim();
+    const classRoster = Array.isArray(this.data.classRoster) ? this.data.classRoster : [];
+    const applicantStudentId = String(this.data.studentId || "").trim();
+
+    if (!requestedStudentNameInput) {
+      this.setData({
+        leaveRequestTargetStatus: "empty",
+        leaveRequestTargetStatusText: "先填写需请假的本班学生姓名",
+        leaveRequestMatchedStudentId: "",
+        leaveRequestMatchedStudentName: "",
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestTargetStatus: "empty",
+          leaveRequestMatchedStudentName: "",
+          leaveRequestMatchedStudentId: ""
+        })
+      });
+      return null;
+    }
+
+    if (classRoster.length === 0) {
+      this.setData({
+        leaveRequestTargetStatus: "idle",
+        leaveRequestTargetStatusText: "班级名单加载中，请稍后",
+        leaveRequestMatchedStudentId: "",
+        leaveRequestMatchedStudentName: "",
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestTargetStatus: "idle",
+          leaveRequestMatchedStudentName: "",
+          leaveRequestMatchedStudentId: ""
+        })
+      });
+      return null;
+    }
+
+    const matchedStudents = classRoster.filter((item) => {
+      const rosterName = String(item?.name || "").trim();
+      return rosterName === requestedStudentNameInput;
+    });
+
+    if (matchedStudents.length === 0) {
+      this.setData({
+        leaveRequestTargetStatus: "not_found",
+        leaveRequestTargetStatusText: "未匹配到该学生，请确认姓名是否与班级名单一致",
+        leaveRequestMatchedStudentId: "",
+        leaveRequestMatchedStudentName: "",
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestTargetStatus: "not_found",
+          leaveRequestMatchedStudentName: "",
+          leaveRequestMatchedStudentId: ""
+        })
+      });
+      return null;
+    }
+
+    if (matchedStudents.length > 1) {
+      this.setData({
+        leaveRequestTargetStatus: "duplicate",
+        leaveRequestTargetStatusText: "班级中有同名学生，当前无法直接代提交，请联系老师处理",
+        leaveRequestMatchedStudentId: "",
+        leaveRequestMatchedStudentName: "",
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestTargetStatus: "duplicate",
+          leaveRequestMatchedStudentName: "",
+          leaveRequestMatchedStudentId: ""
+        })
+      });
+      return null;
+    }
+
+    const matchedStudent = matchedStudents[0] || {};
+    const requestedStudentId = String(
+      matchedStudent?.studentId || matchedStudent?.id || ""
+    ).trim();
+    const requestedStudentName = String(
+      matchedStudent?.name || requestedStudentNameInput
+    ).trim();
+
+    if (!requestedStudentId || !requestedStudentName) {
+      this.setData({
+        leaveRequestTargetStatus: "invalid",
+        leaveRequestTargetStatusText: "匹配到的学生信息不完整，请联系老师处理",
+        leaveRequestMatchedStudentId: "",
+        leaveRequestMatchedStudentName: "",
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestTargetStatus: "invalid",
+          leaveRequestMatchedStudentName: "",
+          leaveRequestMatchedStudentId: ""
+        })
+      });
+      return null;
+    }
+
+    if (requestedStudentId === applicantStudentId) {
+      this.setData({
+        leaveRequestTargetStatus: "self",
+        leaveRequestTargetStatusText: "当前入口只支持代他人提交，不能给自己提交",
+        leaveRequestMatchedStudentId: requestedStudentId,
+        leaveRequestMatchedStudentName: requestedStudentName,
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestTargetStatus: "self",
+          leaveRequestMatchedStudentName: requestedStudentName,
+          leaveRequestMatchedStudentId: requestedStudentId
+        })
+      });
+      return null;
+    }
+
+    this.setData({
+      leaveRequestTargetStatus: "matched",
+      leaveRequestTargetStatusText: `已匹配到学生：${requestedStudentName}`,
+      leaveRequestMatchedStudentId: requestedStudentId,
+      leaveRequestMatchedStudentName: requestedStudentName,
+      canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+        leaveRequestTargetStatus: "matched",
+        leaveRequestMatchedStudentName: requestedStudentName,
+        leaveRequestMatchedStudentId: requestedStudentId
+      })
+    });
+
+    return {
+      requestedStudentId,
+      requestedStudentName
+    };
+  },
+
+  canSubmitLeaveRequest(state = {}) {
+    return Boolean(
+      (state.signSuccess !== undefined ? state.signSuccess : this.data.signSuccess) &&
+      (state.leaveRequestTargetStatus !== undefined ? state.leaveRequestTargetStatus : this.data.leaveRequestTargetStatus) === "matched" &&
+      String(state.leaveRequestImageTempPath !== undefined ? state.leaveRequestImageTempPath : this.data.leaveRequestImageTempPath || "").trim() &&
+      !(state.leaveRequestSubmitting !== undefined ? state.leaveRequestSubmitting : this.data.leaveRequestSubmitting)
+    );
+  },
+
+  async loadClassRoster() {
+    const classId = String(this.data.classId || "").trim();
+    if (!classId) {
+      this.setData({ classRoster: [] });
+      this.updateLeaveRequestTargetMatch(this.data.leaveRequestTargetName);
+      return [];
+    }
+
+    try {
+      const classRes = await db.collection("classes").doc(classId).get();
+      const roster = Array.isArray(classRes.data?.roster) ? classRes.data.roster : [];
+      this.setData({ classRoster: roster });
+      this.updateLeaveRequestTargetMatch(this.data.leaveRequestTargetName);
+      return roster;
+    } catch (err) {
+      console.error("[studentSign] loadClassRoster failed", err);
+      this.setData({ classRoster: [] });
+      this.updateLeaveRequestTargetMatch(this.data.leaveRequestTargetName);
+      return [];
+    }
+  },
+
+  async loadLatestLeaveRequestSubmission(displayMode = "history") {
+    const lessonId = this.resolveLessonId();
+    const applicantStudentId = String(this.data.studentId || "").trim();
+
+    if (!lessonId || !applicantStudentId) {
+      this.setData({
+        leaveRequestLastSubmittedEventId: "",
+        leaveRequestLastSubmittedName: "",
+        leaveRequestLastSubmittedStatus: "",
+        leaveRequestLastSubmittedStatusText: "",
+        leaveRequestLastSubmittedTimeText: "",
+        leaveRequestLastSubmittedTitle: ""
+      });
+      return null;
+    }
+
+    try {
+      const res = await db.collection("lessonEvent")
+        .where({
+          lessonId,
+          type: "leave_request"
+        })
+        .limit(100)
+        .get();
+      const matched = (res.data || [])
+        .filter((item) => {
+          const payload = item?.payload || {};
+          return String(payload.applicantStudentId || "").trim() === applicantStudentId;
+        })
+        .sort((left, right) => this.getLeaveRequestEventTimestamp(right) - this.getLeaveRequestEventTimestamp(left))[0] || null;
+
+      if (!matched) {
+        this.setData({
+          leaveRequestLastSubmittedEventId: "",
+          leaveRequestLastSubmittedName: "",
+          leaveRequestLastSubmittedStatus: "",
+          leaveRequestLastSubmittedStatusText: "",
+          leaveRequestLastSubmittedTimeText: "",
+          leaveRequestLastSubmittedTitle: ""
+        });
+        return null;
+      }
+
+      const payload = matched.payload || {};
+      const status = String(payload.status || "").trim() || "pending";
+      const recordId = String(matched._id || "").trim();
+      const nextTitle = displayMode === "current"
+        ? "本次代提交已成功记录"
+        : "历史最近一次代提交记录";
+      this.setData({
+        leaveRequestLastSubmittedEventId: recordId,
+        leaveRequestLastSubmittedName: String(payload.requestedStudentName || matched.studentName || "").trim(),
+        leaveRequestLastSubmittedStatus: status,
+        leaveRequestLastSubmittedStatusText: this.getLeaveRequestStatusLabel(status),
+        leaveRequestLastSubmittedTimeText: this.formatSimpleDateTime(payload.submittedAt || matched.updatedAt || matched.createdAt),
+        leaveRequestLastSubmittedTitle: nextTitle
+      });
+      return matched;
+    } catch (err) {
+      console.error("[studentSign] loadLatestLeaveRequestSubmission failed", err);
+      return null;
+    }
   },
 
   getLaunchEntryParams() {
@@ -290,7 +573,9 @@ Page({
       }
 
       await this.ensureLessonClassId();
+      await this.loadClassRoster();
       await this.restoreSignSuccessStatus();
+      await this.loadLatestLeaveRequestSubmission("history");
       await this.loadCurrentSingleChoiceTest();
       this.startTestPolling();
     } catch (err) {
@@ -307,7 +592,9 @@ Page({
     }
     if (lessonId && this.data.studentId) {
       await this.ensureLessonClassId();
+      await this.loadClassRoster();
       await this.restoreSignSuccessStatus();
+      await this.loadLatestLeaveRequestSubmission("history");
       await this.loadCurrentSingleChoiceTest();
       this.startTestPolling();
     }
@@ -330,7 +617,8 @@ Page({
         signSuccess: false,
         attendanceStatus: "unsigned",
         attendanceStatusText: "未签到",
-        canInteract: false
+        canInteract: false,
+        canSubmitLeaveRequest: false
       });
       return false;
     }
@@ -354,7 +642,8 @@ Page({
         signSuccess: hasSigned,
         attendanceStatus,
         attendanceStatusText: this.getAttendanceStatusLabel(attendanceStatus),
-        canInteract: this.getCanInteract({ signSuccess: hasSigned })
+        canInteract: this.getCanInteract({ signSuccess: hasSigned }),
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({ signSuccess: hasSigned })
       });
       return hasSigned;
     } catch (err) {
@@ -423,7 +712,10 @@ Page({
       const tempFilePath = String(res.tempFiles?.[0]?.tempFilePath || "").trim();
       if (!tempFilePath) return;
       this.setData({
-        leaveRequestImageTempPath: tempFilePath
+        leaveRequestImageTempPath: tempFilePath,
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestImageTempPath: tempFilePath
+        })
       });
     } catch (err) {
       if (err?.errMsg && err.errMsg.includes("cancel")) return;
@@ -433,9 +725,11 @@ Page({
   },
 
   onInputLeaveRequestTargetName(e) {
+    const targetName = String(e.detail?.value || "").trim();
     this.setData({
-      leaveRequestTargetName: String(e.detail?.value || "").trim()
+      leaveRequestTargetName: targetName
     });
+    this.updateLeaveRequestTargetMatch(targetName);
   },
 
   async submitLeaveRequest() {
@@ -466,10 +760,8 @@ Page({
 
     const applicantStudentId = String(this.data.studentId || "").trim();
     const applicantStudentName = String(this.data.name || "").trim();
-    const requestedStudentNameInput = String(this.data.leaveRequestTargetName || "").trim();
-
-    if (!requestedStudentNameInput) {
-      wx.showToast({ title: "请填写请假人姓名", icon: "none" });
+    if (!String(this.data.leaveRequestTargetName || "").trim()) {
+      wx.showToast({ title: "请先填写请假人姓名", icon: "none" });
       return;
     }
 
@@ -481,40 +773,16 @@ Page({
     }
 
     try {
-      const classRes = await db.collection("classes").doc(classId).get();
-      const roster = Array.isArray(classRes.data?.roster) ? classRes.data.roster : [];
-      const matchedStudents = roster.filter((item) => {
-        const rosterName = String(item?.name || "").trim();
-        return rosterName === requestedStudentNameInput;
-      });
-
-      if (matchedStudents.length === 0) {
-        wx.showToast({ title: "当前学生不在班级名单中", icon: "none" });
-        return;
+      if (!Array.isArray(this.data.classRoster) || this.data.classRoster.length === 0) {
+        await this.loadClassRoster();
       }
 
-      if (matchedStudents.length > 1) {
-        wx.showToast({ title: "班级中存在同名学生，请联系老师处理", icon: "none" });
+      const matchedResult = this.updateLeaveRequestTargetMatch(this.data.leaveRequestTargetName);
+      if (!matchedResult) {
+        wx.showToast({ title: this.data.leaveRequestTargetStatusText || "请确认请假人信息", icon: "none" });
         return;
       }
-
-      const matchedStudent = matchedStudents[0] || {};
-      const requestedStudentId = String(
-        matchedStudent?.studentId || matchedStudent?.id || ""
-      ).trim();
-      const requestedStudentName = String(
-        matchedStudent?.name || requestedStudentNameInput
-      ).trim();
-
-      if (!requestedStudentId || !requestedStudentName) {
-        wx.showToast({ title: "请假学生信息不完整", icon: "none" });
-        return;
-      }
-
-      if (requestedStudentId === applicantStudentId) {
-        wx.showToast({ title: "不能为当前已签到学生本人申请请假", icon: "none" });
-        return;
-      }
+      const { requestedStudentId, requestedStudentName } = matchedResult;
 
       const attendanceRes = await db.collection("attendance")
         .where({
@@ -540,6 +808,10 @@ Page({
         return;
       }
 
+      this.setData({
+        leaveRequestSubmitting: true,
+        canSubmitLeaveRequest: false
+      });
       wx.showLoading({ title: "提交中...", mask: true });
       const uploadRes = await wx.cloud.uploadFile({
         cloudPath: this.getLeaveRequestCloudPath(tempFilePath),
@@ -548,6 +820,12 @@ Page({
       const imageFileId = String(uploadRes.fileID || "").trim();
       if (!imageFileId) {
         wx.hideLoading();
+        this.setData({
+          leaveRequestSubmitting: false,
+          canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+            leaveRequestSubmitting: false
+          })
+        });
         wx.showToast({ title: "假条上传失败", icon: "none" });
         return;
       }
@@ -600,15 +878,34 @@ Page({
       wx.hideLoading();
       this.setData({
         leaveRequestTargetName: "",
+        leaveRequestTargetStatus: "empty",
+        leaveRequestTargetStatusText: "先填写需请假的本班学生姓名",
+        leaveRequestMatchedStudentId: "",
+        leaveRequestMatchedStudentName: "",
         leaveRequestImageTempPath: "",
-        leaveRequestImageFileId: imageFileId
+        leaveRequestImageFileId: imageFileId,
+        canSubmitLeaveRequest: false,
+        leaveRequestLastSubmittedEventId: "",
+        leaveRequestLastSubmittedName: requestedStudentName,
+        leaveRequestLastSubmittedStatus: "pending",
+        leaveRequestLastSubmittedStatusText: this.getLeaveRequestStatusLabel("pending"),
+        leaveRequestLastSubmittedTimeText: this.formatSimpleDateTime(new Date()),
+        leaveRequestLastSubmittedTitle: "本次代提交已成功记录",
+        leaveRequestSubmitting: false
       });
       wx.showToast({
-        title: `已为${requestedStudentName}提交请假申请`,
+        title: "请假申请已提交",
         icon: "none"
       });
+      await this.loadLatestLeaveRequestSubmission("current");
     } catch (err) {
       wx.hideLoading();
+      this.setData({
+        leaveRequestSubmitting: false,
+        canSubmitLeaveRequest: this.canSubmitLeaveRequest({
+          leaveRequestSubmitting: false
+        })
+      });
       console.error("[studentSign] submitLeaveRequest failed", err);
       wx.showToast({ title: "请假申请失败，请稍后重试", icon: "none" });
     }
@@ -1079,14 +1376,27 @@ Page({
     this.clearTestPolling();
     this.setData({
       classId: "",
+      classRoster: [],
       name: "",
       studentId: "",
       signSuccess: false,
       attendanceStatus: "unsigned",
       attendanceStatusText: "未签到",
       leaveRequestTargetName: "",
+      leaveRequestTargetStatus: "empty",
+      leaveRequestTargetStatusText: "先填写需请假的本班学生姓名",
+      leaveRequestMatchedStudentId: "",
+      leaveRequestMatchedStudentName: "",
       leaveRequestImageTempPath: "",
       leaveRequestImageFileId: "",
+      leaveRequestSubmitting: false,
+      canSubmitLeaveRequest: false,
+      leaveRequestLastSubmittedEventId: "",
+      leaveRequestLastSubmittedName: "",
+      leaveRequestLastSubmittedStatus: "",
+      leaveRequestLastSubmittedStatusText: "",
+      leaveRequestLastSubmittedTimeText: "",
+      leaveRequestLastSubmittedTitle: "",
       currentUser: null,
       shouldGoRegister: true,
       registerTipText: "你已退出当前学生身份，请重新绑定后再继续签到或互动",
