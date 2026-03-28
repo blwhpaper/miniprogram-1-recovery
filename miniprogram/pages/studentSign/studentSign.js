@@ -82,7 +82,7 @@ Page({
       unsigned: "未签到",
       absent: "旷课",
       leave_wait: "待审批",
-      leave_agree: "请假"
+      leave_agree: "已请假"
     };
     return map[normalizedStatus || "unsigned"] || "未签到";
   },

@@ -64,7 +64,7 @@ Page({
         showLessonEntryButton = true;
       } else if (currentLessonAttendanceStatus === "leave_wait") {
         statusText = "当前课次状态：待审批";
-        summaryText = "当前请假状态待确认，暂不可继续签到或互动。";
+        summaryText = "当前请假状态待审批，暂不可继续签到或互动。";
         lessonEntryText = "查看当前课堂";
         showLessonEntryButton = true;
       } else {

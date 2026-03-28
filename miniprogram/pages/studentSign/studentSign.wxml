@@ -14,7 +14,7 @@
       <text class="tip">当前状态：{{attendanceStatusText}}</text>
       <view wx:if="{{attendanceStatus === 'leave_agree'}}">本节课已被老师标记为请假，当前无需签到。</view>
       <view wx:elif="{{attendanceStatus === 'absent'}}">本节课已被老师标记为旷课，当前不可签到。</view>
-      <view wx:elif="{{attendanceStatus === 'leave_wait'}}">当前请假状态待确认，暂不可继续签到。</view>
+      <view wx:elif="{{attendanceStatus === 'leave_wait'}}">当前请假状态待审批，暂不可继续签到。</view>
       <view wx:else>请确认当前学生身份无误后完成本次签到。</view>
     </view>
     <view class="input">
