@@ -43,6 +43,7 @@ Page({
   lessonEventPollingLessonId: "",
   latestAttendanceDocs: [],
   recentAnswerScoreKeys: new Set(),
+  isInitializing: false,
 
   normalizeRosterItem(student) {
     if (typeof student === "string") {
@@ -145,7 +146,11 @@ Page({
 
   onShow() {
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    if (!lessonId) return;
+    if (!lessonId || this.isInitializing) return;
+
+    const attendanceReady = this.attendancePollingLessonId === lessonId && !!this.attendancePollingTimer;
+    const lessonEventReady = this.lessonEventPollingLessonId === lessonId && !!this.lessonEventPollingTimer;
+    if (attendanceReady && lessonEventReady) return;
 
     this.fetchAttendanceOnce(lessonId);
     this.startAttendancePolling(lessonId);
@@ -173,10 +178,14 @@ Page({
   },
 
   async initData() {
+    if (this.isInitializing) return;
+    this.isInitializing = true;
     wx.showLoading({ title: "加载中..." });
     try {
-      await this.loadRoster();
-      const lessons = await this.loadLessons();
+      const [_, lessons] = await Promise.all([
+        this.loadRoster(),
+        this.loadLessons()
+      ]);
       const initialLessonId = this.resolveInitialLessonId(lessons);
 
       if (initialLessonId) {
@@ -191,9 +200,10 @@ Page({
         this.refreshSignedStudents();
         this.refreshExportDisabledState();
         this.refreshStats();
+        void this.loadStats();
       }
-      await this.loadStats();
     } finally {
+      this.isInitializing = false;
       wx.hideLoading();
     }
   },
@@ -2060,9 +2070,9 @@ Page({
 
     await this.fetchAttendanceOnce(nextLessonId);
     this.startAttendancePolling(nextLessonId);
-    await this.loadLessonEvents({ silent: true });
+    void this.loadLessonEvents({ silent: true });
     this.startLessonEventPolling(nextLessonId);
-    await this.loadStats();
+    void this.loadStats();
   },
 
   onSelectLesson(e) {
