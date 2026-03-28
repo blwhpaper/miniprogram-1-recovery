@@ -965,5 +965,21 @@ Page({
         wx.showToast({ title: "未能打开主动提问入口", icon: "none" });
       }
     });
+  },
+
+  enterLeaveRequestPage() {
+    const lessonId = String(this.data.lessonId || this.getPendingLessonId() || "").trim();
+    if (!lessonId) {
+      wx.showToast({ title: "当前没有可进入的课堂", icon: "none" });
+      return;
+    }
+
+    wx.navigateTo({
+      url: `/pages/studentLeave/studentLeave?lessonId=${encodeURIComponent(lessonId)}`,
+      fail: (err) => {
+        console.error("[studentHome] enterLeaveRequestPage failed", err);
+        wx.showToast({ title: "未能打开请假申请页", icon: "none" });
+      }
+    });
   }
 });

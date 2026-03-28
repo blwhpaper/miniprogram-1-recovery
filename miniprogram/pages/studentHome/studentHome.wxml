@@ -39,5 +39,11 @@
         进入主动提问
       </button>
     </view>
+
+    <view wx:if="{{hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result'}}" class="action-block secondary-action">
+      <button bindtap="enterLeaveRequestPage">
+        进入请假申请
+      </button>
+    </view>
   </view>
 </view>
