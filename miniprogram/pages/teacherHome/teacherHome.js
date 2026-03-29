@@ -1,4 +1,6 @@
 Page({
+  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
+
   data: {
     hasTeacherSession: false,
     teacherId: "",
@@ -20,7 +22,11 @@ Page({
   },
 
   getCurrentTeacherSession() {
-    return String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    if (currentTeacher) {
+      wx.removeStorageSync(this.teacherLogoutGateKey);
+    }
+    return currentTeacher;
   },
 
   getTeacherDisplayName(teacherId = "") {
@@ -114,6 +120,7 @@ Page({
         if (!res.confirm) return;
 
         wx.removeStorageSync("CURRENT_TEACHER");
+        wx.setStorageSync(this.teacherLogoutGateKey, "1");
         this.loadTeacherHomeState();
         wx.showToast({
           title: "已退出教师态",

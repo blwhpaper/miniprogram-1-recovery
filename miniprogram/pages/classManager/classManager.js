@@ -1,18 +1,35 @@
 Page({
+  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
+
   data: {
     classList: []
   },
 
   onLoad() {
-    this.ensureTeacherSession()
+    const teacher = this.ensureTeacherSession()
+    if (!teacher) {
+      wx.reLaunch({
+        url: "/pages/teacherHome/teacherHome"
+      })
+      return
+    }
     this.loadClasses()
   },
 
   ensureTeacherSession() {
     const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
-    if (currentTeacher) return currentTeacher
+    if (currentTeacher) {
+      wx.removeStorageSync(this.teacherLogoutGateKey)
+      return currentTeacher
+    }
+
+    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim()
+    if (hasLoggedOutTeacher) {
+      return ""
+    }
 
     const fallbackTeacher = "default"
+    wx.removeStorageSync(this.teacherLogoutGateKey)
     wx.setStorageSync("CURRENT_TEACHER", fallbackTeacher)
     return fallbackTeacher
   },
@@ -20,6 +37,10 @@ Page({
   // 按当前老师加载班级（数据隔离）
   loadClasses() {
     let teacher = this.ensureTeacherSession()
+    if (!teacher) {
+      this.setData({ classList: [] })
+      return
+    }
     let list = wx.getStorageSync("CLASS_LIST_" + teacher) || [
       { id: "C1", name: "智控2501" },
       { id: "C2", name: "智控2502" },
@@ -31,6 +52,7 @@ Page({
   // 保存（按老师隔离）
   saveClasses(list) {
     let teacher = this.ensureTeacherSession()
+    if (!teacher) return
     wx.setStorageSync("CLASS_LIST_" + teacher, list)
     this.setData({ classList: list })
   },
