@@ -45,13 +45,20 @@
   border: 1rpx solid #d1d5db;
   border-radius: 16rpx;
   background: #ffffff;
-  padding: 22rpx 24rpx;
   font-size: 28rpx;
   margin-bottom: 28rpx;
 }
 
+.field-input {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 24rpx;
+}
+
 .field-textarea {
   min-height: 180rpx;
+  line-height: 1.6;
+  padding: 20rpx 24rpx;
 }
 
 .submit-btn {
