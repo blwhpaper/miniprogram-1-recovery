@@ -70,3 +70,12 @@
   background: #eef2ff;
   color: #1d4ed8;
 }
+
+.weak-entry-btn {
+  margin-top: 16rpx;
+  border-radius: 14rpx;
+  border: 1rpx solid #c7d2fe;
+  background: #f8faff;
+  color: #4f46e5;
+  font-size: 24rpx;
+}

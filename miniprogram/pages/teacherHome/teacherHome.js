@@ -170,5 +170,11 @@ Page({
     wx.navigateTo({
       url: "/pages/teacherApply/teacherApply"
     });
+  },
+
+  goToAdminTeacherReview() {
+    wx.navigateTo({
+      url: "/pages/adminTeacherReview/adminTeacherReview"
+    });
   }
 });

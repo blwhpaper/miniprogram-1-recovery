@@ -30,5 +30,8 @@
     <view class="panel-title">当前承接说明</view>
     <view class="panel-text">当前版本先承接教师首页入口与老师注册申请，后续管理员审核与教师身份开通将在此基础上继续完善。</view>
     <view class="panel-text">教师标识：{{teacherId || "未开通"}}</view>
+    <button class="weak-entry-btn" size="mini" bindtap="goToAdminTeacherReview">
+      进入管理员审核
+    </button>
   </view>
 </view>
