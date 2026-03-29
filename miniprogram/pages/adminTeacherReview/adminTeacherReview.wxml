@@ -1,0 +1,57 @@
+<view class="container">
+  <view class="card">
+    <view class="title">管理员审核老师申请</view>
+    <view class="summary">当前是最小审核页，仅用于读取老师申请并执行通过/驳回。</view>
+
+    <view class="field-label">管理员审核口令</view>
+    <input
+      class="field-input"
+      placeholder="请输入管理员审核口令"
+      value="{{adminReviewKey}}"
+      bindinput="inputAdminReviewKey"
+    />
+
+    <button class="load-btn" type="primary" bindtap="loadApplications" loading="{{loading}}">
+      读取申请列表
+    </button>
+  </view>
+
+  <view wx:if="{{applications.length}}" class="list-wrap">
+    <view wx:for="{{applications}}" wx:key="applicantOpenId" class="card">
+      <view class="row-title">{{item.applicantName}}</view>
+      <view class="row-text">联系方式：{{item.contactInfo}}</view>
+      <view class="row-text">备注：{{item.remark}}</view>
+      <view class="row-text">提交时间：{{item.createdAtText}}</view>
+      <view class="row-text">更新时间：{{item.updatedAtText}}</view>
+      <view class="row-text">当前状态：{{item.statusText}}</view>
+      <view wx:if="{{item.teacherId}}" class="row-text">教师标识：{{item.teacherId}}</view>
+
+      <view wx:if="{{item.status === 'pending'}}" class="action-row">
+        <button
+          type="primary"
+          size="mini"
+          data-openid="{{item.applicantOpenId}}"
+          data-status="approved"
+          bindtap="reviewApplication"
+          loading="{{reviewingOpenId === item.applicantOpenId}}"
+        >
+          通过
+        </button>
+        <button
+          class="reject-btn"
+          size="mini"
+          data-openid="{{item.applicantOpenId}}"
+          data-status="rejected"
+          bindtap="reviewApplication"
+          loading="{{reviewingOpenId === item.applicantOpenId}}"
+        >
+          驳回
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <view wx:else class="card empty-card">
+    <view class="summary">{{emptyText}}</view>
+  </view>
+</view>

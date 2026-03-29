@@ -4,6 +4,7 @@
     "pages/studentHome/studentHome",
     "pages/teacherHome/teacherHome",
     "pages/teacherApply/teacherApply",
+    "pages/adminTeacherReview/adminTeacherReview",
     "pages/classManager/classManager",
     "pages/classHome/classHome",
     "pages/studentList/studentList",

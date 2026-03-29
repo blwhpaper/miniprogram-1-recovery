@@ -5,8 +5,8 @@ Page({
     classList: []
   },
 
-  onLoad() {
-    const teacher = this.ensureTeacherSession()
+  async onLoad() {
+    const teacher = await this.ensureTeacherSession()
     if (!teacher) {
       wx.reLaunch({
         url: "/pages/teacherHome/teacherHome"
@@ -16,7 +16,11 @@ Page({
     this.loadClasses()
   },
 
-  ensureTeacherSession() {
+  getStoredTeacherSession() {
+    return String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
+  },
+
+  async ensureTeacherSession() {
     const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
     if (currentTeacher) {
       wx.removeStorageSync(this.teacherLogoutGateKey)
@@ -28,15 +32,32 @@ Page({
       return ""
     }
 
-    const fallbackTeacher = "default"
-    wx.removeStorageSync(this.teacherLogoutGateKey)
-    wx.setStorageSync("CURRENT_TEACHER", fallbackTeacher)
-    return fallbackTeacher
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "teacherApply",
+        data: {
+          action: "get"
+        }
+      })
+      const teacherProfile = res.result?.teacherProfile || null
+      const teacherId = String(teacherProfile?.teacherId || "").trim()
+      const teacherStatus = String(teacherProfile?.status || "").trim()
+
+      if (teacherId && teacherStatus === "active") {
+        wx.removeStorageSync(this.teacherLogoutGateKey)
+        wx.setStorageSync("CURRENT_TEACHER", teacherId)
+        return teacherId
+      }
+    } catch (err) {
+      console.error("[classManager] ensure teacher session failed", err)
+    }
+
+    return ""
   },
 
   // 按当前老师加载班级（数据隔离）
   loadClasses() {
-    let teacher = this.ensureTeacherSession()
+    let teacher = this.getStoredTeacherSession()
     if (!teacher) {
       this.setData({ classList: [] })
       return
@@ -51,7 +72,7 @@ Page({
 
   // 保存（按老师隔离）
   saveClasses(list) {
-    let teacher = this.ensureTeacherSession()
+    let teacher = this.getStoredTeacherSession()
     if (!teacher) return
     wx.setStorageSync("CLASS_LIST_" + teacher, list)
     this.setData({ classList: list })

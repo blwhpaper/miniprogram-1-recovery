@@ -4,6 +4,7 @@ Page({
 
   data: {
     hasTeacherSession: false,
+    canEnterTeacherWorkspace: false,
     teacherId: "",
     teacherName: "",
     teacherStatusText: "",
@@ -59,6 +60,7 @@ Page({
     if (teacherId) {
       this.setData({
         hasTeacherSession: true,
+        canEnterTeacherWorkspace: true,
         teacherId,
         teacherName: this.getTeacherDisplayName(teacherId),
         teacherStatusText: "教师身份已就绪",
@@ -73,6 +75,7 @@ Page({
 
     this.setData({
       hasTeacherSession: false,
+      canEnterTeacherWorkspace: false,
       teacherId: "",
       teacherName: "老师入口",
       teacherStatusText: "教师身份未开通",
@@ -91,15 +94,26 @@ Page({
         }
       });
       const application = res.result?.application || null;
+      const teacherProfile = res.result?.teacherProfile || null;
       const status = String(application?.status || "").trim();
+      const teacherProfileStatus = String(teacherProfile?.status || "").trim();
+      const approvedTeacherId = String(teacherProfile?.teacherId || "").trim();
       const isPending = status === "pending";
+      const isApprovedTeacher = teacherProfileStatus === "active" && !!approvedTeacherId;
       this.setData({
+        canEnterTeacherWorkspace: isApprovedTeacher,
+        teacherId: approvedTeacherId || "",
+        teacherName: approvedTeacherId ? this.getTeacherDisplayName(approvedTeacherId) : "老师入口",
+        teacherStatusText: isApprovedTeacher ? "教师身份已开通" : "教师身份未开通",
+        teacherLeadText: isApprovedTeacher
+          ? "当前申请已审核通过，可进入教师业务承接页。"
+          : "如果你需要进入教师端，请先提交老师注册申请。",
         teacherApplyStatus: status,
         teacherApplyStatusText: this.getTeacherApplyStatusText(status),
         teacherApplySummaryText: isPending
           ? "已提交，等待审核"
           : status === "approved"
-            ? "当前申请已通过，后续可接入教师身份开通。"
+            ? "当前申请已通过，可进入教师业务承接页。"
             : status === "rejected"
               ? "当前申请未通过，可重新填写后再次提交。"
               : "当前还没有老师注册申请记录。",
@@ -117,6 +131,21 @@ Page({
     wx.navigateTo({
       url: "/pages/classManager/classManager"
     });
+  },
+
+  enterApprovedTeacherWorkspace() {
+    const teacherId = String(this.data.teacherId || "").trim();
+    if (!teacherId) {
+      wx.showToast({
+        title: "教师身份数据未就绪",
+        icon: "none"
+      });
+      return;
+    }
+
+    wx.removeStorageSync(this.teacherLogoutGateKey);
+    wx.setStorageSync("CURRENT_TEACHER", teacherId);
+    this.goToClassManager();
   },
 
   logoutTeacherSession() {
