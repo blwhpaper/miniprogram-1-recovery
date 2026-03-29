@@ -1,6 +1,8 @@
 // index.js
 Page({
   teacherHomeReturnKey: "TEACHER_HOME_RETURN_ONCE",
+  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
+  adminReviewSessionKey: "ADMIN_REVIEW_KEY",
 
   data: {
     showTip: false,
@@ -106,14 +108,47 @@ Page({
       : "/pages/studentHome/studentHome";
   },
 
-  resolveHomeTarget() {
+  async resolveTeacherHomeTarget() {
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    if (currentTeacher) {
+      return "/pages/teacherHome/teacherHome";
+    }
+
+    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
+    if (hasLoggedOutTeacher) {
+      return "";
+    }
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "teacherApply",
+        data: {
+          action: "get"
+        }
+      });
+      const teacherProfile = res.result?.teacherProfile || null;
+      const teacherId = String(teacherProfile?.teacherId || "").trim();
+      const teacherStatus = String(teacherProfile?.status || "").trim();
+
+      if (teacherId && teacherStatus === "active") {
+        wx.setStorageSync("CURRENT_TEACHER", teacherId);
+        return "/pages/teacherHome/teacherHome";
+      }
+    } catch (err) {
+      console.error("[index] resolve teacher home failed", err);
+    }
+
+    return "";
+  },
+
+  async resolveHomeTarget() {
     const app = getApp();
     const launchOptions = app && app.globalData
       ? app.globalData.launchEntryOptions || {}
       : {};
     const query = launchOptions.query || {};
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
     const teacherHomeReturnOnce = String(wx.getStorageSync(this.teacherHomeReturnKey) || "").trim();
+    const adminReviewKey = String(wx.getStorageSync(this.adminReviewSessionKey) || "").trim();
     const lessonId = String(query.lessonId || "").trim();
     const scene = String(query.scene || "").trim();
     const q = String(query.q || "").trim();
@@ -124,20 +159,27 @@ Page({
       q
     };
 
-    if (currentTeacher || teacherHomeReturnOnce) {
-      if (teacherHomeReturnOnce) {
-        wx.removeStorageSync(this.teacherHomeReturnKey);
-      }
+    if (teacherHomeReturnOnce) {
+      wx.removeStorageSync(this.teacherHomeReturnKey);
       return "/pages/teacherHome/teacherHome";
+    }
+
+    if (adminReviewKey) {
+      return "/pages/adminTeacherReview/adminTeacherReview";
+    }
+
+    const teacherHomeTarget = await this.resolveTeacherHomeTarget();
+    if (teacherHomeTarget) {
+      return teacherHomeTarget;
     }
 
     return this.buildStudentHomeUrl(studentEntryParams);
   },
 
-  redirectHomeIfNeeded() {
+  async redirectHomeIfNeeded() {
     if (this.hasHomeRedirected) return;
 
-    const targetUrl = this.resolveHomeTarget();
+    const targetUrl = await this.resolveHomeTarget();
     if (!targetUrl) return;
 
     this.hasHomeRedirected = true;
@@ -150,12 +192,12 @@ Page({
     });
   },
 
-  onLoad() {
-    this.redirectHomeIfNeeded();
+  async onLoad() {
+    await this.redirectHomeIfNeeded();
   },
 
-  onShow() {
-    this.redirectHomeIfNeeded();
+  async onShow() {
+    await this.redirectHomeIfNeeded();
   },
 
   onClickPowerInfo(e) {

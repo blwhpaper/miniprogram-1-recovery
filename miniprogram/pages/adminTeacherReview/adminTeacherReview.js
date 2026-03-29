@@ -1,4 +1,6 @@
 Page({
+  adminReviewSessionKey: "ADMIN_REVIEW_KEY",
+
   data: {
     adminReviewKey: "",
     applications: [],
@@ -7,7 +9,15 @@ Page({
     emptyText: "请输入管理员审核口令后读取申请列表。"
   },
 
-  onLoad() {},
+  onLoad() {
+    const cachedReviewKey = String(wx.getStorageSync(this.adminReviewSessionKey) || "").trim();
+    if (!cachedReviewKey) return;
+
+    this.setData({
+      adminReviewKey: cachedReviewKey
+    });
+    this.loadApplications();
+  },
 
   inputAdminReviewKey(e) {
     this.setData({
@@ -89,6 +99,8 @@ Page({
         ? res.result.applications.map((item) => this.normalizeApplicationItem(item))
         : [];
 
+      wx.setStorageSync(this.adminReviewSessionKey, adminReviewKey);
+
       this.setData({
         applications,
         loading: false,
@@ -103,6 +115,18 @@ Page({
         icon: "none"
       });
     }
+  },
+
+  clearAdminReviewSession() {
+    wx.removeStorageSync(this.adminReviewSessionKey);
+    this.setData({
+      adminReviewKey: "",
+      applications: [],
+      emptyText: "请输入管理员审核口令后读取申请列表。"
+    });
+    wx.reLaunch({
+      url: "/pages/index/index"
+    });
   },
 
   async reviewApplication(e) {

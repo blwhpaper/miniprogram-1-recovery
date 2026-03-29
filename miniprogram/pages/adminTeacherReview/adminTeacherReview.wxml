@@ -14,6 +14,9 @@
     <button class="load-btn" type="primary" bindtap="loadApplications" loading="{{loading}}">
       读取申请列表
     </button>
+    <button class="reject-btn" size="mini" bindtap="clearAdminReviewSession">
+      退出管理员审核态
+    </button>
   </view>
 
   <view wx:if="{{applications.length}}" class="list-wrap">
