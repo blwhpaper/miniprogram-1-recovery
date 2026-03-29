@@ -3,6 +3,7 @@
     "pages/index/index",
     "pages/studentHome/studentHome",
     "pages/teacherHome/teacherHome",
+    "pages/teacherApply/teacherApply",
     "pages/classManager/classManager",
     "pages/classHome/classHome",
     "pages/studentList/studentList",

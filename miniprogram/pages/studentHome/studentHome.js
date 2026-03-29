@@ -982,5 +982,15 @@ Page({
         wx.showToast({ title: "未能打开请假申请页", icon: "none" });
       }
     });
+  },
+
+  enterTeacherApply() {
+    wx.navigateTo({
+      url: "/pages/teacherHome/teacherHome",
+      fail: (err) => {
+        console.error("[studentHome] enterTeacherApply failed", err);
+        wx.showToast({ title: "未能打开老师入口", icon: "none" });
+      }
+    });
   }
 });

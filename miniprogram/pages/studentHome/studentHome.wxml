@@ -45,5 +45,11 @@
         进入请假申请
       </button>
     </view>
+
+    <view class="action-block secondary-action">
+      <button bindtap="enterTeacherApply">
+        老师注册申请
+      </button>
+    </view>
   </view>
 </view>
