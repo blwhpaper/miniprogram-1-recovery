@@ -195,14 +195,12 @@ Page({
         await this.switchLesson(initialLessonId);
       } else {
         const list = this.cloneBaseRosterList();
+        const nextPatch = this.buildListViewPatch(list, { currentStats: null });
         this.setData({
           lessonId: "",
           selectedLessonId: "",
-          list
+          ...nextPatch
         });
-        this.refreshSignedStudents();
-        this.refreshExportDisabledState();
-        this.refreshStats();
         void this.loadStats({ includeHistory: false });
       }
     } finally {
@@ -445,27 +443,21 @@ Page({
   },
 
   refreshExportDisabledState() {
-    const { lessonsLoading, statsLoading, list, stats } = this.data;
-    const isListInvalid = !Array.isArray(list) || list.length === 0;
-    const isStatsInvalid = !Array.isArray(stats) || stats.length === 0;
-
-    this.setData({
-      detailExportDisabled: Boolean(lessonsLoading || statsLoading || isListInvalid),
-      statsExportDisabled: Boolean(lessonsLoading || statsLoading || isStatsInvalid)
-    });
+    const nextState = this.buildExportDisabledState();
+    if (
+      this.data.detailExportDisabled !== nextState.detailExportDisabled ||
+      this.data.statsExportDisabled !== nextState.statsExportDisabled
+    ) {
+      this.setData(nextState);
+    }
   },
 
   refreshSignedStudents() {
     const list = Array.isArray(this.data.list) ? this.data.list : [];
-    const signedStudents = list
-      .filter((item) => item.status === "signed")
-      .map((item) => ({
-        studentId: String(item.studentId || item.id || "").trim(),
-        name: String(item.name || item.studentName || "").trim()
-      }))
-      .filter((item) => item.name);
-
-    this.setData({ signedStudents });
+    const signedStudents = this.getSignedStudentsFromList(list);
+    if (JSON.stringify(this.data.signedStudents || []) !== JSON.stringify(signedStudents)) {
+      this.setData({ signedStudents });
+    }
     return signedStudents;
   },
 
@@ -599,6 +591,96 @@ Page({
         lessonScoreBreakdownText: String(item.lessonScoreBreakdownText || "").trim()
       }))
     );
+  },
+
+  getSignedStudentsFromList(list = []) {
+    return (list || [])
+      .filter((item) => item.status === "signed")
+      .map((item) => ({
+        studentId: String(item.studentId || item.id || "").trim(),
+        name: String(item.name || item.studentName || "").trim()
+      }))
+      .filter((item) => item.name);
+  },
+
+  getCurrentStatsSignature(currentStats = null) {
+    if (!currentStats) return "";
+    return JSON.stringify({
+      lessonId: String(currentStats.lessonId || "").trim(),
+      rosterCount: Number(currentStats.rosterCount || 0),
+      signedCount: Number(currentStats.signedCount || 0),
+      unsignedCount: Number(currentStats.unsignedCount || 0),
+      absentCount: Number(currentStats.absentCount || 0),
+      leaveWaitCount: Number(currentStats.leaveWaitCount || 0),
+      leaveAgreeCount: Number(currentStats.leaveAgreeCount || 0)
+    });
+  },
+
+  buildDerivedStatsFromList(list = [], currentStatsInput = this.data.currentStats) {
+    const signCount = list.filter((i) => i.status === "signed").length;
+    const unsignCount = list.filter((i) => i.status === "unsigned").length;
+    const absentCount = list.filter((i) => i.status === "absent").length;
+    const waitCount = list.filter((i) => i.status === "leave_wait").length;
+    const leaveCount = list.filter((i) => i.status === "leave_agree").length;
+    const currentStats = currentStatsInput
+      ? {
+        ...currentStatsInput,
+        lessonId: String(
+          currentStatsInput.lessonId ||
+          this.data.selectedLessonId ||
+          this.data.lessonId ||
+          ""
+        ).trim(),
+        rosterCount: Number(currentStatsInput.rosterCount || list.length || 0),
+        signedCount: signCount,
+        unsignedCount: unsignCount,
+        absentCount,
+        leaveWaitCount: waitCount,
+        leaveAgreeCount: leaveCount
+      }
+      : null;
+
+    return {
+      signCount,
+      unsignCount,
+      absentCount,
+      waitCount,
+      leaveCount,
+      currentStats
+    };
+  },
+
+  buildExportDisabledState(options = {}) {
+    const lessonsLoading = options.lessonsLoading ?? this.data.lessonsLoading;
+    const statsLoading = options.statsLoading ?? this.data.statsLoading;
+    const list = options.list ?? this.data.list;
+    const stats = options.stats ?? this.data.stats;
+    const isListInvalid = !Array.isArray(list) || list.length === 0;
+    const isStatsInvalid = !Array.isArray(stats) || stats.length === 0;
+
+    return {
+      detailExportDisabled: Boolean(lessonsLoading || statsLoading || isListInvalid),
+      statsExportDisabled: Boolean(lessonsLoading || statsLoading || isStatsInvalid)
+    };
+  },
+
+  buildListViewPatch(list = [], options = {}) {
+    const currentStatsInput = Object.prototype.hasOwnProperty.call(options, "currentStats")
+      ? options.currentStats
+      : this.data.currentStats;
+    const exportDisabledState = this.buildExportDisabledState({
+      list,
+      stats: options.stats ?? this.data.stats,
+      lessonsLoading: options.lessonsLoading,
+      statsLoading: options.statsLoading
+    });
+    return {
+      list,
+      isCurrentLessonSelected: this.isSelectedCurrentLesson(),
+      signedStudents: this.getSignedStudentsFromList(list),
+      ...exportDisabledState,
+      ...this.buildDerivedStatsFromList(list, currentStatsInput)
+    };
   },
 
   parseScore(value) {
@@ -820,24 +902,40 @@ Page({
       ...item,
       canOperateAttendanceStatus: this.canOperateAttendanceStatus(item)
     }));
-    const isCurrentLessonSelected = this.isSelectedCurrentLesson();
     const nextSignature = this.getAttendanceListSignature(list);
     const currentSignature = this.getAttendanceListSignature(this.data.list);
+    const nextPatch = this.buildListViewPatch(list);
 
     if (nextSignature === currentSignature) {
-      if (this.data.isCurrentLessonSelected !== isCurrentLessonSelected) {
-        this.setData({ isCurrentLessonSelected });
+      if (
+        this.data.isCurrentLessonSelected !== nextPatch.isCurrentLessonSelected ||
+        JSON.stringify(this.data.signedStudents || []) !== JSON.stringify(nextPatch.signedStudents) ||
+        this.data.detailExportDisabled !== nextPatch.detailExportDisabled ||
+        this.data.statsExportDisabled !== nextPatch.statsExportDisabled ||
+        this.data.signCount !== nextPatch.signCount ||
+        this.data.unsignCount !== nextPatch.unsignCount ||
+        this.data.absentCount !== nextPatch.absentCount ||
+        this.data.waitCount !== nextPatch.waitCount ||
+        this.data.leaveCount !== nextPatch.leaveCount ||
+        this.getCurrentStatsSignature(this.data.currentStats) !== this.getCurrentStatsSignature(nextPatch.currentStats)
+      ) {
+        this.setData({
+          isCurrentLessonSelected: nextPatch.isCurrentLessonSelected,
+          signedStudents: nextPatch.signedStudents,
+          detailExportDisabled: nextPatch.detailExportDisabled,
+          statsExportDisabled: nextPatch.statsExportDisabled,
+          signCount: nextPatch.signCount,
+          unsignCount: nextPatch.unsignCount,
+          absentCount: nextPatch.absentCount,
+          waitCount: nextPatch.waitCount,
+          leaveCount: nextPatch.leaveCount,
+          currentStats: nextPatch.currentStats
+        });
       }
       return list;
     }
 
-    this.setData({
-      list,
-      isCurrentLessonSelected
-    });
-    this.refreshSignedStudents();
-    this.refreshExportDisabledState();
-    this.refreshStats();
+    this.setData(nextPatch);
     return list;
   },
 
@@ -933,6 +1031,21 @@ Page({
     this.recentAnswerScoreKeys = new Set();
   },
 
+  getRollcallStateSignature(state = {}) {
+    return JSON.stringify({
+      currentRound: Number(state.currentRound || 0),
+      currentRoundCalledIds: (state.currentRoundCalledIds || []).map((item) => String(item || "")),
+      pendingScoreLock: !!state.pendingScoreLock,
+      currentCalledStudent: state.currentCalledStudent
+        ? {
+          studentId: String(state.currentCalledStudent.studentId || ""),
+          name: String(state.currentCalledStudent.name || ""),
+          round: Number(state.currentCalledStudent.round || 0)
+        }
+        : null
+    });
+  },
+
   rebuildRollcallState(lessonEvents = []) {
     const signedStudents = Array.isArray(this.data.signedStudents) ? this.data.signedStudents : [];
     const signedIdSet = new Set(
@@ -997,32 +1110,37 @@ Page({
       : null;
     const pendingScoreLock = hasPendingRollcall;
 
-    if (hasPendingRollcall) {
-      this.setData({
+    const nextState = hasPendingRollcall
+      ? {
         currentRound: pendingRollcallRound || activeRound,
         currentRoundCalledIds,
         pendingScoreLock,
         currentCalledStudent
-      });
-      return;
-    }
+      }
+      : (signedIdSet.size > 0 && currentRoundCalledIds.length >= signedIdSet.size
+        ? {
+          currentRound: activeRound + 1,
+          currentRoundCalledIds: [],
+          pendingScoreLock,
+          currentCalledStudent
+        }
+        : {
+          currentRound: activeRound,
+          currentRoundCalledIds,
+          pendingScoreLock,
+          currentCalledStudent
+        });
 
-    if (signedIdSet.size > 0 && currentRoundCalledIds.length >= signedIdSet.size) {
-      this.setData({
-        currentRound: activeRound + 1,
-        currentRoundCalledIds: [],
-        pendingScoreLock,
-        currentCalledStudent
-      });
-      return;
-    }
+    const currentState = {
+      currentRound: this.data.currentRound,
+      currentRoundCalledIds: this.data.currentRoundCalledIds,
+      pendingScoreLock: this.data.pendingScoreLock,
+      currentCalledStudent: this.data.currentCalledStudent
+    };
 
-    this.setData({
-      currentRound: activeRound,
-      currentRoundCalledIds,
-      pendingScoreLock,
-      currentCalledStudent
-    });
+    if (this.getRollcallStateSignature(nextState) !== this.getRollcallStateSignature(currentState)) {
+      this.setData(nextState);
+    }
   },
 
   rebuildQuestionRequestState(lessonEvents = []) {
@@ -1090,10 +1208,43 @@ Page({
       )
       : [];
 
-    this.setData({
-      currentPublishedTest,
-      currentTestRecords
+    const nextSignature = JSON.stringify({
+      currentPublishedTest: currentPublishedTest
+        ? {
+          _id: String(currentPublishedTest._id || ""),
+          testQuestionId: String(currentPublishedTest.testQuestionId || ""),
+          testContent: String(currentPublishedTest.testContent || "")
+        }
+        : null,
+      currentTestRecords: (currentTestRecords || []).map((item) => ({
+        _id: String(item._id || ""),
+        studentId: String(item.studentId || ""),
+        score: item.score ?? "",
+        testAnswer: String(item.testAnswer || "")
+      }))
     });
+    const currentSignature = JSON.stringify({
+      currentPublishedTest: this.data.currentPublishedTest
+        ? {
+          _id: String(this.data.currentPublishedTest._id || ""),
+          testQuestionId: String(this.data.currentPublishedTest.testQuestionId || ""),
+          testContent: String(this.data.currentPublishedTest.testContent || "")
+        }
+        : null,
+      currentTestRecords: (this.data.currentTestRecords || []).map((item) => ({
+        _id: String(item._id || ""),
+        studentId: String(item.studentId || ""),
+        score: item.score ?? "",
+        testAnswer: String(item.testAnswer || "")
+      }))
+    });
+
+    if (nextSignature !== currentSignature) {
+      this.setData({
+        currentPublishedTest,
+        currentTestRecords
+      });
+    }
   },
 
   async loadQuestionRequestState() {
@@ -2051,13 +2202,13 @@ Page({
         .map((student) => this.normalizeRosterItem(student))
         .filter((item) => item.name);
       const baseRosterList = list.map((item) => ({ ...item }));
+      const nextPatch = this.buildListViewPatch(baseRosterList.map((item) => ({ ...item })), {
+        currentStats: null
+      });
       this.setData({
         baseRosterList,
-        list: baseRosterList.map((item) => ({ ...item }))
+        ...nextPatch
       });
-      this.refreshSignedStudents();
-      this.refreshExportDisabledState();
-      this.refreshStats();
     } catch (err) {
       console.error("加载花名册失败：", err);
       wx.showToast({ title: "加载名单失败", icon: "none" });
@@ -2117,16 +2268,14 @@ Page({
       this.clearAttendancePolling();
       this.clearLessonEventPolling();
       const list = this.cloneBaseRosterList();
+      const nextPatch = this.buildListViewPatch(list, { currentStats: null });
       this.setData({
         lessonId: "",
         selectedLessonId: "",
-        currentStats: null,
-        list,
+        ...nextPatch,
         lessonEvents: [],
         pendingLeaveRequests: []
       });
-      this.refreshExportDisabledState();
-      this.refreshStats();
       return;
     }
 
@@ -2134,14 +2283,15 @@ Page({
     this.clearLessonEventPolling();
 
     const baseList = this.cloneBaseRosterList();
+    const nextCurrentStats = (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null;
+    const nextPatch = this.buildListViewPatch(baseList, {
+      currentStats: nextCurrentStats
+    });
     this.setData({
       lessonId: nextLessonId,
       selectedLessonId: nextLessonId,
-      currentStats: (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null,
-      list: baseList
+      ...nextPatch
     });
-    this.refreshExportDisabledState();
-    this.refreshStats();
 
     await this.fetchAttendanceOnce(nextLessonId);
     this.startAttendancePolling(nextLessonId);
@@ -2252,37 +2402,17 @@ Page({
    */
   refreshStats() {
     const list = Array.isArray(this.data.list) ? this.data.list : [];
-    const signCount = list.filter((i) => i.status === "signed").length;
-    const unsignCount = list.filter((i) => i.status === "unsigned").length;
-    const absentCount = list.filter((i) => i.status === "absent").length;
-    const waitCount = list.filter((i) => i.status === "leave_wait").length;
-    const leaveCount = list.filter((i) => i.status === "leave_agree").length;
-    const currentStats = this.data.currentStats
-      ? {
-        ...this.data.currentStats,
-        lessonId: String(
-          this.data.currentStats.lessonId ||
-          this.data.selectedLessonId ||
-          this.data.lessonId ||
-          ""
-        ).trim(),
-        rosterCount: Number(this.data.currentStats.rosterCount || list.length || 0),
-        signedCount: signCount,
-        unsignedCount: unsignCount,
-        absentCount,
-        leaveWaitCount: waitCount,
-        leaveAgreeCount: leaveCount
-      }
-      : null;
-
-    this.setData({
-      signCount,
-      unsignCount,
-      absentCount,
-      waitCount,
-      leaveCount,
-      currentStats
-    });
+    const nextState = this.buildDerivedStatsFromList(list);
+    if (
+      this.data.signCount !== nextState.signCount ||
+      this.data.unsignCount !== nextState.unsignCount ||
+      this.data.absentCount !== nextState.absentCount ||
+      this.data.waitCount !== nextState.waitCount ||
+      this.data.leaveCount !== nextState.leaveCount ||
+      this.getCurrentStatsSignature(this.data.currentStats) !== this.getCurrentStatsSignature(nextState.currentStats)
+    ) {
+      this.setData(nextState);
+    }
   },
 
   showStatus(s) {
