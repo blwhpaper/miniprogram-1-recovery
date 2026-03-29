@@ -57,6 +57,8 @@ Page({
   attendanceCacheByLesson: new Map(),
   lessonEventCacheByLesson: new Map(),
   latestLessonEventSeqByLesson: new Map(),
+  listRowIndexByStudentKey: new Map(),
+  listRowIndexSource: null,
 
   ensureRuntimeCaches() {
     if (!(this.attendanceCacheByLesson instanceof Map)) {
@@ -67,6 +69,12 @@ Page({
     }
     if (!(this.latestLessonEventSeqByLesson instanceof Map)) {
       this.latestLessonEventSeqByLesson = new Map();
+    }
+    if (!(this.listRowIndexByStudentKey instanceof Map)) {
+      this.listRowIndexByStudentKey = new Map();
+    }
+    if (typeof this.listRowIndexSource === "undefined") {
+      this.listRowIndexSource = null;
     }
     if (!Array.isArray(this.latestAttendanceDocs)) {
       this.latestAttendanceDocs = [];
@@ -580,6 +588,55 @@ Page({
     ).trim();
   },
 
+  getLessonEventTargetStudentKey(item = {}) {
+    const type = String(item.type || "").trim();
+    if (type === "leave_request") {
+      return String(
+        item.leaveRequestedStudentId ||
+        item.leaveRequestedStudentName ||
+        this.getStudentUniqueId(item)
+      ).trim();
+    }
+
+    return this.getStudentUniqueId(item);
+  },
+
+  getAffectedLessonEventStudentKeys(lessonEvents = [], previousLessonEvents = []) {
+    const studentKeys = new Set();
+    [...(previousLessonEvents || []), ...(lessonEvents || [])].forEach((item) => {
+      const studentKey = this.getLessonEventTargetStudentKey(item);
+      if (studentKey) {
+        studentKeys.add(studentKey);
+      }
+    });
+    return Array.from(studentKeys);
+  },
+
+  getListRowIndexMap(list = this.data.list) {
+    this.ensureRuntimeCaches();
+    const currentList = Array.isArray(list) ? list : [];
+    if (currentList.length === 0) return null;
+
+    if (
+      this.listRowIndexSource === currentList &&
+      this.listRowIndexByStudentKey instanceof Map &&
+      this.listRowIndexByStudentKey.size > 0
+    ) {
+      return this.listRowIndexByStudentKey;
+    }
+
+    const rowIndexMap = new Map();
+    currentList.forEach((item, index) => {
+      const studentKey = this.getStudentUniqueId(item);
+      if (!studentKey) return;
+      rowIndexMap.set(studentKey, index);
+    });
+
+    this.listRowIndexSource = currentList;
+    this.listRowIndexByStudentKey = rowIndexMap;
+    return rowIndexMap;
+  },
+
   getWeightedCandidates(candidateList = []) {
     return candidateList;
   },
@@ -874,50 +931,84 @@ Page({
       };
     }
 
-    const baseList = currentList.map((item) => ({ ...item }));
-    const nextList = this.mergeInteractionIntoList(baseList, lessonEvents);
-    if (nextList.length !== currentList.length) {
+    const affectedStudentKeys = this.getAffectedLessonEventStudentKeys(
+      lessonEvents,
+      this.data.lessonEvents
+    );
+    if (affectedStudentKeys.length === 0) {
       return {
-        shouldFallback: true,
-        nextList
+        shouldFallback: false,
+        patches: {}
       };
     }
 
-    const patches = {};
+    const rowIndexMap = this.getListRowIndexMap(currentList);
+    if (!(rowIndexMap instanceof Map) || rowIndexMap.size === 0) {
+      return {
+        shouldFallback: true,
+        nextList: []
+      };
+    }
 
-    nextList.forEach((nextItem, index) => {
-      const currentItem = currentList[index] || {};
-      if (
-        this.getStudentUniqueId(nextItem) !== this.getStudentUniqueId(currentItem) ||
-        this.getLessonEventDerivedRowSignature(nextItem) === this.getLessonEventDerivedRowSignature(currentItem)
-      ) {
+    const derivedMap = this.buildLessonEventDerivedMap(lessonEvents);
+    const patches = {};
+    let shouldFallback = false;
+
+    affectedStudentKeys.forEach((studentKey) => {
+      if (shouldFallback) return;
+
+      const index = rowIndexMap.get(studentKey);
+      if (!Number.isInteger(index)) {
+        shouldFallback = true;
         return;
       }
 
-      patches[`list[${index}].answerScoreText`] = nextItem.answerScoreText;
-      patches[`list[${index}].answerScoreAvg`] = nextItem.answerScoreAvg ?? null;
-      patches[`list[${index}].answerScoreAvgText`] = nextItem.answerScoreAvgText;
-      patches[`list[${index}].questionScoreText`] = nextItem.questionScoreText;
-      patches[`list[${index}].questionScoreAvg`] = nextItem.questionScoreAvg ?? null;
-      patches[`list[${index}].questionScoreAvgText`] = nextItem.questionScoreAvgText;
-      patches[`list[${index}].testScoreText`] = nextItem.testScoreText;
-      patches[`list[${index}].testScoreAvg`] = nextItem.testScoreAvg ?? null;
-      patches[`list[${index}].testScoreAvgText`] = nextItem.testScoreAvgText;
-      patches[`list[${index}].hasPendingLeaveRequest`] = !!nextItem.hasPendingLeaveRequest;
-      patches[`list[${index}].pendingLeaveApplicantName`] = nextItem.pendingLeaveApplicantName || "";
-      patches[`list[${index}].attendanceScore`] = nextItem.attendanceScore ?? null;
-      patches[`list[${index}].attendanceScoreText`] = nextItem.attendanceScoreText || "";
-      patches[`list[${index}].lessonScore`] = nextItem.lessonScore ?? null;
-      patches[`list[${index}].lessonScoreText`] = nextItem.lessonScoreText || "";
-      patches[`list[${index}].lessonScoreBreakdownText`] = nextItem.lessonScoreBreakdownText || "";
-      patches[`list[${index}].lessonScoreApplicableItems`] = Array.isArray(nextItem.lessonScoreApplicableItems)
-        ? nextItem.lessonScoreApplicableItems
+      const currentItem = currentList[index] || {};
+      if (this.getStudentUniqueId(currentItem) !== studentKey) {
+        shouldFallback = true;
+        return;
+      }
+
+      const nextDerivedFields = this.buildInteractionDerivedFieldsForRow(currentItem, derivedMap);
+      const nextItem = {
+        ...currentItem,
+        ...nextDerivedFields
+      };
+
+      if (this.getLessonEventDerivedRowSignature(nextItem) === this.getLessonEventDerivedRowSignature(currentItem)) {
+        return;
+      }
+
+      patches[`list[${index}].answerScoreText`] = nextDerivedFields.answerScoreText;
+      patches[`list[${index}].answerScoreAvg`] = nextDerivedFields.answerScoreAvg ?? null;
+      patches[`list[${index}].answerScoreAvgText`] = nextDerivedFields.answerScoreAvgText;
+      patches[`list[${index}].questionScoreText`] = nextDerivedFields.questionScoreText;
+      patches[`list[${index}].questionScoreAvg`] = nextDerivedFields.questionScoreAvg ?? null;
+      patches[`list[${index}].questionScoreAvgText`] = nextDerivedFields.questionScoreAvgText;
+      patches[`list[${index}].testScoreText`] = nextDerivedFields.testScoreText;
+      patches[`list[${index}].testScoreAvg`] = nextDerivedFields.testScoreAvg ?? null;
+      patches[`list[${index}].testScoreAvgText`] = nextDerivedFields.testScoreAvgText;
+      patches[`list[${index}].hasPendingLeaveRequest`] = !!nextDerivedFields.hasPendingLeaveRequest;
+      patches[`list[${index}].pendingLeaveApplicantName`] = nextDerivedFields.pendingLeaveApplicantName || "";
+      patches[`list[${index}].attendanceScore`] = nextDerivedFields.attendanceScore ?? null;
+      patches[`list[${index}].attendanceScoreText`] = nextDerivedFields.attendanceScoreText || "";
+      patches[`list[${index}].lessonScore`] = nextDerivedFields.lessonScore ?? null;
+      patches[`list[${index}].lessonScoreText`] = nextDerivedFields.lessonScoreText || "";
+      patches[`list[${index}].lessonScoreBreakdownText`] = nextDerivedFields.lessonScoreBreakdownText || "";
+      patches[`list[${index}].lessonScoreApplicableItems`] = Array.isArray(nextDerivedFields.lessonScoreApplicableItems)
+        ? nextDerivedFields.lessonScoreApplicableItems
         : [];
     });
 
+    if (shouldFallback) {
+      return {
+        shouldFallback: true,
+        nextList: []
+      };
+    }
+
     return {
       shouldFallback: false,
-      nextList,
       patches
     };
   },
@@ -1072,6 +1163,70 @@ Page({
     });
 
     return interactionScoreMap;
+  },
+
+  buildLessonEventDerivedMap(lessonEvents = []) {
+    const interactionScoreMap = this.buildInteractionScoreMap(lessonEvents);
+    const pendingLeaveRequestMap = new Map();
+
+    (lessonEvents || [])
+      .filter((item) => item.type === "leave_request" && item.leaveRequestStatus === "pending")
+      .forEach((item) => {
+        const studentKey = this.getLessonEventTargetStudentKey(item);
+        if (!studentKey) return;
+        pendingLeaveRequestMap.set(studentKey, {
+          applicantStudentName: String(item.leaveApplicantStudentName || "").trim()
+        });
+      });
+
+    return {
+      interactionScoreMap,
+      pendingLeaveRequestMap
+    };
+  },
+
+  buildInteractionDerivedFieldsForRow(row = {}, derivedMap = {}) {
+    const studentKey = this.getStudentUniqueId(row);
+    const interactionScoreMap = derivedMap.interactionScoreMap instanceof Map
+      ? derivedMap.interactionScoreMap
+      : new Map();
+    const pendingLeaveRequestMap = derivedMap.pendingLeaveRequestMap instanceof Map
+      ? derivedMap.pendingLeaveRequestMap
+      : new Map();
+    const interaction = interactionScoreMap.get(studentKey) || {
+      answerScores: [],
+      questionScores: [],
+      testScores: []
+    };
+    const pendingLeaveRequest = pendingLeaveRequestMap.get(studentKey) || null;
+    const answerScoreAvg = this.getAverageScore(interaction.answerScores);
+    const questionScoreAvg = this.getAverageScore(interaction.questionScores);
+    const testScoreAvg = this.getAverageScore(interaction.testScores);
+    const lessonScoreDetail = this.buildLessonScoreDetail(row.status, {
+      answerScoreAvg,
+      questionScoreAvg,
+      testScoreAvg
+    });
+
+    return {
+      answerScoreText: interaction.answerScores.join(" / "),
+      answerScoreAvg,
+      answerScoreAvgText: this.formatScore(answerScoreAvg),
+      questionScoreText: interaction.questionScores.join(" / "),
+      questionScoreAvg,
+      questionScoreAvgText: this.formatScore(questionScoreAvg),
+      testScoreText: interaction.testScores.join(" / "),
+      testScoreAvg,
+      testScoreAvgText: this.formatScore(testScoreAvg),
+      hasPendingLeaveRequest: !!pendingLeaveRequest,
+      pendingLeaveApplicantName: String(pendingLeaveRequest?.applicantStudentName || "").trim(),
+      attendanceScore: lessonScoreDetail.attendanceScore,
+      attendanceScoreText: lessonScoreDetail.attendanceScoreText,
+      lessonScore: lessonScoreDetail.lessonScore,
+      lessonScoreText: lessonScoreDetail.lessonScoreText,
+      lessonScoreBreakdownText: lessonScoreDetail.lessonScoreBreakdownText,
+      lessonScoreApplicableItems: lessonScoreDetail.lessonScoreApplicableItems
+    };
   },
 
   mergeInteractionIntoList(baseList, lessonEvents = []) {
