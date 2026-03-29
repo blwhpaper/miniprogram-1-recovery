@@ -368,9 +368,9 @@ Page({
     if (!currentTeacher) return false;
 
     wx.reLaunch({
-      url: "/pages/classManager/classManager",
+      url: "/pages/teacherHome/teacherHome",
       fail: (err) => {
-        console.error("[studentHome] redirect classManager failed", err);
+        console.error("[studentHome] redirect teacherHome failed", err);
       }
     });
     return true;

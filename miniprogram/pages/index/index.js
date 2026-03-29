@@ -122,7 +122,7 @@ Page({
     };
 
     if (currentTeacher) {
-      return "/pages/classManager/classManager";
+      return "/pages/teacherHome/teacherHome";
     }
 
     return this.buildStudentHomeUrl(studentEntryParams);
