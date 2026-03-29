@@ -42,6 +42,7 @@ Page({
   lessonEventPollingTimer: null,
   lessonEventPollingLessonId: "",
   latestAttendanceDocs: [],
+  latestAttendanceSignature: "",
   recentAnswerScoreKeys: new Set(),
   isInitializing: false,
   isHydratingLesson: false,
@@ -52,6 +53,26 @@ Page({
   attendanceRequestPromise: null,
   lessonEventRequestKey: "",
   lessonEventRequestPromise: null,
+  attendanceCacheByLesson: new Map(),
+  lessonEventCacheByLesson: new Map(),
+
+  ensureRuntimeCaches() {
+    if (!(this.attendanceCacheByLesson instanceof Map)) {
+      this.attendanceCacheByLesson = new Map();
+    }
+    if (!(this.lessonEventCacheByLesson instanceof Map)) {
+      this.lessonEventCacheByLesson = new Map();
+    }
+    if (!Array.isArray(this.latestAttendanceDocs)) {
+      this.latestAttendanceDocs = [];
+    }
+    if (typeof this.latestAttendanceSignature !== "string") {
+      this.latestAttendanceSignature = "";
+    }
+    if (!(this.recentAnswerScoreKeys instanceof Set)) {
+      this.recentAnswerScoreKeys = new Set();
+    }
+  },
 
   normalizeRosterItem(student) {
     if (typeof student === "string") {
@@ -137,6 +158,7 @@ Page({
   },
 
   onLoad(options) {
+    this.ensureRuntimeCaches();
     // 从上一页（classHome 或 studentList）传入的参数
     const lessonId = String(options.lessonId || "").trim();
     const classId = String(options.classId || "").trim();
@@ -200,6 +222,7 @@ Page({
   },
 
   async initData() {
+    this.ensureRuntimeCaches();
     if (this.isInitializing) return;
     this.isInitializing = true;
     wx.showLoading({ title: "加载中..." });
@@ -552,6 +575,40 @@ Page({
     );
   },
 
+  getAttendanceDocsSignature(docs = []) {
+    return JSON.stringify(
+      (docs || []).map((item) => ({
+        _id: String(item._id || ""),
+        studentId: String(item.studentId || ""),
+        studentName: String(item.studentName || ""),
+        status: String(item.status || item.attendanceStatus || ""),
+        attendanceStatus: String(item.attendanceStatus || ""),
+        updatedAt: String(item.updatedAt || "")
+      }))
+    );
+  },
+
+  isFreshCache(cacheItem = null, maxAge = 0) {
+    if (!cacheItem || !cacheItem.fetchedAt || !maxAge) return false;
+    return (Date.now() - Number(cacheItem.fetchedAt || 0)) < maxAge;
+  },
+
+  getFreshAttendanceCache(lessonId = "", maxAge = 2500) {
+    this.ensureRuntimeCaches();
+    const targetLessonId = String(lessonId || "").trim();
+    if (!targetLessonId || !(this.attendanceCacheByLesson instanceof Map)) return null;
+    const cacheItem = this.attendanceCacheByLesson.get(targetLessonId) || null;
+    return this.isFreshCache(cacheItem, maxAge) ? cacheItem : null;
+  },
+
+  getFreshLessonEventCache(lessonId = "", maxAge = 4500) {
+    this.ensureRuntimeCaches();
+    const targetLessonId = String(lessonId || "").trim();
+    if (!targetLessonId || !(this.lessonEventCacheByLesson instanceof Map)) return null;
+    const cacheItem = this.lessonEventCacheByLesson.get(targetLessonId) || null;
+    return this.isFreshCache(cacheItem, maxAge) ? cacheItem : null;
+  },
+
   getQuestionStateSignature(pendingQuestionRequests = [], currentQuestionRequest = null) {
     return JSON.stringify({
       pendingQuestionRequests: (pendingQuestionRequests || []).map((item) => ({
@@ -712,6 +769,14 @@ Page({
       ...exportDisabledState,
       ...this.buildDerivedStatsFromList(list, currentStatsInput)
     };
+  },
+
+  buildLessonDisplayList(baseList = [], attendanceDocs = [], lessonEvents = []) {
+    const attendanceMergedList = this.mergeAttendanceIntoList(baseList, attendanceDocs);
+    return this.mergeInteractionIntoList(attendanceMergedList, lessonEvents).map((item) => ({
+      ...item,
+      canOperateAttendanceStatus: this.canOperateAttendanceStatus(item)
+    }));
   },
 
   parseScore(value) {
@@ -1303,7 +1368,8 @@ Page({
   },
 
   async loadLessonEvents(options = {}) {
-    const { silent = false } = options;
+    this.ensureRuntimeCaches();
+    const { silent = false, preferCache = false } = options;
     const lessonId = String(
       options.lessonId ||
       this.data.selectedLessonId ||
@@ -1316,6 +1382,12 @@ Page({
         lessonEventsLoading: false
       });
       return [];
+    }
+
+    const cachedLessonEvents = preferCache ? this.getFreshLessonEventCache(lessonId) : null;
+    if (cachedLessonEvents) {
+      this.applyLessonEvents(lessonId, cachedLessonEvents.lessonEvents);
+      return cachedLessonEvents.lessonEvents;
     }
 
     if (this.lessonEventRequestPromise && this.lessonEventRequestKey === lessonId) {
@@ -1335,16 +1407,12 @@ Page({
         return [];
       }
       const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
-      const nextSignature = this.getLessonEventsSignature(lessonEvents);
-      const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
-      if (nextSignature !== currentSignature) {
-        this.setData({ lessonEvents });
-      }
-      this.rebuildStudentDisplayList({ lessonEvents });
-      this.rebuildRollcallState(lessonEvents);
-      this.rebuildLeaveRequestState(lessonEvents);
-      this.rebuildQuestionRequestState(lessonEvents);
-      this.rebuildCurrentTestState(lessonEvents);
+      this.lessonEventCacheByLesson.set(lessonId, {
+        lessonEvents,
+        signature: this.getLessonEventsSignature(lessonEvents),
+        fetchedAt: Date.now()
+      });
+      this.applyLessonEvents(lessonId, lessonEvents);
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
@@ -2320,6 +2388,7 @@ Page({
   },
 
   async switchLesson(lessonId) {
+    this.ensureRuntimeCaches();
     const nextLessonId = String(lessonId || "").trim();
     this.isHydratingLesson = true;
     try {
@@ -2342,21 +2411,40 @@ Page({
       this.clearLessonEventPolling();
 
       const baseList = this.cloneBaseRosterList();
+      const cachedAttendance = this.getFreshAttendanceCache(nextLessonId);
+      const cachedLessonEvents = this.getFreshLessonEventCache(nextLessonId);
       const nextCurrentStats = (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null;
-      const nextPatch = this.buildListViewPatch(baseList, {
+      const nextList = this.buildLessonDisplayList(
+        baseList,
+        cachedAttendance?.docs || [],
+        cachedLessonEvents?.lessonEvents || []
+      );
+      const nextPatch = this.buildListViewPatch(nextList, {
         currentStats: nextCurrentStats
       });
       this.setData({
         lessonId: nextLessonId,
         selectedLessonId: nextLessonId,
+        lessonEvents: cachedLessonEvents?.lessonEvents || [],
         ...nextPatch
       });
+      this.latestAttendanceDocs = Array.isArray(cachedAttendance?.docs) ? cachedAttendance.docs : [];
+      this.latestAttendanceSignature = this.getAttendanceDocsSignature(this.latestAttendanceDocs);
+      if (cachedLessonEvents) {
+        this.rebuildRollcallState(cachedLessonEvents.lessonEvents);
+        this.rebuildLeaveRequestState(cachedLessonEvents.lessonEvents);
+        this.rebuildQuestionRequestState(cachedLessonEvents.lessonEvents);
+        this.rebuildCurrentTestState(cachedLessonEvents.lessonEvents);
+      }
 
       await Promise.all([
-        this.fetchAttendanceOnce(nextLessonId),
+        this.fetchAttendanceOnce(nextLessonId, {
+          preferCache: true
+        }),
         this.loadLessonEvents({
           silent: true,
-          lessonId: nextLessonId
+          lessonId: nextLessonId,
+          preferCache: true
         })
       ]);
 
@@ -2381,9 +2469,11 @@ Page({
     this.switchLesson(lessonId);
   },
 
-  async fetchAttendanceOnce(targetLessonId = "") {
+  async fetchAttendanceOnce(targetLessonId = "", options = {}) {
+    this.ensureRuntimeCaches();
     const lessonId = String(targetLessonId || "").trim();
     const classId = String(this.data.classId || "").trim();
+    const preferCache = options.preferCache === true;
 
     if (!lessonId) {
       return;
@@ -2391,6 +2481,12 @@ Page({
 
     if (!classId) {
       return;
+    }
+
+    const cachedAttendance = preferCache ? this.getFreshAttendanceCache(lessonId) : null;
+    if (cachedAttendance) {
+      this.syncAttendance(cachedAttendance.docs, { lessonId });
+      return cachedAttendance.docs;
     }
 
     if (this.attendanceRequestPromise && this.attendanceRequestKey === lessonId) {
@@ -2406,7 +2502,12 @@ Page({
         return [];
       }
       const docs = res.data || [];
-      this.syncAttendance(docs);
+      this.attendanceCacheByLesson.set(lessonId, {
+        docs,
+        signature: this.getAttendanceDocsSignature(docs),
+        fetchedAt: Date.now()
+      });
+      this.syncAttendance(docs, { lessonId });
       return docs;
     } catch (err) {
       console.error("[signRecord] fetch attendance failed", {
@@ -2489,8 +2590,32 @@ Page({
   },
 
   // 将签到数据同步到当前列表
-  syncAttendance(docs) {
-    this.latestAttendanceDocs = Array.isArray(docs) ? docs : [];
+  applyLessonEvents(lessonId = "", lessonEvents = []) {
+    this.ensureRuntimeCaches();
+    if (!this.isLessonActive(lessonId)) return;
+    const nextSignature = this.getLessonEventsSignature(lessonEvents);
+    const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
+    if (nextSignature !== currentSignature) {
+      this.setData({ lessonEvents });
+    }
+    this.rebuildStudentDisplayList({ lessonEvents });
+    this.rebuildRollcallState(lessonEvents);
+    this.rebuildLeaveRequestState(lessonEvents);
+    this.rebuildQuestionRequestState(lessonEvents);
+    this.rebuildCurrentTestState(lessonEvents);
+  },
+
+  syncAttendance(docs, options = {}) {
+    this.ensureRuntimeCaches();
+    const lessonId = String(options.lessonId || this.data.selectedLessonId || this.data.lessonId || "").trim();
+    if (lessonId && !this.isLessonActive(lessonId)) return;
+    const nextDocs = Array.isArray(docs) ? docs : [];
+    const nextSignature = this.getAttendanceDocsSignature(nextDocs);
+    if (this.latestAttendanceSignature === nextSignature) {
+      return;
+    }
+    this.latestAttendanceDocs = nextDocs;
+    this.latestAttendanceSignature = nextSignature;
     this.rebuildStudentDisplayList({ attendanceDocs: this.latestAttendanceDocs });
   },
 
