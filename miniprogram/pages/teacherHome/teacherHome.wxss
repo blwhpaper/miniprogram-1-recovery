@@ -1,0 +1,72 @@
+.container {
+  min-height: 100vh;
+  padding: 32rpx;
+  background: #f6f6f6;
+  box-sizing: border-box;
+}
+
+.hero-card,
+.panel {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 28rpx;
+  box-sizing: border-box;
+}
+
+.hero-card {
+  margin-bottom: 24rpx;
+}
+
+.hero-kicker {
+  font-size: 24rpx;
+  color: #6b7280;
+  margin-bottom: 12rpx;
+}
+
+.hero-title {
+  font-size: 42rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.hero-status {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #2563eb;
+}
+
+.hero-desc {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #374151;
+}
+
+.panel {
+  margin-bottom: 24rpx;
+}
+
+.panel-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 20rpx;
+}
+
+.panel--muted {
+  background: #eef2ff;
+}
+
+.panel-text {
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: #4b5563;
+  margin-bottom: 12rpx;
+}
+
+.secondary-btn {
+  margin-top: 20rpx;
+  border-radius: 16rpx;
+  background: #eef2ff;
+  color: #1d4ed8;
+}

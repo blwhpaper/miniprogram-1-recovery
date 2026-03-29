@@ -1,0 +1,31 @@
+<view class="container">
+  <view class="hero-card">
+    <view class="hero-kicker">教师入口</view>
+    <view class="hero-title">{{teacherName}}</view>
+    <view class="hero-status">{{teacherStatusText}}</view>
+    <view class="hero-desc">{{teacherLeadText}}</view>
+  </view>
+
+  <view wx:if="{{hasTeacherSession}}" class="panel">
+    <view class="panel-title">核心功能</view>
+    <button type="primary" bindtap="goToClassManager">进入班级管理</button>
+    <button class="secondary-btn" bindtap="logoutTeacherSession">
+      退出教师登录（仅本地测试态）
+    </button>
+  </view>
+
+  <view wx:else class="panel">
+    <view class="panel-title">老师注册申请</view>
+    <view class="panel-text">当前状态：{{teacherApplyStatusText}}</view>
+    <view class="panel-text">{{teacherApplySummaryText}}</view>
+    <button type="primary" bindtap="goToTeacherApply" disabled="{{!canSubmitTeacherApply}}">
+      {{canSubmitTeacherApply ? "申请成为老师" : "已提交，等待审核"}}
+    </button>
+  </view>
+
+  <view class="panel panel--muted">
+    <view class="panel-title">当前承接说明</view>
+    <view class="panel-text">当前版本先承接教师首页入口与老师注册申请，后续管理员审核与教师身份开通将在此基础上继续完善。</view>
+    <view class="panel-text">教师标识：{{teacherId || "未开通"}}</view>
+  </view>
+</view>
