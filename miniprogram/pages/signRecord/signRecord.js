@@ -59,6 +59,7 @@ Page({
   latestLessonEventSeqByLesson: new Map(),
   listRowIndexByStudentKey: new Map(),
   listRowIndexSource: null,
+  postSwitchSnapshot: null,
 
   ensureRuntimeCaches() {
     if (!(this.attendanceCacheByLesson instanceof Map)) {
@@ -75,6 +76,9 @@ Page({
     }
     if (typeof this.listRowIndexSource === "undefined") {
       this.listRowIndexSource = null;
+    }
+    if (!this.postSwitchSnapshot || typeof this.postSwitchSnapshot !== "object") {
+      this.postSwitchSnapshot = null;
     }
     if (!Array.isArray(this.latestAttendanceDocs)) {
       this.latestAttendanceDocs = [];
@@ -340,7 +344,7 @@ Page({
             ? { currentStats }
             : null);
 
-        if (nextState) {
+        if (nextState && !(activeLessonId === lessonId && this.shouldSkipPostSwitchStatsPatch(lessonId, currentStats))) {
           this.setData(nextState);
         }
         this.refreshExportDisabledState();
@@ -692,6 +696,72 @@ Page({
     );
   },
 
+  getAttendanceDocComparableSignature(doc = null) {
+    if (!doc) return "";
+    return JSON.stringify({
+      _id: String(doc._id || ""),
+      studentId: String(doc.studentId || ""),
+      studentName: String(doc.studentName || ""),
+      status: String(doc.status || doc.attendanceStatus || ""),
+      attendanceStatus: String(doc.attendanceStatus || ""),
+      updatedAt: String(doc.updatedAt || "")
+    });
+  },
+
+  buildAttendanceDocMap(attendanceDocs = [], list = this.data.list) {
+    const docsByStudentId = new Map();
+    const docsByStudentName = new Map();
+
+    (attendanceDocs || []).forEach((doc) => {
+      const studentId = String(doc.studentId || "").trim();
+      const studentName = String(doc.studentName || "").trim();
+      if (studentId) docsByStudentId.set(studentId, doc);
+      if (studentName) docsByStudentName.set(studentName, doc);
+    });
+
+    const attendanceDocMap = new Map();
+    const currentList = Array.isArray(list) ? list : [];
+
+    currentList.forEach((item) => {
+      const studentKey = this.getStudentUniqueId(item);
+      if (!studentKey) return;
+      const studentId = String(item.studentId || "").trim();
+      const studentName = String(item.name || item.studentName || "").trim();
+      const matchedDoc =
+        (studentId && docsByStudentId.get(studentId)) ||
+        (studentName && docsByStudentName.get(studentName)) ||
+        null;
+      attendanceDocMap.set(studentKey, matchedDoc);
+    });
+
+    (attendanceDocs || []).forEach((doc) => {
+      const fallbackKey = String(doc.studentId || doc.studentName || "").trim();
+      if (fallbackKey && !attendanceDocMap.has(fallbackKey)) {
+        attendanceDocMap.set(fallbackKey, doc);
+      }
+    });
+
+    return attendanceDocMap;
+  },
+
+  collectChangedAttendanceStudentIds(prevMap = new Map(), nextMap = new Map()) {
+    const changedStudentKeys = new Set();
+    const allKeys = new Set([
+      ...Array.from(prevMap.keys()),
+      ...Array.from(nextMap.keys())
+    ]);
+
+    allKeys.forEach((studentKey) => {
+      const prevDoc = prevMap.get(studentKey) || null;
+      const nextDoc = nextMap.get(studentKey) || null;
+      if (this.getAttendanceDocComparableSignature(prevDoc) !== this.getAttendanceDocComparableSignature(nextDoc)) {
+        changedStudentKeys.add(studentKey);
+      }
+    });
+
+    return Array.from(changedStudentKeys);
+  },
+
   isFreshCache(cacheItem = null, maxAge = 0) {
     if (!cacheItem || !cacheItem.fetchedAt || !maxAge) return false;
     return (Date.now() - Number(cacheItem.fetchedAt || 0)) < maxAge;
@@ -808,6 +878,80 @@ Page({
     });
   },
 
+  registerPostSwitchSnapshot(options = {}) {
+    this.ensureRuntimeCaches();
+    const lessonId = String(options.lessonId || "").trim();
+    if (!lessonId) {
+      this.postSwitchSnapshot = null;
+      return;
+    }
+
+    this.postSwitchSnapshot = {
+      lessonId,
+      landed: true,
+      attendanceSignature: typeof options.attendanceSignature === "string"
+        ? options.attendanceSignature
+        : null,
+      lessonEventsSignature: typeof options.lessonEventsSignature === "string"
+        ? options.lessonEventsSignature
+        : null,
+      statsSignature: typeof options.statsSignature === "string"
+        ? options.statsSignature
+        : null,
+      attendanceConsumed: false,
+      lessonEventsConsumed: false,
+      statsConsumed: false
+    };
+  },
+
+  shouldSkipPostSwitchAttendancePatch(lessonId = "", attendanceSignature = "") {
+    this.ensureRuntimeCaches();
+    const snapshot = this.postSwitchSnapshot;
+    const targetLessonId = String(lessonId || "").trim();
+    if (!snapshot || snapshot.lessonId !== targetLessonId || !snapshot.landed || snapshot.attendanceConsumed) {
+      return false;
+    }
+
+    snapshot.attendanceConsumed = true;
+    if (typeof snapshot.attendanceSignature !== "string") {
+      return false;
+    }
+
+    return snapshot.attendanceSignature === String(attendanceSignature || "");
+  },
+
+  shouldSkipPostSwitchLessonEventPatch(lessonId = "", lessonEventsSignature = "") {
+    this.ensureRuntimeCaches();
+    const snapshot = this.postSwitchSnapshot;
+    const targetLessonId = String(lessonId || "").trim();
+    if (!snapshot || snapshot.lessonId !== targetLessonId || !snapshot.landed || snapshot.lessonEventsConsumed) {
+      return false;
+    }
+
+    snapshot.lessonEventsConsumed = true;
+    if (typeof snapshot.lessonEventsSignature !== "string") {
+      return false;
+    }
+
+    return snapshot.lessonEventsSignature === String(lessonEventsSignature || "");
+  },
+
+  shouldSkipPostSwitchStatsPatch(lessonId = "", currentStats = null) {
+    this.ensureRuntimeCaches();
+    const snapshot = this.postSwitchSnapshot;
+    const targetLessonId = String(lessonId || "").trim();
+    if (!snapshot || snapshot.lessonId !== targetLessonId || !snapshot.landed || snapshot.statsConsumed) {
+      return false;
+    }
+
+    snapshot.statsConsumed = true;
+    if (typeof snapshot.statsSignature !== "string") {
+      return false;
+    }
+
+    return snapshot.statsSignature === this.getCurrentStatsSignature(currentStats);
+  },
+
   buildDerivedStatsFromList(list = [], currentStatsInput = this.data.currentStats) {
     const signCount = list.filter((i) => i.status === "signed").length;
     const unsignCount = list.filter((i) => i.status === "unsigned").length;
@@ -848,21 +992,7 @@ Page({
     };
   },
 
-  buildExportDisabledState(options = {}) {
-    const lessonsLoading = options.lessonsLoading ?? this.data.lessonsLoading;
-    const statsLoading = options.statsLoading ?? this.data.statsLoading;
-    const list = options.list ?? this.data.list;
-    const stats = options.stats ?? this.data.stats;
-    const isListInvalid = !Array.isArray(list) || list.length === 0;
-    const isStatsInvalid = !Array.isArray(stats) || stats.length === 0;
-
-    return {
-      detailExportDisabled: Boolean(lessonsLoading || statsLoading || isListInvalid),
-      statsExportDisabled: Boolean(lessonsLoading || statsLoading || isStatsInvalid)
-    };
-  },
-
-  buildListViewPatch(list = [], options = {}) {
+  buildListMetaPatch(list = [], options = {}) {
     const lessonId = String(
       options.lessonId ||
       this.data.selectedLessonId ||
@@ -878,12 +1008,33 @@ Page({
       lessonsLoading: options.lessonsLoading,
       statsLoading: options.statsLoading
     });
+
     return {
-      list,
       isCurrentLessonSelected: this.isSelectedCurrentLesson(lessonId),
       signedStudents: this.getSignedStudentsFromList(list),
       ...exportDisabledState,
       ...this.buildDerivedStatsFromList(list, currentStatsInput)
+    };
+  },
+
+  buildExportDisabledState(options = {}) {
+    const lessonsLoading = options.lessonsLoading ?? this.data.lessonsLoading;
+    const statsLoading = options.statsLoading ?? this.data.statsLoading;
+    const list = options.list ?? this.data.list;
+    const stats = options.stats ?? this.data.stats;
+    const isListInvalid = !Array.isArray(list) || list.length === 0;
+    const isStatsInvalid = !Array.isArray(stats) || stats.length === 0;
+
+    return {
+      detailExportDisabled: Boolean(lessonsLoading || statsLoading || isListInvalid),
+      statsExportDisabled: Boolean(lessonsLoading || statsLoading || isStatsInvalid)
+    };
+  },
+
+  buildListViewPatch(list = [], options = {}) {
+    return {
+      list,
+      ...this.buildListMetaPatch(list, options)
     };
   },
 
@@ -1010,6 +1161,178 @@ Page({
     return {
       shouldFallback: false,
       patches
+    };
+  },
+
+  getAttendanceDerivedRowSignature(item = {}) {
+    return JSON.stringify({
+      status: String(item.status || "").trim(),
+      statusLabel: String(item.statusLabel || "").trim(),
+      canOperateAttendanceStatus: !!item.canOperateAttendanceStatus,
+      attendanceScore: Number.isFinite(item.attendanceScore) ? item.attendanceScore : null,
+      attendanceScoreText: String(item.attendanceScoreText || "").trim(),
+      lessonScore: Number.isFinite(item.lessonScore) ? item.lessonScore : null,
+      lessonScoreText: String(item.lessonScoreText || "").trim(),
+      lessonScoreBreakdownText: String(item.lessonScoreBreakdownText || "").trim(),
+      lessonScoreApplicableItems: Array.isArray(item.lessonScoreApplicableItems)
+        ? item.lessonScoreApplicableItems.map((child) => ({
+          key: String(child?.key || ""),
+          label: String(child?.label || ""),
+          score: Number.isFinite(child?.score) ? child.score : null
+        }))
+        : []
+    });
+  },
+
+  buildAttendanceDerivedFieldsForRow(row = {}, attendanceDoc = null, options = {}) {
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
+    const nextStatus = attendanceDoc
+      ? String(
+        attendanceDoc.status ||
+        attendanceDoc.attendanceStatus ||
+        "signed"
+      ).trim() || "signed"
+      : "unsigned";
+    const lessonScoreDetail = this.buildLessonScoreDetail(nextStatus, {
+      answerScoreAvg: Number.isFinite(row.answerScoreAvg) ? row.answerScoreAvg : null,
+      questionScoreAvg: Number.isFinite(row.questionScoreAvg) ? row.questionScoreAvg : null,
+      testScoreAvg: Number.isFinite(row.testScoreAvg) ? row.testScoreAvg : null
+    });
+    const nextRow = {
+      ...row,
+      status: nextStatus
+    };
+
+    return {
+      status: nextStatus,
+      statusLabel: this.getAttendanceStatusLabel(nextStatus),
+      canOperateAttendanceStatus: this.canOperateAttendanceStatus(nextRow, { lessonId }),
+      attendanceScore: lessonScoreDetail.attendanceScore,
+      attendanceScoreText: lessonScoreDetail.attendanceScoreText,
+      lessonScore: lessonScoreDetail.lessonScore,
+      lessonScoreText: lessonScoreDetail.lessonScoreText,
+      lessonScoreBreakdownText: lessonScoreDetail.lessonScoreBreakdownText,
+      lessonScoreApplicableItems: lessonScoreDetail.lessonScoreApplicableItems
+    };
+  },
+
+  shouldFallbackToFullRebuild(options = {}) {
+    const lessonId = String(options.lessonId || "").trim();
+    const currentList = Array.isArray(options.currentList) ? options.currentList : [];
+    const rowIndexMap = options.rowIndexMap;
+    const changedStudentKeys = Array.isArray(options.changedStudentKeys) ? options.changedStudentKeys : [];
+    const missingStudentKeys = Number(options.missingStudentKeys || 0);
+    const baseRosterList = Array.isArray(options.baseRosterList)
+      ? options.baseRosterList
+      : (Array.isArray(this.data.baseRosterList) ? this.data.baseRosterList : []);
+
+    if (!lessonId || !this.isLessonActive(lessonId)) return true;
+    if (currentList.length === 0) return true;
+    if (!(rowIndexMap instanceof Map) || rowIndexMap.size === 0) return true;
+    if (baseRosterList.length > 0 && currentList.length !== baseRosterList.length) return true;
+    if (missingStudentKeys > 0) return true;
+
+    const fullRebuildThreshold = Math.max(40, Math.floor(currentList.length * 0.4));
+    if (changedStudentKeys.length >= fullRebuildThreshold) return true;
+
+    return false;
+  },
+
+  buildAttendanceRowPatches(changedStudentKeys = [], options = {}) {
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
+    const currentList = Array.isArray(this.data.list) ? this.data.list : [];
+    const rowIndexMap = this.getListRowIndexMap(currentList);
+    const nextAttendanceDocMap = options.nextAttendanceDocMap instanceof Map
+      ? options.nextAttendanceDocMap
+      : this.buildAttendanceDocMap(options.attendanceDocs || [], currentList);
+
+    if (this.shouldFallbackToFullRebuild({
+      lessonId,
+      currentList,
+      rowIndexMap,
+      changedStudentKeys
+    })) {
+      return {
+        shouldFallback: true,
+        patches: {},
+        nextList: currentList
+      };
+    }
+
+    const patches = {};
+    const nextList = currentList.slice();
+    let missingStudentKeys = 0;
+
+    changedStudentKeys.forEach((studentKey) => {
+      const index = rowIndexMap.get(studentKey);
+      if (!Number.isInteger(index)) {
+        missingStudentKeys += 1;
+        return;
+      }
+
+      const currentRow = currentList[index] || {};
+      if (this.getStudentUniqueId(currentRow) !== studentKey) {
+        missingStudentKeys += 1;
+        return;
+      }
+
+      const nextDerivedFields = this.buildAttendanceDerivedFieldsForRow(
+        currentRow,
+        nextAttendanceDocMap.get(studentKey) || null,
+        { lessonId }
+      );
+      const nextRow = {
+        ...currentRow,
+        ...nextDerivedFields
+      };
+
+      nextList[index] = nextRow;
+
+      if (this.getAttendanceDerivedRowSignature(nextRow) === this.getAttendanceDerivedRowSignature(currentRow)) {
+        return;
+      }
+
+      patches[`list[${index}].status`] = nextDerivedFields.status;
+      patches[`list[${index}].statusLabel`] = nextDerivedFields.statusLabel;
+      patches[`list[${index}].canOperateAttendanceStatus`] = !!nextDerivedFields.canOperateAttendanceStatus;
+      patches[`list[${index}].attendanceScore`] = nextDerivedFields.attendanceScore ?? null;
+      patches[`list[${index}].attendanceScoreText`] = nextDerivedFields.attendanceScoreText || "";
+      patches[`list[${index}].lessonScore`] = nextDerivedFields.lessonScore ?? null;
+      patches[`list[${index}].lessonScoreText`] = nextDerivedFields.lessonScoreText || "";
+      patches[`list[${index}].lessonScoreBreakdownText`] = nextDerivedFields.lessonScoreBreakdownText || "";
+      patches[`list[${index}].lessonScoreApplicableItems`] = Array.isArray(nextDerivedFields.lessonScoreApplicableItems)
+        ? nextDerivedFields.lessonScoreApplicableItems
+        : [];
+    });
+
+    if (this.shouldFallbackToFullRebuild({
+      lessonId,
+      currentList,
+      rowIndexMap,
+      changedStudentKeys,
+      missingStudentKeys
+    })) {
+      return {
+        shouldFallback: true,
+        patches: {},
+        nextList: currentList
+      };
+    }
+
+    return {
+      shouldFallback: false,
+      patches,
+      nextList
     };
   },
 
@@ -2713,6 +3036,7 @@ Page({
       if (!nextLessonId) {
         this.clearAttendancePolling();
         this.clearLessonEventPolling();
+        this.registerPostSwitchSnapshot({ lessonId: "" });
         const list = this.cloneBaseRosterList();
         const nextPatch = this.buildListViewPatch(list, {
           currentStats: null,
@@ -2753,6 +3077,18 @@ Page({
         selectedLessonId: nextLessonId,
         lessonEvents: cachedLessonEvents?.lessonEvents || [],
         ...nextPatch
+      });
+      this.registerPostSwitchSnapshot({
+        lessonId: nextLessonId,
+        attendanceSignature: cachedAttendance
+          ? this.getAttendanceDocsSignature(cachedAttendance.docs)
+          : null,
+        lessonEventsSignature: cachedLessonEvents
+          ? this.getLessonEventsSignature(cachedLessonEvents.lessonEvents)
+          : null,
+        statsSignature: nextPatch.currentStats
+          ? this.getCurrentStatsSignature(nextPatch.currentStats)
+          : null
       });
       this.latestAttendanceDocs = Array.isArray(cachedAttendance?.docs) ? cachedAttendance.docs : [];
       this.latestAttendanceSignature = this.getAttendanceDocsSignature(this.latestAttendanceDocs);
@@ -2937,6 +3273,9 @@ Page({
     this.ensureRuntimeCaches();
     if (!this.canApplyLessonEventsResult(lessonId, options.requestSeq || 0)) return;
     const nextSignature = this.getLessonEventsSignature(lessonEvents);
+    if (this.shouldSkipPostSwitchLessonEventPatch(lessonId, nextSignature)) {
+      return;
+    }
     const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
     const nextState = {};
     if (nextSignature !== currentSignature) {
@@ -2969,17 +3308,94 @@ Page({
     this.ensureRuntimeCaches();
     const lessonId = String(options.lessonId || this.data.selectedLessonId || this.data.lessonId || "").trim();
     if (lessonId && !this.isLessonActive(lessonId)) return;
+    const prevDocs = Array.isArray(this.latestAttendanceDocs) ? this.latestAttendanceDocs : [];
     const nextDocs = Array.isArray(docs) ? docs : [];
     const nextSignature = this.getAttendanceDocsSignature(nextDocs);
     if (this.latestAttendanceSignature === nextSignature) {
       return;
     }
+    if (this.shouldSkipPostSwitchAttendancePatch(lessonId, nextSignature)) {
+      this.latestAttendanceDocs = nextDocs;
+      this.latestAttendanceSignature = nextSignature;
+      return;
+    }
+
+    const currentList = Array.isArray(this.data.list) ? this.data.list : [];
+    const prevAttendanceDocMap = this.buildAttendanceDocMap(prevDocs, currentList);
+    const nextAttendanceDocMap = this.buildAttendanceDocMap(nextDocs, currentList);
+    const changedStudentKeys = this.collectChangedAttendanceStudentIds(
+      prevAttendanceDocMap,
+      nextAttendanceDocMap
+    );
+
     this.latestAttendanceDocs = nextDocs;
     this.latestAttendanceSignature = nextSignature;
-    this.rebuildStudentDisplayList({
-      attendanceDocs: this.latestAttendanceDocs,
-      lessonId
+    if (changedStudentKeys.length === 0) {
+      return;
+    }
+
+    const rowPatchResult = this.buildAttendanceRowPatches(changedStudentKeys, {
+      lessonId,
+      attendanceDocs: nextDocs,
+      nextAttendanceDocMap
     });
+
+    if (rowPatchResult.shouldFallback) {
+      this.rebuildStudentDisplayList({
+        attendanceDocs: this.latestAttendanceDocs,
+        lessonId
+      });
+      return;
+    }
+
+    const nextMetaPatch = this.buildListMetaPatch(rowPatchResult.nextList, {
+      lessonId,
+      currentStats: this.data.currentStats
+    });
+    const summaryPatch = {};
+
+    if (this.data.isCurrentLessonSelected !== nextMetaPatch.isCurrentLessonSelected) {
+      summaryPatch.isCurrentLessonSelected = nextMetaPatch.isCurrentLessonSelected;
+    }
+    if (JSON.stringify(this.data.signedStudents || []) !== JSON.stringify(nextMetaPatch.signedStudents || [])) {
+      summaryPatch.signedStudents = nextMetaPatch.signedStudents;
+    }
+    if (this.data.detailExportDisabled !== nextMetaPatch.detailExportDisabled) {
+      summaryPatch.detailExportDisabled = nextMetaPatch.detailExportDisabled;
+    }
+    if (this.data.statsExportDisabled !== nextMetaPatch.statsExportDisabled) {
+      summaryPatch.statsExportDisabled = nextMetaPatch.statsExportDisabled;
+    }
+    if (this.data.signCount !== nextMetaPatch.signCount) {
+      summaryPatch.signCount = nextMetaPatch.signCount;
+    }
+    if (this.data.unsignCount !== nextMetaPatch.unsignCount) {
+      summaryPatch.unsignCount = nextMetaPatch.unsignCount;
+    }
+    if (this.data.absentCount !== nextMetaPatch.absentCount) {
+      summaryPatch.absentCount = nextMetaPatch.absentCount;
+    }
+    if (this.data.waitCount !== nextMetaPatch.waitCount) {
+      summaryPatch.waitCount = nextMetaPatch.waitCount;
+    }
+    if (this.data.leaveCount !== nextMetaPatch.leaveCount) {
+      summaryPatch.leaveCount = nextMetaPatch.leaveCount;
+    }
+    if (
+      this.getCurrentStatsSignature(this.data.currentStats) !==
+      this.getCurrentStatsSignature(nextMetaPatch.currentStats)
+    ) {
+      summaryPatch.currentStats = nextMetaPatch.currentStats;
+    }
+
+    const nextState = {
+      ...rowPatchResult.patches,
+      ...summaryPatch
+    };
+
+    if (Object.keys(nextState).length > 0) {
+      this.setData(nextState);
+    }
   },
 
   /**
