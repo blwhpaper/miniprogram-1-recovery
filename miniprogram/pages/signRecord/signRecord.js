@@ -44,9 +44,14 @@ Page({
   latestAttendanceDocs: [],
   recentAnswerScoreKeys: new Set(),
   isInitializing: false,
+  isHydratingLesson: false,
   statsRequestKey: "",
   statsRequestPromise: null,
   historyStatsLoadedClassId: "",
+  attendanceRequestKey: "",
+  attendanceRequestPromise: null,
+  lessonEventRequestKey: "",
+  lessonEventRequestPromise: null,
 
   normalizeRosterItem(student) {
     if (typeof student === "string") {
@@ -149,16 +154,30 @@ Page({
 
   onShow() {
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    if (!lessonId || this.isInitializing) return;
+    if (!lessonId || this.isInitializing || this.isHydratingLesson) return;
 
     const attendanceReady = this.attendancePollingLessonId === lessonId && !!this.attendancePollingTimer;
     const lessonEventReady = this.lessonEventPollingLessonId === lessonId && !!this.lessonEventPollingTimer;
     if (attendanceReady && lessonEventReady) return;
 
-    this.fetchAttendanceOnce(lessonId);
-    this.startAttendancePolling(lessonId);
-    this.loadLessonEvents({ silent: true });
-    this.startLessonEventPolling(lessonId);
+    if (!attendanceReady) {
+      Promise.resolve(this.fetchAttendanceOnce(lessonId)).finally(() => {
+        if (this.isLessonActive(lessonId) && !(this.attendancePollingLessonId === lessonId && this.attendancePollingTimer)) {
+          this.startAttendancePolling(lessonId);
+        }
+      });
+    }
+
+    if (!lessonEventReady) {
+      Promise.resolve(this.loadLessonEvents({
+        silent: true,
+        lessonId
+      })).finally(() => {
+        if (this.isLessonActive(lessonId) && !(this.lessonEventPollingLessonId === lessonId && this.lessonEventPollingTimer)) {
+          this.startLessonEventPolling(lessonId);
+        }
+      });
+    }
   },
 
   onUnload() {
@@ -273,25 +292,35 @@ Page({
           this.historyStatsLoadedClassId = classId;
         }
 
-        this.setData({
-          stats: nextStats,
-          currentStats
-        });
+        const nextState = historyIncluded
+          ? {
+            stats: nextStats,
+            currentStats
+          }
+          : (activeLessonId === lessonId
+            ? { currentStats }
+            : null);
+
+        if (nextState) {
+          this.setData(nextState);
+        }
         this.refreshExportDisabledState();
         return currentStats;
       } else {
         if (includeHistory) {
           this.historyStatsLoadedClassId = "";
         }
-        this.setData(includeHistory
+        const activeLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+        const nextState = includeHistory
           ? {
             stats: [],
             currentStats: null
           }
-          : {
-            currentStats: null
-          });
-        this.refreshExportDisabledState();
+          : (activeLessonId === lessonId ? { currentStats: null } : null);
+        if (nextState) {
+          this.setData(nextState);
+          this.refreshExportDisabledState();
+        }
         return null;
       }
       } catch (err) {
@@ -299,15 +328,17 @@ Page({
       if (includeHistory) {
         this.historyStatsLoadedClassId = "";
       }
-      this.setData(includeHistory
+      const activeLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+      const nextState = includeHistory
         ? {
           stats: [],
           currentStats: null
         }
-        : {
-          currentStats: null
-        });
-      this.refreshExportDisabledState();
+        : (activeLessonId === lessonId ? { currentStats: null } : null);
+      if (nextState) {
+        this.setData(nextState);
+        this.refreshExportDisabledState();
+      }
       return null;
       } finally {
         if (this.statsRequestPromise === requestPromise) {
@@ -1273,7 +1304,12 @@ Page({
 
   async loadLessonEvents(options = {}) {
     const { silent = false } = options;
-    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
     if (!lessonId) {
       this.setData({
         lessonEvents: [],
@@ -1282,14 +1318,22 @@ Page({
       return [];
     }
 
+    if (this.lessonEventRequestPromise && this.lessonEventRequestKey === lessonId) {
+      return this.lessonEventRequestPromise;
+    }
+
     if (!silent) {
       this.setData({ lessonEventsLoading: true });
     }
-    try {
+    const requestPromise = (async () => {
+      try {
       const res = await db.collection("lessonEvent")
         .where({ lessonId })
         .orderBy("createdAt", "desc")
         .get();
+      if (this.lessonEventRequestPromise !== requestPromise || !this.isLessonActive(lessonId)) {
+        return [];
+      }
       const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
       const nextSignature = this.getLessonEventsSignature(lessonEvents);
       const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
@@ -1304,6 +1348,9 @@ Page({
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
+      if (this.lessonEventRequestPromise !== requestPromise || !this.isLessonActive(lessonId)) {
+        return [];
+      }
       if (this.data.lessonEvents.length > 0) {
         this.setData({ lessonEvents: [] });
       }
@@ -1314,10 +1361,20 @@ Page({
       this.rebuildCurrentTestState([]);
       return [];
     } finally {
-      if (!silent) {
+      const isActiveRequest = this.lessonEventRequestPromise === requestPromise;
+      if (isActiveRequest) {
+        this.lessonEventRequestPromise = null;
+        this.lessonEventRequestKey = "";
+      }
+      if (!silent && isActiveRequest) {
         this.setData({ lessonEventsLoading: false });
       }
     }
+    })();
+
+    this.lessonEventRequestKey = lessonId;
+    this.lessonEventRequestPromise = requestPromise;
+    return requestPromise;
   },
 
   async refreshInteractionDataAfterLessonChange() {
@@ -2264,43 +2321,58 @@ Page({
 
   async switchLesson(lessonId) {
     const nextLessonId = String(lessonId || "").trim();
-    if (!nextLessonId) {
+    this.isHydratingLesson = true;
+    try {
+      if (!nextLessonId) {
+        this.clearAttendancePolling();
+        this.clearLessonEventPolling();
+        const list = this.cloneBaseRosterList();
+        const nextPatch = this.buildListViewPatch(list, { currentStats: null });
+        this.setData({
+          lessonId: "",
+          selectedLessonId: "",
+          ...nextPatch,
+          lessonEvents: [],
+          pendingLeaveRequests: []
+        });
+        return;
+      }
+
       this.clearAttendancePolling();
       this.clearLessonEventPolling();
-      const list = this.cloneBaseRosterList();
-      const nextPatch = this.buildListViewPatch(list, { currentStats: null });
-      this.setData({
-        lessonId: "",
-        selectedLessonId: "",
-        ...nextPatch,
-        lessonEvents: [],
-        pendingLeaveRequests: []
+
+      const baseList = this.cloneBaseRosterList();
+      const nextCurrentStats = (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null;
+      const nextPatch = this.buildListViewPatch(baseList, {
+        currentStats: nextCurrentStats
       });
-      return;
+      this.setData({
+        lessonId: nextLessonId,
+        selectedLessonId: nextLessonId,
+        ...nextPatch
+      });
+
+      await Promise.all([
+        this.fetchAttendanceOnce(nextLessonId),
+        this.loadLessonEvents({
+          silent: true,
+          lessonId: nextLessonId
+        })
+      ]);
+
+      if (!this.isLessonActive(nextLessonId)) {
+        return;
+      }
+
+      this.startAttendancePolling(nextLessonId);
+      this.startLessonEventPolling(nextLessonId);
+      void this.loadStats({
+        lessonId: nextLessonId,
+        includeHistory: false
+      });
+    } finally {
+      this.isHydratingLesson = false;
     }
-
-    this.clearAttendancePolling();
-    this.clearLessonEventPolling();
-
-    const baseList = this.cloneBaseRosterList();
-    const nextCurrentStats = (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null;
-    const nextPatch = this.buildListViewPatch(baseList, {
-      currentStats: nextCurrentStats
-    });
-    this.setData({
-      lessonId: nextLessonId,
-      selectedLessonId: nextLessonId,
-      ...nextPatch
-    });
-
-    await this.fetchAttendanceOnce(nextLessonId);
-    this.startAttendancePolling(nextLessonId);
-    void this.loadLessonEvents({ silent: true });
-    this.startLessonEventPolling(nextLessonId);
-    void this.loadStats({
-      lessonId: nextLessonId,
-      includeHistory: false
-    });
   },
 
   onSelectLesson(e) {
@@ -2321,19 +2393,44 @@ Page({
       return;
     }
 
-    try {
+    if (this.attendanceRequestPromise && this.attendanceRequestKey === lessonId) {
+      return this.attendanceRequestPromise;
+    }
+
+    const requestPromise = (async () => {
+      try {
       const res = await db.collection("attendance")
         .where({ lessonId })
         .get();
+      if (this.attendanceRequestPromise !== requestPromise || !this.isLessonActive(lessonId)) {
+        return [];
+      }
       const docs = res.data || [];
       this.syncAttendance(docs);
+      return docs;
     } catch (err) {
       console.error("[signRecord] fetch attendance failed", {
         classId,
         lessonId,
         err
       });
+      return [];
+    } finally {
+      if (this.attendanceRequestPromise === requestPromise) {
+        this.attendanceRequestPromise = null;
+        this.attendanceRequestKey = "";
+      }
     }
+    })();
+
+    this.attendanceRequestKey = lessonId;
+    this.attendanceRequestPromise = requestPromise;
+    return requestPromise;
+  },
+
+  isLessonActive(lessonId = "") {
+    const activeLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    return !!lessonId && lessonId === activeLessonId;
   },
 
   startAttendancePolling(targetLessonId = "") {
