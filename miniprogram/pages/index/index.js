@@ -1,5 +1,7 @@
 // index.js
 Page({
+  teacherHomeReturnKey: "TEACHER_HOME_RETURN_ONCE",
+
   data: {
     showTip: false,
     powerList: [
@@ -111,6 +113,7 @@ Page({
       : {};
     const query = launchOptions.query || {};
     const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    const teacherHomeReturnOnce = String(wx.getStorageSync(this.teacherHomeReturnKey) || "").trim();
     const lessonId = String(query.lessonId || "").trim();
     const scene = String(query.scene || "").trim();
     const q = String(query.q || "").trim();
@@ -121,7 +124,10 @@ Page({
       q
     };
 
-    if (currentTeacher) {
+    if (currentTeacher || teacherHomeReturnOnce) {
+      if (teacherHomeReturnOnce) {
+        wx.removeStorageSync(this.teacherHomeReturnKey);
+      }
       return "/pages/teacherHome/teacherHome";
     }
 

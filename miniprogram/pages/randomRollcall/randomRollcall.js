@@ -2,6 +2,8 @@ const db = wx.cloud.database()
 const _ = db.command
 
 Page({
+  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
+
   data: {
     classId: "",
     lessonId: "",
@@ -29,6 +31,27 @@ Page({
   latestClassRollcallEvents: [],
   recentAnswerScoreKeys: new Set(),
   isInitializing: false,
+
+  ensureTeacherPageAccess() {
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
+
+    if (currentTeacher) {
+      wx.removeStorageSync(this.teacherLogoutGateKey);
+      return true;
+    }
+
+    if (hasLoggedOutTeacher || !currentTeacher) {
+      this.clearAttendancePolling();
+      this.clearLessonEventPolling();
+      wx.reLaunch({
+        url: "/pages/teacherHome/teacherHome"
+      });
+      return false;
+    }
+
+    return true;
+  },
 
   normalizeRosterItem(student) {
     if (typeof student === "string") {
@@ -107,6 +130,7 @@ Page({
   },
 
   onLoad(options) {
+    if (!this.ensureTeacherPageAccess()) return;
     // 从上一页（classHome 或 studentList）传入的参数
     const lessonId = String(options.lessonId || "").trim();
     const classId = String(options.classId || "").trim();
@@ -121,6 +145,7 @@ Page({
   },
 
   onShow() {
+    if (!this.ensureTeacherPageAccess()) return;
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
     if (!lessonId || this.isInitializing) return;
 

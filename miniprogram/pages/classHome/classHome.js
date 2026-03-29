@@ -1,6 +1,8 @@
 const db = wx.cloud.database()
 
 Page({
+  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
+
   data: {
     classId: "",
     lessonId: "",
@@ -18,6 +20,25 @@ Page({
   lessonEndPromptTimer: null,
   lessonAutoEndTimer: null,
   currentLifecycleLessonId: "",
+
+  ensureTeacherPageAccess() {
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
+    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim()
+
+    if (currentTeacher) {
+      wx.removeStorageSync(this.teacherLogoutGateKey)
+      return true
+    }
+
+    if (hasLoggedOutTeacher || !currentTeacher) {
+      wx.reLaunch({
+        url: "/pages/teacherHome/teacherHome"
+      })
+      return false
+    }
+
+    return true
+  },
 
   getQrCodeStorageKey(classId = "", lessonId = "") {
     const normalizedClassId = String(classId || "").trim()
@@ -46,6 +67,7 @@ Page({
   },
 
   onLoad(options) {
+    if (!this.ensureTeacherPageAccess()) return
     const classId = String(options.classId || options.id || "").trim()
     const app = getApp()
 
@@ -58,6 +80,7 @@ Page({
   },
 
   onShow() {
+    if (!this.ensureTeacherPageAccess()) return
     this.restoreCurrentLessonQr()
   },
 

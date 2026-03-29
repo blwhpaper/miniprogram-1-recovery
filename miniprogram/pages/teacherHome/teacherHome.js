@@ -1,5 +1,6 @@
 Page({
   teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
+  teacherHomeReturnKey: "TEACHER_HOME_RETURN_ONCE",
 
   data: {
     hasTeacherSession: false,
@@ -14,11 +15,17 @@ Page({
   },
 
   onLoad() {
+    this.markTeacherHomeReturn();
     this.loadTeacherHomeState();
   },
 
   onShow() {
+    this.markTeacherHomeReturn();
     this.loadTeacherHomeState();
+  },
+
+  markTeacherHomeReturn() {
+    wx.setStorageSync(this.teacherHomeReturnKey, "1");
   },
 
   getCurrentTeacherSession() {
