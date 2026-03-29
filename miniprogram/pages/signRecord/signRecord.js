@@ -53,8 +53,10 @@ Page({
   attendanceRequestPromise: null,
   lessonEventRequestKey: "",
   lessonEventRequestPromise: null,
+  lessonEventRequestSeq: 0,
   attendanceCacheByLesson: new Map(),
   lessonEventCacheByLesson: new Map(),
+  latestLessonEventSeqByLesson: new Map(),
 
   ensureRuntimeCaches() {
     if (!(this.attendanceCacheByLesson instanceof Map)) {
@@ -62,6 +64,9 @@ Page({
     }
     if (!(this.lessonEventCacheByLesson instanceof Map)) {
       this.lessonEventCacheByLesson = new Map();
+    }
+    if (!(this.latestLessonEventSeqByLesson instanceof Map)) {
+      this.latestLessonEventSeqByLesson = new Map();
     }
     if (!Array.isArray(this.latestAttendanceDocs)) {
       this.latestAttendanceDocs = [];
@@ -71,6 +76,9 @@ Page({
     }
     if (!(this.recentAnswerScoreKeys instanceof Set)) {
       this.recentAnswerScoreKeys = new Set();
+    }
+    if (!Number.isFinite(this.lessonEventRequestSeq)) {
+      this.lessonEventRequestSeq = 0;
     }
   },
 
@@ -836,6 +844,84 @@ Page({
     }));
   },
 
+  getLessonEventDerivedRowSignature(item = {}) {
+    return JSON.stringify({
+      answerScoreText: String(item.answerScoreText || ""),
+      answerScoreAvg: Number.isFinite(item.answerScoreAvg) ? item.answerScoreAvg : null,
+      answerScoreAvgText: String(item.answerScoreAvgText || ""),
+      questionScoreText: String(item.questionScoreText || ""),
+      questionScoreAvg: Number.isFinite(item.questionScoreAvg) ? item.questionScoreAvg : null,
+      questionScoreAvgText: String(item.questionScoreAvgText || ""),
+      testScoreText: String(item.testScoreText || ""),
+      testScoreAvg: Number.isFinite(item.testScoreAvg) ? item.testScoreAvg : null,
+      testScoreAvgText: String(item.testScoreAvgText || ""),
+      hasPendingLeaveRequest: !!item.hasPendingLeaveRequest,
+      pendingLeaveApplicantName: String(item.pendingLeaveApplicantName || ""),
+      attendanceScore: Number.isFinite(item.attendanceScore) ? item.attendanceScore : null,
+      attendanceScoreText: String(item.attendanceScoreText || ""),
+      lessonScore: Number.isFinite(item.lessonScore) ? item.lessonScore : null,
+      lessonScoreText: String(item.lessonScoreText || ""),
+      lessonScoreBreakdownText: String(item.lessonScoreBreakdownText || "")
+    });
+  },
+
+  buildLessonEventRowPatches(lessonEvents = []) {
+    const currentList = Array.isArray(this.data.list) ? this.data.list : [];
+    if (currentList.length === 0) {
+      return {
+        shouldFallback: true,
+        nextList: []
+      };
+    }
+
+    const baseList = currentList.map((item) => ({ ...item }));
+    const nextList = this.mergeInteractionIntoList(baseList, lessonEvents);
+    if (nextList.length !== currentList.length) {
+      return {
+        shouldFallback: true,
+        nextList
+      };
+    }
+
+    const patches = {};
+
+    nextList.forEach((nextItem, index) => {
+      const currentItem = currentList[index] || {};
+      if (
+        this.getStudentUniqueId(nextItem) !== this.getStudentUniqueId(currentItem) ||
+        this.getLessonEventDerivedRowSignature(nextItem) === this.getLessonEventDerivedRowSignature(currentItem)
+      ) {
+        return;
+      }
+
+      patches[`list[${index}].answerScoreText`] = nextItem.answerScoreText;
+      patches[`list[${index}].answerScoreAvg`] = nextItem.answerScoreAvg ?? null;
+      patches[`list[${index}].answerScoreAvgText`] = nextItem.answerScoreAvgText;
+      patches[`list[${index}].questionScoreText`] = nextItem.questionScoreText;
+      patches[`list[${index}].questionScoreAvg`] = nextItem.questionScoreAvg ?? null;
+      patches[`list[${index}].questionScoreAvgText`] = nextItem.questionScoreAvgText;
+      patches[`list[${index}].testScoreText`] = nextItem.testScoreText;
+      patches[`list[${index}].testScoreAvg`] = nextItem.testScoreAvg ?? null;
+      patches[`list[${index}].testScoreAvgText`] = nextItem.testScoreAvgText;
+      patches[`list[${index}].hasPendingLeaveRequest`] = !!nextItem.hasPendingLeaveRequest;
+      patches[`list[${index}].pendingLeaveApplicantName`] = nextItem.pendingLeaveApplicantName || "";
+      patches[`list[${index}].attendanceScore`] = nextItem.attendanceScore ?? null;
+      patches[`list[${index}].attendanceScoreText`] = nextItem.attendanceScoreText || "";
+      patches[`list[${index}].lessonScore`] = nextItem.lessonScore ?? null;
+      patches[`list[${index}].lessonScoreText`] = nextItem.lessonScoreText || "";
+      patches[`list[${index}].lessonScoreBreakdownText`] = nextItem.lessonScoreBreakdownText || "";
+      patches[`list[${index}].lessonScoreApplicableItems`] = Array.isArray(nextItem.lessonScoreApplicableItems)
+        ? nextItem.lessonScoreApplicableItems
+        : [];
+    });
+
+    return {
+      shouldFallback: false,
+      nextList,
+      patches
+    };
+  },
+
   parseScore(value) {
     if (value === "" || value === null || typeof value === "undefined") {
       return null;
@@ -1443,14 +1529,16 @@ Page({
       return [];
     }
 
-    const cachedLessonEvents = preferCache ? this.getFreshLessonEventCache(lessonId) : null;
-    if (cachedLessonEvents) {
-      this.applyLessonEvents(lessonId, cachedLessonEvents.lessonEvents);
-      return cachedLessonEvents.lessonEvents;
-    }
-
     if (this.lessonEventRequestPromise && this.lessonEventRequestKey === lessonId) {
       return this.lessonEventRequestPromise;
+    }
+
+    const requestSeq = this.beginLessonEventRequest(lessonId);
+
+    const cachedLessonEvents = preferCache ? this.getFreshLessonEventCache(lessonId) : null;
+    if (cachedLessonEvents) {
+      this.applyLessonEvents(lessonId, cachedLessonEvents.lessonEvents, { requestSeq });
+      return cachedLessonEvents.lessonEvents;
     }
 
     if (!silent) {
@@ -1462,7 +1550,11 @@ Page({
         .where({ lessonId })
         .orderBy("createdAt", "desc")
         .get();
-      if (this.lessonEventRequestPromise !== requestPromise || !this.isLessonActive(lessonId)) {
+      if (
+        this.lessonEventRequestPromise !== requestPromise ||
+        !this.isLessonActive(lessonId) ||
+        !this.canApplyLessonEventsResult(lessonId, requestSeq)
+      ) {
         return [];
       }
       const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
@@ -1471,11 +1563,15 @@ Page({
         signature: this.getLessonEventsSignature(lessonEvents),
         fetchedAt: Date.now()
       });
-      this.applyLessonEvents(lessonId, lessonEvents);
+      this.applyLessonEvents(lessonId, lessonEvents, { requestSeq });
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
-      if (this.lessonEventRequestPromise !== requestPromise || !this.isLessonActive(lessonId)) {
+      if (
+        this.lessonEventRequestPromise !== requestPromise ||
+        !this.isLessonActive(lessonId) ||
+        !this.canApplyLessonEventsResult(lessonId, requestSeq)
+      ) {
         return [];
       }
       if (this.data.lessonEvents.length > 0) {
@@ -2609,6 +2705,23 @@ Page({
     return !!lessonId && lessonId === activeLessonId;
   },
 
+  beginLessonEventRequest(lessonId = "") {
+    this.ensureRuntimeCaches();
+    const targetLessonId = String(lessonId || "").trim();
+    if (!targetLessonId) return 0;
+    this.lessonEventRequestSeq += 1;
+    this.latestLessonEventSeqByLesson.set(targetLessonId, this.lessonEventRequestSeq);
+    return this.lessonEventRequestSeq;
+  },
+
+  canApplyLessonEventsResult(lessonId = "", requestSeq = 0) {
+    this.ensureRuntimeCaches();
+    const targetLessonId = String(lessonId || "").trim();
+    if (!targetLessonId || !this.isLessonActive(targetLessonId)) return false;
+    if (!requestSeq) return true;
+    return this.latestLessonEventSeqByLesson.get(targetLessonId) === requestSeq;
+  },
+
   startAttendancePolling(targetLessonId = "") {
     const lessonId = String(targetLessonId || "").trim();
     const classId = String(this.data.classId || "").trim();
@@ -2665,18 +2778,32 @@ Page({
   },
 
   // 将签到数据同步到当前列表
-  applyLessonEvents(lessonId = "", lessonEvents = []) {
+  applyLessonEvents(lessonId = "", lessonEvents = [], options = {}) {
     this.ensureRuntimeCaches();
-    if (!this.isLessonActive(lessonId)) return;
+    if (!this.canApplyLessonEventsResult(lessonId, options.requestSeq || 0)) return;
     const nextSignature = this.getLessonEventsSignature(lessonEvents);
     const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
+    const nextState = {};
     if (nextSignature !== currentSignature) {
-      this.setData({ lessonEvents });
+      nextState.lessonEvents = lessonEvents;
     }
-    this.rebuildStudentDisplayList({
-      lessonEvents,
-      lessonId
-    });
+
+    const rowPatchResult = this.buildLessonEventRowPatches(lessonEvents);
+    if (rowPatchResult.shouldFallback) {
+      if (Object.keys(nextState).length > 0) {
+        this.setData(nextState);
+      }
+      this.rebuildStudentDisplayList({
+        lessonEvents,
+        lessonId
+      });
+    } else if (Object.keys(rowPatchResult.patches || {}).length > 0 || Object.keys(nextState).length > 0) {
+      this.setData({
+        ...nextState,
+        ...rowPatchResult.patches
+      });
+    }
+
     this.rebuildRollcallState(lessonEvents);
     this.rebuildLeaveRequestState(lessonEvents);
     this.rebuildQuestionRequestState(lessonEvents);
