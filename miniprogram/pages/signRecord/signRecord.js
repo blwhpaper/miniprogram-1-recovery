@@ -417,17 +417,44 @@ Page({
     return map[normalizedStatus] || "待处理";
   },
 
-  isSelectedCurrentLesson() {
+  getCurrentLessonId() {
     const lessons = Array.isArray(this.data.lessons) ? this.data.lessons : [];
-    const selectedLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    const currentLessonId = String(lessons[0]?._id || "").trim();
+    return String(lessons[0]?._id || "").trim();
+  },
+
+  isSelectedCurrentLesson(targetLessonId = "") {
+    const selectedLessonId = String(
+      targetLessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
+    const currentLessonId = this.getCurrentLessonId();
     return !!selectedLessonId && !!currentLessonId && selectedLessonId === currentLessonId;
   },
 
-  canOperateAttendanceStatus(item = {}) {
-    if (!this.isSelectedCurrentLesson()) return false;
+  canOperateAttendanceStatus(item = {}, options = {}) {
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
+    if (!this.isSelectedCurrentLesson(lessonId)) return false;
     const status = String(item.status || "").trim() || "unsigned";
     return status === "unsigned" || status === "leave_agree" || status === "absent";
+  },
+
+  canEditAttendanceForAction(student = {}, nextStatus = "", options = {}) {
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
+    const status = String(nextStatus || "").trim();
+    if (!lessonId || !status) return false;
+    return this.canOperateAttendanceStatus(student, { lessonId });
   },
 
   getMatchedAttendanceDoc(student = {}) {
@@ -457,6 +484,18 @@ Page({
     if (!lessonId || !classId || !studentName || !status) {
       wx.showToast({
         title: "缺少状态信息",
+        icon: "none"
+      });
+      return false;
+    }
+
+    if (!this.canEditAttendanceForAction({
+      studentId,
+      name: studentName,
+      status: String(student.status || "").trim() || "unsigned"
+    }, status, { lessonId })) {
+      wx.showToast({
+        title: "历史课次不可修改考勤",
         icon: "none"
       });
       return false;
@@ -753,6 +792,12 @@ Page({
   },
 
   buildListViewPatch(list = [], options = {}) {
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
     const currentStatsInput = Object.prototype.hasOwnProperty.call(options, "currentStats")
       ? options.currentStats
       : this.data.currentStats;
@@ -764,18 +809,24 @@ Page({
     });
     return {
       list,
-      isCurrentLessonSelected: this.isSelectedCurrentLesson(),
+      isCurrentLessonSelected: this.isSelectedCurrentLesson(lessonId),
       signedStudents: this.getSignedStudentsFromList(list),
       ...exportDisabledState,
       ...this.buildDerivedStatsFromList(list, currentStatsInput)
     };
   },
 
-  buildLessonDisplayList(baseList = [], attendanceDocs = [], lessonEvents = []) {
+  buildLessonDisplayList(baseList = [], attendanceDocs = [], lessonEvents = [], options = {}) {
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
     const attendanceMergedList = this.mergeAttendanceIntoList(baseList, attendanceDocs);
     return this.mergeInteractionIntoList(attendanceMergedList, lessonEvents).map((item) => ({
       ...item,
-      canOperateAttendanceStatus: this.canOperateAttendanceStatus(item)
+      canOperateAttendanceStatus: this.canOperateAttendanceStatus(item, { lessonId })
     }));
   },
 
@@ -986,6 +1037,12 @@ Page({
   },
 
   rebuildStudentDisplayList(options = {}) {
+    const lessonId = String(
+      options.lessonId ||
+      this.data.selectedLessonId ||
+      this.data.lessonId ||
+      ""
+    ).trim();
     const attendanceDocs = Array.isArray(options.attendanceDocs)
       ? options.attendanceDocs
       : this.latestAttendanceDocs;
@@ -993,14 +1050,10 @@ Page({
       ? options.lessonEvents
       : this.data.lessonEvents;
     const baseList = this.cloneBaseRosterList();
-    const attendanceMergedList = this.mergeAttendanceIntoList(baseList, attendanceDocs);
-    const list = this.mergeInteractionIntoList(attendanceMergedList, lessonEvents).map((item) => ({
-      ...item,
-      canOperateAttendanceStatus: this.canOperateAttendanceStatus(item)
-    }));
+    const list = this.buildLessonDisplayList(baseList, attendanceDocs, lessonEvents, { lessonId });
     const nextSignature = this.getAttendanceListSignature(list);
     const currentSignature = this.getAttendanceListSignature(this.data.list);
-    const nextPatch = this.buildListViewPatch(list);
+    const nextPatch = this.buildListViewPatch(list, { lessonId });
 
     if (nextSignature === currentSignature) {
       if (
@@ -1853,8 +1906,12 @@ Page({
     const currentStatus = String(e.currentTarget.dataset.currentStatus || "").trim();
     const studentId = String(e.currentTarget.dataset.studentId || "").trim();
     const studentName = String(e.currentTarget.dataset.studentName || "").trim();
-    const canOperate = !!e.currentTarget.dataset.canOperate;
     const status = currentStatus === targetStatus ? "unsigned" : targetStatus;
+    const canOperate = this.canEditAttendanceForAction({
+      studentId,
+      name: studentName,
+      status: currentStatus || "unsigned"
+    }, status);
 
     if (!targetStatus || !studentName) {
       wx.showToast({
@@ -1865,6 +1922,10 @@ Page({
     }
 
     if (!canOperate) {
+      wx.showToast({
+        title: "历史课次不可修改考勤",
+        icon: "none"
+      });
       return;
     }
 
@@ -2396,7 +2457,10 @@ Page({
         this.clearAttendancePolling();
         this.clearLessonEventPolling();
         const list = this.cloneBaseRosterList();
-        const nextPatch = this.buildListViewPatch(list, { currentStats: null });
+        const nextPatch = this.buildListViewPatch(list, {
+          currentStats: null,
+          lessonId: ""
+        });
         this.setData({
           lessonId: "",
           selectedLessonId: "",
@@ -2417,10 +2481,12 @@ Page({
       const nextList = this.buildLessonDisplayList(
         baseList,
         cachedAttendance?.docs || [],
-        cachedLessonEvents?.lessonEvents || []
+        cachedLessonEvents?.lessonEvents || [],
+        { lessonId: nextLessonId }
       );
       const nextPatch = this.buildListViewPatch(nextList, {
-        currentStats: nextCurrentStats
+        currentStats: nextCurrentStats,
+        lessonId: nextLessonId
       });
       this.setData({
         lessonId: nextLessonId,
@@ -2598,7 +2664,10 @@ Page({
     if (nextSignature !== currentSignature) {
       this.setData({ lessonEvents });
     }
-    this.rebuildStudentDisplayList({ lessonEvents });
+    this.rebuildStudentDisplayList({
+      lessonEvents,
+      lessonId
+    });
     this.rebuildRollcallState(lessonEvents);
     this.rebuildLeaveRequestState(lessonEvents);
     this.rebuildQuestionRequestState(lessonEvents);
@@ -2616,7 +2685,10 @@ Page({
     }
     this.latestAttendanceDocs = nextDocs;
     this.latestAttendanceSignature = nextSignature;
-    this.rebuildStudentDisplayList({ attendanceDocs: this.latestAttendanceDocs });
+    this.rebuildStudentDisplayList({
+      attendanceDocs: this.latestAttendanceDocs,
+      lessonId
+    });
   },
 
   /**
