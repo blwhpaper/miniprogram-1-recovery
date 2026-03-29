@@ -308,7 +308,7 @@ Page({
           ? (res.result.currentStats ||
             nextStats.find(item => String(item.lessonId || "").trim() === activeLessonId) || null)
           : (activeLessonId === lessonId
-            ? (res.result.currentStats || null)
+            ? (res.result.currentStats || this.data.currentStats || null)
             : this.data.currentStats || null);
 
         if (historyIncluded) {
@@ -339,7 +339,7 @@ Page({
             stats: [],
             currentStats: null
           }
-          : (activeLessonId === lessonId ? { currentStats: null } : null);
+          : null;
         if (nextState) {
           this.setData(nextState);
           this.refreshExportDisabledState();
@@ -357,7 +357,7 @@ Page({
           stats: [],
           currentStats: null
         }
-        : (activeLessonId === lessonId ? { currentStats: null } : null);
+        : null;
       if (nextState) {
         this.setData(nextState);
         this.refreshExportDisabledState();
@@ -749,16 +749,22 @@ Page({
     const absentCount = list.filter((i) => i.status === "absent").length;
     const waitCount = list.filter((i) => i.status === "leave_wait").length;
     const leaveCount = list.filter((i) => i.status === "leave_agree").length;
-    const currentStats = currentStatsInput
+    const currentStatsBase = currentStatsInput || (list.length > 0
       ? {
-        ...currentStatsInput,
+        lessonId: String(this.data.selectedLessonId || this.data.lessonId || "").trim(),
+        rosterCount: list.length
+      }
+      : null);
+    const currentStats = currentStatsBase
+      ? {
+        ...currentStatsBase,
         lessonId: String(
-          currentStatsInput.lessonId ||
+          currentStatsBase.lessonId ||
           this.data.selectedLessonId ||
           this.data.lessonId ||
           ""
         ).trim(),
-        rosterCount: Number(currentStatsInput.rosterCount || list.length || 0),
+        rosterCount: Number(currentStatsBase.rosterCount || list.length || 0),
         signedCount: signCount,
         unsignedCount: unsignCount,
         absentCount,
@@ -2477,7 +2483,10 @@ Page({
       const baseList = this.cloneBaseRosterList();
       const cachedAttendance = this.getFreshAttendanceCache(nextLessonId);
       const cachedLessonEvents = this.getFreshLessonEventCache(nextLessonId);
-      const nextCurrentStats = (this.data.stats || []).find(item => item.lessonId === nextLessonId) || null;
+      const nextCurrentStats =
+        (this.data.stats || []).find(item => item.lessonId === nextLessonId) ||
+        this.data.currentStats ||
+        null;
       const nextList = this.buildLessonDisplayList(
         baseList,
         cachedAttendance?.docs || [],
