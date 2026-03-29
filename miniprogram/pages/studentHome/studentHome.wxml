@@ -46,5 +46,11 @@
       </button>
     </view>
 
+    <view wx:if="{{showTeacherHomeEntry}}" class="action-block secondary-action">
+      <button bindtap="enterTeacherHome">
+        返回教师入口
+      </button>
+    </view>
+
   </view>
 </view>

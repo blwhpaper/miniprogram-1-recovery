@@ -2,6 +2,7 @@ const db = wx.cloud.database();
 const _ = db.command;
 
 Page({
+  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
   currentEntryLessonId: "",
   lastEntrySyncMeta: null,
   lastPendingClearReason: "",
@@ -49,7 +50,14 @@ Page({
     lessonEntryText: "",
     lessonEntryMode: "lesson",
     showLessonEntryButton: false,
-    showQuestionEntryButton: false
+    showQuestionEntryButton: false,
+    showTeacherHomeEntry: false
+  },
+
+  shouldShowTeacherHomeEntry() {
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
+    return !currentTeacher && !!hasLoggedOutTeacher;
   },
 
   getPendingLessonId() {
@@ -885,7 +893,8 @@ Page({
       lessonEntryText,
       lessonEntryMode,
       showLessonEntryButton,
-      showQuestionEntryButton
+      showQuestionEntryButton,
+      showTeacherHomeEntry: this.shouldShowTeacherHomeEntry()
     });
   },
 
@@ -980,6 +989,16 @@ Page({
       fail: (err) => {
         console.error("[studentHome] enterLeaveRequestPage failed", err);
         wx.showToast({ title: "未能打开请假申请页", icon: "none" });
+      }
+    });
+  },
+
+  enterTeacherHome() {
+    wx.navigateTo({
+      url: "/pages/teacherHome/teacherHome",
+      fail: (err) => {
+        console.error("[studentHome] enterTeacherHome failed", err);
+        wx.showToast({ title: "未能打开教师入口", icon: "none" });
       }
     });
   }
