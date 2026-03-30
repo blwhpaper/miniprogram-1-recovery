@@ -110,6 +110,14 @@ function teacherRecordToProfile(record = {}) {
   })
 }
 
+function getTeacherEntityProfile(teacherRecord = null, teacherProfile = null) {
+  const teacherProfileFromRecord = teacherRecordToProfile(teacherRecord)
+  if (hasActiveTeacherRecord(teacherRecord)) {
+    return teacherProfileFromRecord
+  }
+  return normalizeTeacherProfile(teacherProfile)
+}
+
 function normalizeRoles(roles = {}) {
   if (!roles || typeof roles !== 'object') {
     return {
@@ -166,6 +174,16 @@ function buildTeacherSourceState({
         teacherInfoSource: 'teachers',
         teacherSourceDegraded: false,
         teacherSourceMessage: ''
+      }
+    }
+
+    if (normalizedTeacherRecord.status === 'pending') {
+      return {
+        teacherSourceStatus: 'inactive',
+        teacherSourceLabel: 'teachers 预建档未生效',
+        teacherInfoSource: 'teachers',
+        teacherSourceDegraded: false,
+        teacherSourceMessage: 'teachers 中存在预建档，仅作老师实体承接，不代表申请流程状态或正式老师身份'
       }
     }
 
@@ -360,8 +378,7 @@ exports.main = async (event = {}) => {
     const existingTeacherRecord = teacherLookup.record
     const existingApplication = normalizeApplication(existingUser?.teacherApplication, OPENID)
     const existingTeacherProfile = normalizeTeacherProfile(existingUser?.teacherProfile)
-    const teacherProfileFromRecord = teacherRecordToProfile(existingTeacherRecord)
-    const effectiveTeacherProfile = teacherProfileFromRecord || existingTeacherProfile
+    const effectiveTeacherProfile = getTeacherEntityProfile(existingTeacherRecord, existingUser?.teacherProfile)
     const existingRoles = normalizeRoles(existingUser?.roles)
     const isTeacherFromTeachers = hasActiveTeacherRecord(existingTeacherRecord)
     const effectiveIsTeacher = isTeacherFromTeachers
@@ -396,7 +413,7 @@ exports.main = async (event = {}) => {
           const application = normalizeApplication(user?.teacherApplication, user?._openid || '')
           if (!application) return null
           const teacherRecord = teacherByOpenid.get(String(user?._openid || '').trim()) || null
-          const teacherProfile = teacherRecordToProfile(teacherRecord) || normalizeTeacherProfile(user?.teacherProfile)
+          const teacherProfile = getTeacherEntityProfile(teacherRecord, user?.teacherProfile)
           const teacherSourceState = buildTeacherSourceState({
             teacherRecord,
             teacherProfile,
