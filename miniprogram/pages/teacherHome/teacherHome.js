@@ -9,6 +9,8 @@ const {
 const TEACHER_HOME_RETURN_KEY = "TEACHER_HOME_RETURN_ONCE";
 
 Page({
+  stateLoadToken: 0,
+
   data: {
     pageLoading: false,
     pageErrorText: "",
@@ -61,6 +63,8 @@ Page({
   },
 
   async loadTeacherHomeState() {
+    const loadToken = this.stateLoadToken + 1;
+    this.stateLoadToken = loadToken;
     this.setData({
       pageLoading: true,
       pageErrorText: ""
@@ -109,6 +113,9 @@ Page({
           action: "get"
         }
       });
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
       const application = res.result?.application || null;
       const teacherProfile = res.result?.teacherProfile || null;
       const status = String(application?.status || "").trim();
@@ -173,12 +180,18 @@ Page({
         canSubmitTeacherApply: showTeacherApplyButton && !teacherApplyButtonDisabled
       });
     } catch (err) {
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
       console.error("[teacherHome] load teacher apply status failed", err);
       this.setData({
         pageErrorText: "教师状态读取失败，请稍后重试。",
         teacherApplySummaryText: "当前暂时无法读取申请状态，请稍后重试。"
       });
     } finally {
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
       this.setData({
         pageLoading: false
       });

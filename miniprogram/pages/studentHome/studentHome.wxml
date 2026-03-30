@@ -18,78 +18,93 @@
     </view>
   </view>
 
-  <view wx:if="{{hasBoundStudentSession}}" class="info-block ui-card ui-card--subtle ui-section">
-    <view class="ui-card-head">
-      <view class="ui-title-md">学生信息</view>
-      <view class="ui-text-helper">当前账号绑定的学生身份信息</view>
-    </view>
-    <view class="ui-info-list">
-      <view class="ui-info-item">
-        <view class="ui-info-label">当前学生</view>
-        <view class="ui-info-value">{{name}}</view>
-      </view>
-      <view class="ui-info-item">
-        <view class="ui-info-label">学号</view>
-        <view class="ui-info-value">{{studentId}}</view>
-      </view>
+  <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
+    <view class="ui-state-title">当前课状态同步中</view>
+    <view class="ui-state-desc">正在刷新当前课入口、签到状态和快捷操作。</view>
+  </view>
+
+  <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
+    <view class="ui-state-title">当前课读取失败</view>
+    <view class="ui-state-desc">{{pageErrorText}}</view>
+    <view class="ui-state-actions">
+      <button class="ui-btn-ghost" size="mini" bindtap="retryLoadHomeState">重新读取</button>
     </view>
   </view>
 
-  <view wx:if="{{hasBoundStudentSession && showLessonScoreSummary}}" class="summary-block ui-card ui-card--subtle ui-section">
-    <view class="ui-card-head">
-      <view class="summary-title ui-title-md">本课汇总</view>
-      <view class="ui-text-helper">当前课课堂承接与积分状态</view>
-    </view>
-    <view class="ui-info-list">
-      <view class="ui-info-item">
-        <view class="ui-info-label">出勤状态</view>
-        <view class="ui-info-value">{{currentLessonAttendanceStatusText || '-'}}</view>
+  <block wx:else>
+    <view wx:if="{{hasBoundStudentSession}}" class="info-block ui-card ui-card--subtle ui-section">
+      <view class="ui-card-head">
+        <view class="ui-title-md">学生信息</view>
+        <view class="ui-text-helper">当前账号绑定的学生身份信息</view>
       </view>
-      <view class="ui-info-item">
-        <view class="ui-info-label">出勤分</view>
-        <view class="ui-info-value">{{currentLessonAttendanceScoreText || '-'}}</view>
-      </view>
-      <view class="ui-info-item">
-        <view class="ui-info-label">课堂积分</view>
-        <view class="ui-info-value">{{currentLessonScoreText || '-'}}</view>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">当前学生</view>
+          <view class="ui-info-value">{{name}}</view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">学号</view>
+          <view class="ui-info-value">{{studentId}}</view>
+        </view>
       </view>
     </view>
-    <view wx:if="{{currentLessonScoreBreakdownText}}" class="summary-tip ui-text-muted">
-        积分构成：{{currentLessonScoreBreakdownText}}
-    </view>
-  </view>
 
-  <view class="lesson-block ui-card ui-notice-card ui-section">
-    <view class="ui-card-head">
-      <view class="lesson-summary-title ui-title-md">当前课承接</view>
-      <view class="ui-text-helper">用于说明当前入口将如何承接到课堂操作</view>
-    </view>
-    <view class="tip ui-text-muted">{{summaryText}}</view>
-  </view>
-
-  <view wx:if="{{showQuestionEntryButton || (hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result') || showTeacherHomeEntry}}" class="action-card ui-card ui-section">
-    <view class="ui-card-head">
-      <view class="ui-title-md">快捷操作</view>
-      <view class="ui-text-helper">常用入口集中展示，主次操作已做区分</view>
-    </view>
-    <view class="ui-button-group ui-button-group--compact">
-      <view wx:if="{{showQuestionEntryButton}}" class="action-block secondary-action">
-      <button class="ui-btn-secondary" bindtap="enterQuestionEntry">
-        进入主动提问
-      </button>
+    <view wx:if="{{hasBoundStudentSession && showLessonScoreSummary}}" class="summary-block ui-card ui-card--subtle ui-section">
+      <view class="ui-card-head">
+        <view class="summary-title ui-title-md">本课汇总</view>
+        <view class="ui-text-helper">当前课课堂承接与积分状态</view>
       </view>
-
-      <view wx:if="{{hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result'}}" class="action-block secondary-action">
-      <button class="ui-btn-secondary" bindtap="enterLeaveRequestPage">
-        进入请假申请
-      </button>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">出勤状态</view>
+          <view class="ui-info-value">{{currentLessonAttendanceStatusText || '-'}}</view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">出勤分</view>
+          <view class="ui-info-value">{{currentLessonAttendanceScoreText || '-'}}</view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">课堂积分</view>
+          <view class="ui-info-value">{{currentLessonScoreText || '-'}}</view>
+        </view>
       </view>
-
-      <view wx:if="{{showTeacherHomeEntry}}" class="action-block secondary-action">
-      <button class="ui-btn-ghost" bindtap="enterTeacherHome">
-        返回教师入口
-      </button>
-  </view>
+      <view wx:if="{{currentLessonScoreBreakdownText}}" class="summary-tip ui-text-muted">
+          积分构成：{{currentLessonScoreBreakdownText}}
+      </view>
     </view>
-  </view>
+
+    <view class="lesson-block ui-card ui-notice-card ui-section">
+      <view class="ui-card-head">
+        <view class="lesson-summary-title ui-title-md">当前课承接</view>
+        <view class="ui-text-helper">用于说明当前入口将如何承接到课堂操作</view>
+      </view>
+      <view class="tip ui-text-muted">{{summaryText}}</view>
+    </view>
+
+    <view wx:if="{{showQuestionEntryButton || (hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result') || showTeacherHomeEntry}}" class="action-card ui-card ui-section">
+      <view class="ui-card-head">
+        <view class="ui-title-md">快捷操作</view>
+        <view class="ui-text-helper">常用入口集中展示，主次操作已做区分</view>
+      </view>
+      <view class="ui-button-group ui-button-group--compact">
+        <view wx:if="{{showQuestionEntryButton}}" class="action-block secondary-action">
+        <button class="ui-btn-secondary" bindtap="enterQuestionEntry">
+          进入主动提问
+        </button>
+        </view>
+
+        <view wx:if="{{hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result'}}" class="action-block secondary-action">
+        <button class="ui-btn-secondary" bindtap="enterLeaveRequestPage">
+          进入请假申请
+        </button>
+        </view>
+
+        <view wx:if="{{showTeacherHomeEntry}}" class="action-block secondary-action">
+        <button class="ui-btn-ghost" bindtap="enterTeacherHome">
+          返回教师入口
+        </button>
+    </view>
+      </view>
+    </view>
+  </block>
 </view>

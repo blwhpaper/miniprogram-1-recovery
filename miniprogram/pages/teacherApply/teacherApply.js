@@ -1,4 +1,6 @@
 Page({
+  stateLoadToken: 0,
+
   data: {
     pageLoading: false,
     pageErrorText: "",
@@ -35,6 +37,8 @@ Page({
   },
 
   async loadApplicationState() {
+    const loadToken = this.stateLoadToken + 1;
+    this.stateLoadToken = loadToken;
     this.setData({
       hasTeacherSession: false,
       pageLoading: true,
@@ -48,6 +52,9 @@ Page({
           action: "get"
         }
       });
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
       const application = res.result?.application || null;
       const teacherProfile = res.result?.teacherProfile || null;
       const status = String(application?.status || "").trim();
@@ -88,6 +95,9 @@ Page({
         submitDisabled: isPending || hasTeacherSyncGap
       });
     } catch (err) {
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
       console.error("[teacherApply] load application state failed", err);
       this.setData({
         pageErrorText: "申请状态读取失败，请稍后重试。"
@@ -97,6 +107,9 @@ Page({
         icon: "none"
       });
     } finally {
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
       this.setData({
         pageLoading: false
       });

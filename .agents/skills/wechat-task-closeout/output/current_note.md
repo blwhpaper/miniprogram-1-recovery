@@ -1,31 +1,41 @@
-# TASK-019A UI 前冻结验收与教师主链路回归基线建立
+# TASK-020A/B UI 冻结后真机回归与兼容性收口
 
 ## 1. 本任务完成摘要
-本轮未改业务代码，完成了教师主链路在 UI 改造前的冻结验收与基线复核。
-已基于当前代码确认 teachers 正式老师真源、users.teacherApplication 申请态职责、teacherHome 状态机、adminTeacherReview 审核链路、teacherSession 门禁、index 与 studentHome 的入口分发，并整理出可复用的人工回归基线。
+- 收口首页分发页的安全区与卡片宽度，减少刘海屏和底部横条设备上的遮挡风险。
+- 收口学生首页、教师首页、教师申请页的加载态/错误态承接，避免旧内容与新状态并存。
+- 给公共按钮组补齐多行换行、最小高度和点击区域兜底，降低真机小屏长文案挤压与按钮不可点风险。
+- 给学生首页、教师首页、教师申请页增加防旧请求回写处理，减少二次进入、前后台切换后的状态闪动和文案卡住。
 
 ## 2. 修改文件
-.agents/skills/wechat-task-closeout/output/current_note.md
+- miniprogram/app.wxss
+- miniprogram/pages/index/index.wxss
+- miniprogram/pages/studentHome/studentHome.js
+- miniprogram/pages/studentHome/studentHome.wxml
+- miniprogram/pages/teacherHome/teacherHome.js
+- miniprogram/pages/teacherHome/teacherHome.wxml
+- miniprogram/pages/teacherApply/teacherApply.js
+- miniprogram/pages/teacherApply/teacherApply.wxml
 
 ## 3. 关键改动
-通读 teacherApply、getMyUser、teacherSession、teacherHome、teacherApply、adminTeacherReview、index、classManager、studentHome、classHome、signRecord 等教师主链路相关文件，确认当前真实职责边界与状态流转。
-确认正式老师唯一放行依据已稳定收口到 teachers 真源：teachers.active 且 teacherId 非空。
-确认 users.teacherApplication 只承接申请态，teachers.pending 承接预建档，teachers.active 承接正式老师身份。
-确认 teacherHome 当前存在未申请、待审核、已驳回、已通过可进入教师工作区、已退出教师态、已通过待同步等状态。
-确认 adminTeacherReview 只负责待审核申请，安全校验依赖管理员口令或白名单，审核与 reset 后会重新刷新列表。
-整理出 UI 前冻结结论、P0/P1/P2 阻塞项分类，以及后续 UI 改造必须保持不变的业务口径与最小人工回归清单。
+- `miniprogram/app.wxss`：统一 `ui-button-group`、`ui-record-actions`、`ui-state-actions` 下按钮的换行、最小高度、内边距和点击区域；补充横向课次列表底部留白。
+- `miniprogram/pages/index/index.wxss`：补顶部/底部安全区内边距，修正分发卡片宽度计算。
+- `miniprogram/pages/studentHome/studentHome.js`：新增 `pageLoading`、`pageErrorText`、`stateLoadToken` 和统一刷新入口，阻止旧请求覆盖新状态。
+- `miniprogram/pages/studentHome/studentHome.wxml`：增加统一加载态/错误态，仅在状态稳定后渲染学生信息、本课汇总和快捷操作。
+- `miniprogram/pages/teacherHome/teacherHome.js`、`miniprogram/pages/teacherApply/teacherApply.js`：增加请求令牌，避免 `onLoad`/`onShow` 并发导致身份态和申请态闪回。
+- `miniprogram/pages/teacherHome/teacherHome.wxml`、`miniprogram/pages/teacherApply/teacherApply.wxml`：改为加载态、错误态、正常内容三段式渲染，避免加载过程中旧按钮和旧表单误显示。
 
 ## 4. 验收结果
-本轮代码级冻结验收结论为：基本可以进入 UI 阶段，但仍有少量 P1 问题。
-当前未发现必须先修、不修就不能开始 UI 的 P0 阻塞项。
-当前环境 cloud1-2gth4gqe76c8a563 下 users 与 teachers 样本为空，本轮未做真机联调，只完成了代码级基线复核与入口/门禁链路检查。
+- 已完成代码侧最小收口，改动范围聚焦安全区、状态承接、按钮布局和页面刷新稳定性。
+- 已通过 `node -c` 对 `studentHome.js`、`teacherHome.js`、`teacherApply.js` 的语法检查。
+- 已通过 `git diff --check`，当前提交内容无明显空白或 patch 格式问题。
+- 当前未直接完成微信真机全量回归，真机兼容性仍需以目标机型手测结果为准。
 
 ## 5. 当前边界
-本轮只做冻结前验收、基线建立、人工回归清单整理，不做 UI 美化，不重构老师体系，不改 teachers 真源口径，不改数据库结构，不写迁移脚本。
-本轮未顺手修改学生主链路、课堂功能全链路或无关页面。
-当前工作区中 adminTeacherReview.wxml 有已有本地改动，但不是本轮新增修改，本轮只按现状读取并纳入基线判断。
+- 本轮只处理 UI 冻结后的真机回归与兼容性收口。
+- 未新增功能，未改业务口径，未改数据库结构，未改云函数。
+- 未继续扩大到 `classHome`、`signRecord`、`classInteraction`、`randomRollcall` 的业务逻辑改造，本轮对这些页面保持只读检查。
 
 ## 6. 后续建议
-进入 UI 阶段前，先保留本轮基线结论与回归清单，后续所有 UI 任务都应以不改变 teachers 真源、users.teacherApplication 职责、teacherSession 门禁逻辑为前提。
-进入 UI 阶段后优先关注两类 P1：管理员审核入口偏弱，以及教师申请页“待同步”状态的按钮文案与真实状态不完全一致。
-如后续需要补真机对照物，建议先用一组真实申请/审核样本补一轮截图或录屏基线，再开始页面改版。
+- 在 iPhone 刘海屏、底部横条设备和常见安卓窄屏机型上重点回归 `index`、`studentHome`、`teacherHome`、`teacherApply`。
+- 重点复测二次进入、前后台切换、扫码返回后的状态刷新是否稳定。
+- 若剩余问题集中在单页局部布局，再按页面做更细粒度样式补丁，不建议继续扩大到全局重构。

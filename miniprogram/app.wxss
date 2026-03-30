@@ -305,6 +305,32 @@ button.ui-btn-danger {
   color: #ffffff;
 }
 
+.ui-button-group button,
+.ui-record-actions button,
+.ui-state-actions button {
+  width: 100%;
+  margin: 0;
+  min-width: 0;
+  min-height: var(--ui-button-height);
+  height: auto;
+  padding: 20rpx 24rpx;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.ui-button-group button[size="mini"],
+.ui-record-actions button[size="mini"],
+.ui-state-actions button[size="mini"] {
+  min-height: 64rpx;
+  padding: 12rpx 20rpx;
+}
+
 .ui-button-group {
   display: flex;
   flex-direction: column;
@@ -471,6 +497,7 @@ button.ui-btn-danger {
 .ui-chip-list {
   display: flex;
   gap: var(--ui-space-3);
+  padding-bottom: 4rpx;
 }
 
 .ui-chip-card {

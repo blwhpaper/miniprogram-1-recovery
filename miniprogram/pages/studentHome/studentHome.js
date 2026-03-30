@@ -9,8 +9,11 @@ Page({
   currentEntryLessonId: "",
   lastEntrySyncMeta: null,
   lastPendingClearReason: "",
+  stateLoadToken: 0,
 
   data: {
+    pageLoading: false,
+    pageErrorText: "",
     lessonId: "",
     classId: "",
     name: "",
@@ -719,6 +722,7 @@ Page({
   },
 
   async rebuildHomeState(currentUserInput = undefined, options = {}) {
+    const activeLoadToken = Number(options.loadToken || 0);
     const currentUser = currentUserInput !== undefined
       ? currentUserInput
       : (wx.getStorageSync("currentUser") || null);
@@ -859,6 +863,10 @@ Page({
       summaryText = "当前没有可继续进入的课堂，请等待老师发起或重新扫码进入。";
     }
 
+    if (activeLoadToken && activeLoadToken !== this.stateLoadToken) {
+      return;
+    }
+
     this.setData({
       lessonId: resolvedLessonId,
       classId: String(cloudLessonEntry?.classId || classId || "").trim(),
@@ -911,6 +919,57 @@ Page({
     });
   },
 
+  async refreshHomeState(options = {}) {
+    const entryLessonId = this.syncPendingLessonIdFromEntry(options);
+    const loadToken = this.stateLoadToken + 1;
+    this.stateLoadToken = loadToken;
+
+    this.setData({
+      pageLoading: true,
+      pageErrorText: "",
+      pageLeadText: "当前课入口",
+      statusText: "当前课状态同步中",
+      summaryText: "正在刷新当前课与入口状态，请稍候。",
+      lessonEntryText: "",
+      lessonEntryMode: "lesson",
+      showLessonEntryButton: false,
+      showQuestionEntryButton: false,
+      showTeacherHomeEntry: false
+    });
+
+    try {
+      const currentTeacher = await ensureApprovedTeacherSession();
+      if (!this.hasStudentEntryContext({ lessonId: entryLessonId }) && this.redirectToTeacherHomeIfNeeded(currentTeacher)) {
+        return;
+      }
+
+      const currentUser = await this.syncCurrentUser();
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
+
+      await this.rebuildHomeState(currentUser, {
+        entryLessonId,
+        loadToken
+      });
+    } catch (err) {
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
+      console.error("[studentHome] refreshHomeState failed", err);
+      this.setData({
+        pageErrorText: "当前课状态读取失败，请稍后重试。"
+      });
+    } finally {
+      if (loadToken !== this.stateLoadToken) {
+        return;
+      }
+      this.setData({
+        pageLoading: false
+      });
+    }
+  },
+
   async loadCurrentLessonAttendanceStatus({ lessonId = "", studentId = "" } = {}) {
     if (!lessonId || !studentId) return "unsigned";
 
@@ -935,19 +994,15 @@ Page({
   },
 
   async onLoad(options = {}) {
-    const entryLessonId = this.syncPendingLessonIdFromEntry(options);
-    const currentTeacher = await ensureApprovedTeacherSession();
-    if (!this.hasStudentEntryContext({ lessonId: entryLessonId }) && this.redirectToTeacherHomeIfNeeded(currentTeacher)) return;
-    const currentUser = await this.syncCurrentUser();
-    await this.rebuildHomeState(currentUser, { entryLessonId });
+    await this.refreshHomeState(options);
   },
 
   async onShow() {
-    const entryLessonId = this.syncPendingLessonIdFromEntry();
-    const currentTeacher = await ensureApprovedTeacherSession();
-    if (!this.hasStudentEntryContext({ lessonId: entryLessonId }) && this.redirectToTeacherHomeIfNeeded(currentTeacher)) return;
-    const currentUser = await this.syncCurrentUser();
-    await this.rebuildHomeState(currentUser, { entryLessonId });
+    await this.refreshHomeState();
+  },
+
+  retryLoadHomeState() {
+    this.refreshHomeState();
   },
 
   enterCurrentLesson() {
