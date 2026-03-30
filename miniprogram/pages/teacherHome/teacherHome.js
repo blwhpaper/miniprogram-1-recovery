@@ -1,10 +1,18 @@
-Page({
-  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
-  teacherHomeReturnKey: "TEACHER_HOME_RETURN_ONCE",
+const {
+  getStoredTeacherSession,
+  hasTeacherLogoutGate,
+  getApprovedTeacherId,
+  cacheApprovedTeacherSession,
+  TEACHER_LOGOUT_GATE_KEY
+} = require("../../utils/teacherSession");
 
+const TEACHER_HOME_RETURN_KEY = "TEACHER_HOME_RETURN_ONCE";
+
+Page({
   data: {
     hasTeacherSession: false,
     canEnterTeacherWorkspace: false,
+    canResumeTeacherSession: false,
     teacherId: "",
     teacherName: "",
     teacherStatusText: "",
@@ -26,24 +34,7 @@ Page({
   },
 
   markTeacherHomeReturn() {
-    wx.setStorageSync(this.teacherHomeReturnKey, "1");
-  },
-
-  getCurrentTeacherSession() {
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
-    if (currentTeacher) {
-      wx.removeStorageSync(this.teacherLogoutGateKey);
-    }
-    return currentTeacher;
-  },
-
-  cacheApprovedTeacherSession(teacherId = "") {
-    const normalizedTeacherId = String(teacherId || "").trim();
-    if (!normalizedTeacherId) return "";
-
-    wx.removeStorageSync(this.teacherLogoutGateKey);
-    wx.setStorageSync("CURRENT_TEACHER", normalizedTeacherId);
-    return normalizedTeacherId;
+    wx.setStorageSync(TEACHER_HOME_RETURN_KEY, "1");
   },
 
   getTeacherDisplayName(teacherId = "") {
@@ -65,11 +56,12 @@ Page({
   },
 
   async loadTeacherHomeState() {
-    const teacherId = this.getCurrentTeacherSession();
+    const teacherId = getStoredTeacherSession();
     if (teacherId) {
       this.setData({
         hasTeacherSession: true,
         canEnterTeacherWorkspace: true,
+        canResumeTeacherSession: false,
         teacherId,
         teacherName: this.getTeacherDisplayName(teacherId),
         teacherStatusText: "教师身份已就绪",
@@ -85,6 +77,7 @@ Page({
     this.setData({
       hasTeacherSession: false,
       canEnterTeacherWorkspace: false,
+      canResumeTeacherSession: false,
       teacherId: "",
       teacherName: "老师入口",
       teacherStatusText: "教师身份未开通",
@@ -105,25 +98,35 @@ Page({
       const application = res.result?.application || null;
       const teacherProfile = res.result?.teacherProfile || null;
       const status = String(application?.status || "").trim();
-      const teacherProfileStatus = String(teacherProfile?.status || "").trim();
-      const approvedTeacherId = String(teacherProfile?.teacherId || "").trim();
       const isPending = status === "pending";
-      const isApprovedTeacher = teacherProfileStatus === "active" && !!approvedTeacherId;
-      const activeTeacherId = isApprovedTeacher
-        ? this.cacheApprovedTeacherSession(approvedTeacherId)
+      const approvedTeacherId = getApprovedTeacherId(teacherProfile);
+      const hasLoggedOutTeacher = hasTeacherLogoutGate();
+      const canAutoRestoreTeacherSession = !hasLoggedOutTeacher;
+      const activeTeacherId = canAutoRestoreTeacherSession
+        ? cacheApprovedTeacherSession(approvedTeacherId)
         : "";
+      const isApprovedTeacher = !!approvedTeacherId;
       this.setData({
         hasTeacherSession: !!activeTeacherId,
-        canEnterTeacherWorkspace: isApprovedTeacher,
-        teacherId: activeTeacherId || "",
-        teacherName: activeTeacherId ? this.getTeacherDisplayName(activeTeacherId) : "老师入口",
-        teacherStatusText: isApprovedTeacher ? "教师身份已开通" : "教师身份未开通",
-        teacherLeadText: isApprovedTeacher
+        canEnterTeacherWorkspace: isApprovedTeacher && !hasLoggedOutTeacher,
+        canResumeTeacherSession: isApprovedTeacher && hasLoggedOutTeacher,
+        teacherId: approvedTeacherId || "",
+        teacherName: approvedTeacherId ? this.getTeacherDisplayName(approvedTeacherId) : "老师入口",
+        teacherStatusText: hasLoggedOutTeacher && isApprovedTeacher
+          ? "教师态已退出"
+          : isApprovedTeacher
+            ? "教师身份已开通"
+            : "教师身份未开通",
+        teacherLeadText: hasLoggedOutTeacher && isApprovedTeacher
+          ? "你已退出当前本地教师登录态，如需继续使用教师端，请手动重新进入教师态。"
+          : isApprovedTeacher
           ? "当前申请已审核通过，可进入教师业务承接页。"
           : "如果你需要进入教师端，请先提交老师注册申请。",
         teacherApplyStatus: status,
         teacherApplyStatusText: this.getTeacherApplyStatusText(status),
-        teacherApplySummaryText: isPending
+        teacherApplySummaryText: hasLoggedOutTeacher && isApprovedTeacher
+          ? "当前教师身份已开通，但你已退出本地教师态，可手动重新进入。"
+          : isPending
           ? "已提交，等待审核"
           : status === "approved"
             ? "当前申请已通过，可进入教师业务承接页。"
@@ -156,9 +159,12 @@ Page({
       return;
     }
 
-    wx.removeStorageSync(this.teacherLogoutGateKey);
-    wx.setStorageSync("CURRENT_TEACHER", teacherId);
+    cacheApprovedTeacherSession(teacherId);
     this.goToClassManager();
+  },
+
+  resumeTeacherSession() {
+    this.enterApprovedTeacherWorkspace();
   },
 
   logoutTeacherSession() {
@@ -169,7 +175,7 @@ Page({
         if (!res.confirm) return;
 
         wx.removeStorageSync("CURRENT_TEACHER");
-        wx.setStorageSync(this.teacherLogoutGateKey, "1");
+        wx.setStorageSync(TEACHER_LOGOUT_GATE_KEY, "1");
         this.loadTeacherHomeState();
         wx.showToast({
           title: "已退出教师态",

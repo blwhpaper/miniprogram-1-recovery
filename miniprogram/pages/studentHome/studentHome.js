@@ -1,8 +1,11 @@
 const db = wx.cloud.database();
 const _ = db.command;
+const {
+  ensureApprovedTeacherSession,
+  TEACHER_LOGOUT_GATE_KEY
+} = require("../../utils/teacherSession");
 
 Page({
-  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
   currentEntryLessonId: "",
   lastEntrySyncMeta: null,
   lastPendingClearReason: "",
@@ -56,7 +59,7 @@ Page({
 
   shouldShowTeacherHomeEntry() {
     const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
-    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
+    const hasLoggedOutTeacher = String(wx.getStorageSync(TEACHER_LOGOUT_GATE_KEY) || "").trim();
     return !currentTeacher && !!hasLoggedOutTeacher;
   },
 
@@ -69,48 +72,6 @@ Page({
     const directLessonId = this.parseLessonIdFromOptions(mergedOptions);
     const pendingLessonId = this.getPendingLessonId();
     return !!String(directLessonId || pendingLessonId || "").trim();
-  },
-
-  cacheApprovedTeacherSession(teacherId = "") {
-    const normalizedTeacherId = String(teacherId || "").trim();
-    if (!normalizedTeacherId) return "";
-
-    wx.removeStorageSync(this.teacherLogoutGateKey);
-    wx.setStorageSync("CURRENT_TEACHER", normalizedTeacherId);
-    return normalizedTeacherId;
-  },
-
-  async ensureApprovedTeacherSession() {
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
-    if (currentTeacher) {
-      wx.removeStorageSync(this.teacherLogoutGateKey);
-      return currentTeacher;
-    }
-
-    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
-    if (hasLoggedOutTeacher) {
-      return "";
-    }
-
-    try {
-      const res = await wx.cloud.callFunction({
-        name: "teacherApply",
-        data: {
-          action: "get"
-        }
-      });
-      const teacherProfile = res.result?.teacherProfile || null;
-      const teacherId = String(teacherProfile?.teacherId || "").trim();
-      const teacherStatus = String(teacherProfile?.status || "").trim();
-
-      if (teacherId && teacherStatus === "active") {
-        return this.cacheApprovedTeacherSession(teacherId);
-      }
-    } catch (err) {
-      console.error("[studentHome] ensure teacher session failed", err);
-    }
-
-    return "";
   },
 
   getPendingLessonId() {

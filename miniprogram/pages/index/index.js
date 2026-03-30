@@ -1,7 +1,8 @@
 // index.js
+const { ensureApprovedTeacherSession } = require("../../utils/teacherSession");
+
 Page({
   teacherHomeReturnKey: "TEACHER_HOME_RETURN_ONCE",
-  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
   adminReviewSessionKey: "ADMIN_REVIEW_KEY",
 
   data: {
@@ -109,33 +110,9 @@ Page({
   },
 
   async resolveTeacherHomeTarget() {
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    const currentTeacher = await ensureApprovedTeacherSession();
     if (currentTeacher) {
       return "/pages/teacherHome/teacherHome";
-    }
-
-    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
-    if (hasLoggedOutTeacher) {
-      return "";
-    }
-
-    try {
-      const res = await wx.cloud.callFunction({
-        name: "teacherApply",
-        data: {
-          action: "get"
-        }
-      });
-      const teacherProfile = res.result?.teacherProfile || null;
-      const teacherId = String(teacherProfile?.teacherId || "").trim();
-      const teacherStatus = String(teacherProfile?.status || "").trim();
-
-      if (teacherId && teacherStatus === "active") {
-        wx.setStorageSync("CURRENT_TEACHER", teacherId);
-        return "/pages/teacherHome/teacherHome";
-      }
-    } catch (err) {
-      console.error("[index] resolve teacher home failed", err);
     }
 
     return "";

@@ -1,6 +1,6 @@
-Page({
-  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
+const { ensureApprovedTeacherSession, getStoredTeacherSession } = require("../../utils/teacherSession")
 
+Page({
   data: {
     classList: []
   },
@@ -17,42 +17,11 @@ Page({
   },
 
   getStoredTeacherSession() {
-    return String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
+    return getStoredTeacherSession()
   },
 
   async ensureTeacherSession() {
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
-    if (currentTeacher) {
-      wx.removeStorageSync(this.teacherLogoutGateKey)
-      return currentTeacher
-    }
-
-    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim()
-    if (hasLoggedOutTeacher) {
-      return ""
-    }
-
-    try {
-      const res = await wx.cloud.callFunction({
-        name: "teacherApply",
-        data: {
-          action: "get"
-        }
-      })
-      const teacherProfile = res.result?.teacherProfile || null
-      const teacherId = String(teacherProfile?.teacherId || "").trim()
-      const teacherStatus = String(teacherProfile?.status || "").trim()
-
-      if (teacherId && teacherStatus === "active") {
-        wx.removeStorageSync(this.teacherLogoutGateKey)
-        wx.setStorageSync("CURRENT_TEACHER", teacherId)
-        return teacherId
-      }
-    } catch (err) {
-      console.error("[classManager] ensure teacher session failed", err)
-    }
-
-    return ""
+    return ensureApprovedTeacherSession()
   },
 
   // 按当前老师加载班级（数据隔离）
