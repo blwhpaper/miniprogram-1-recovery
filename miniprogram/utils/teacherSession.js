@@ -12,7 +12,7 @@ function hasTeacherLogoutGate() {
 function getApprovedTeacherId(teacherProfile = {}, isTeacher = false) {
   const teacherId = String(teacherProfile?.teacherId || "").trim();
   const teacherStatus = String(teacherProfile?.status || "").trim();
-  return teacherId && (teacherStatus === "active" || !!isTeacher) ? teacherId : "";
+  return teacherId && teacherStatus === "active" && !!isTeacher ? teacherId : "";
 }
 
 function cacheApprovedTeacherSession(teacherId = "") {

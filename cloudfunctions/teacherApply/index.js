@@ -175,7 +175,7 @@ exports.main = async (event = {}) => {
     const effectiveTeacherProfile = teacherProfileFromRecord || existingTeacherProfile
     const existingRoles = normalizeRoles(existingUser?.roles)
     const isTeacherFromTeachers = hasActiveTeacherRecord(existingTeacherRecord)
-    const effectiveIsTeacher = isTeacherFromTeachers || (hasTeacherRole(existingRoles) && !!String(existingTeacherProfile?.teacherId || '').trim())
+    const effectiveIsTeacher = isTeacherFromTeachers
 
     if (action === 'get') {
       return {
