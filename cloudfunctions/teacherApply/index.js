@@ -130,6 +130,10 @@ function hasActiveTeacherRecord(record = {}) {
   return normalizedRecord.status === 'active' && !!normalizedRecord.teacherId
 }
 
+function isValidContactInfo(contactInfo = '') {
+  return /^1[3-9]\d{9}$/.test(String(contactInfo || '').trim())
+}
+
 function buildTeacherSourceState({
   teacherRecord = null,
   teacherProfile = null,
@@ -697,6 +701,13 @@ exports.main = async (event = {}) => {
       return {
         success: false,
         msg: '请输入联系方式'
+      }
+    }
+
+    if (!isValidContactInfo(contactInfo)) {
+      return {
+        success: false,
+        msg: '请输入正确的手机号'
       }
     }
 

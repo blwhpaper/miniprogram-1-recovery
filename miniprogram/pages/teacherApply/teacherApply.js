@@ -28,6 +28,10 @@ Page({
     return map[normalizedStatus] || "未申请";
   },
 
+  isValidContactInfo(contactInfo = "") {
+    return /^1[3-9]\d{9}$/.test(String(contactInfo || "").trim());
+  },
+
   async loadApplicationState() {
     this.setData({
       hasTeacherSession: false
@@ -123,6 +127,14 @@ Page({
     if (!contactInfo) {
       wx.showToast({
         title: "请输入联系方式",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!this.isValidContactInfo(contactInfo)) {
+      wx.showToast({
+        title: "请输入正确的手机号",
         icon: "none"
       });
       return;
