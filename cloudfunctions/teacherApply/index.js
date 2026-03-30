@@ -70,7 +70,7 @@ function normalizeTeacherRecord(record = {}) {
     return null
   }
 
-  const userOpenid = String(record.userOpenid || '').trim()
+  const userOpenid = String(record.userOpenid || record.openid || '').trim()
   const teacherId = String(record.teacherId || '').trim()
   const status = String(record.status || '').trim()
 
@@ -80,12 +80,15 @@ function normalizeTeacherRecord(record = {}) {
 
   return {
     userOpenid,
+    openid: String(record.openid || userOpenid).trim(),
     teacherId,
     status,
     isTestTeacher: !!record.isTestTeacher,
     applicationId: String(record.applicationId || '').trim(),
     name: String(record.name || '').trim(),
-    phone: String(record.phone || '').trim(),
+    contactInfo: String(record.contactInfo || record.phone || '').trim(),
+    phone: String(record.phone || record.contactInfo || '').trim(),
+    appliedAt: record.appliedAt || null,
     createdAt: record.createdAt || null,
     updatedAt: record.updatedAt || null,
     approvedAt: record.approvedAt || null,
@@ -212,6 +215,39 @@ function buildTeacherId(user = {}, existingTeacherProfile = {}, existingTeacherR
 
   const userIdSeed = String(user?._id || user?._openid || '').replace(/[^0-9a-zA-Z]/g, '').slice(-8).toUpperCase()
   return `TEACHER_${userIdSeed || Date.now()}`
+}
+
+function buildApprovedTeacherPatch({
+  applicantOpenId = '',
+  approvedBy = '',
+  targetUser = {},
+  targetApplication = {},
+  targetTeacherRecord = {},
+  nextTeacherProfile = {}
+} = {}) {
+  const normalizedOpenId = String(applicantOpenId || '').trim()
+  const applicationCreatedAt = targetUser?.teacherApplication?.createdAt || targetApplication?.createdAt || null
+  const preservedAppliedAt = targetTeacherRecord?.appliedAt || applicationCreatedAt || db.serverDate()
+  const preservedCreatedAt = targetTeacherRecord?.createdAt || db.serverDate()
+  const approvedAt = targetTeacherRecord?.approvedAt || targetUser?.teacherProfile?.approvedAt || db.serverDate()
+  const contactInfo = String(targetApplication?.contactInfo || '').trim()
+
+  return {
+    openid: normalizedOpenId,
+    userOpenid: normalizedOpenId,
+    teacherId: String(nextTeacherProfile?.teacherId || '').trim(),
+    name: String(targetApplication?.applicantName || '').trim(),
+    contactInfo,
+    phone: contactInfo,
+    status: 'active',
+    isTestTeacher: true,
+    applicationId: String(targetUser?._id || '').trim(),
+    appliedAt: preservedAppliedAt,
+    createdAt: preservedCreatedAt,
+    updatedAt: db.serverDate(),
+    approvedAt,
+    approvedBy: String(approvedBy || '').trim()
+  }
 }
 
 function getSafeErrorMessage(err = {}) {
@@ -469,6 +505,16 @@ exports.main = async (event = {}) => {
         ...normalizeRoles(targetUser.roles),
         teacher: reviewStatus === 'approved'
       }
+      const approvedTeacherPatch = reviewStatus === 'approved'
+        ? buildApprovedTeacherPatch({
+            applicantOpenId,
+            approvedBy: OPENID,
+            targetUser,
+            targetApplication,
+            targetTeacherRecord,
+            nextTeacherProfile
+          })
+        : null
 
       try {
         await db.runTransaction(async (transaction) => {
@@ -481,27 +527,16 @@ exports.main = async (event = {}) => {
           })
 
           if (reviewStatus === 'approved') {
-            const nextTeacherRecord = {
-              userOpenid: applicantOpenId,
-              teacherId: nextTeacherProfile.teacherId,
-              status: 'active',
-              isTestTeacher: true,
-              applicationId: String(targetUser._id || '').trim(),
-              name: targetApplication.applicantName,
-              phone: targetApplication.contactInfo,
-              createdAt: targetTeacherRecord?.createdAt || db.serverDate(),
-              updatedAt: db.serverDate(),
-              approvedAt: targetTeacherRecord?.approvedAt || db.serverDate(),
-              approvedBy: OPENID
-            }
-
             if (targetTeacherDocId) {
               await transaction.collection(TEACHERS_COLLECTION).doc(targetTeacherDocId).update({
-                data: nextTeacherRecord
+                data: {
+                  ...approvedTeacherPatch,
+                  rejectedReason: _.remove()
+                }
               })
             } else {
               await transaction.collection(TEACHERS_COLLECTION).add({
-                data: nextTeacherRecord
+                data: approvedTeacherPatch
               })
             }
           } else if (targetTeacherDocId) {
@@ -526,17 +561,8 @@ exports.main = async (event = {}) => {
 
       const resultTeacherRecord = reviewStatus === 'approved'
         ? normalizeTeacherRecord({
-            userOpenid: applicantOpenId,
-            teacherId: nextTeacherProfile.teacherId,
-            status: 'active',
-            isTestTeacher: true,
-            applicationId: String(targetUser._id || '').trim(),
-            name: targetApplication.applicantName,
-            phone: targetApplication.contactInfo,
-            createdAt: targetTeacherRecord?.createdAt || null,
-            updatedAt: null,
-            approvedAt: targetTeacherRecord?.approvedAt || targetUser.teacherProfile?.approvedAt || null,
-            approvedBy: OPENID
+            ...approvedTeacherPatch,
+            updatedAt: null
           })
         : targetTeacherDocId
           ? normalizeTeacherRecord({
@@ -745,7 +771,64 @@ exports.main = async (event = {}) => {
       updatedAt: db.serverDate()
     }
 
-    if (existingUser) {
+    const nextPendingTeacherRecord = normalizeTeacherRecord({
+      ...(existingTeacherRecord || {}),
+      userOpenid: OPENID,
+      openid: OPENID,
+      name: applicantName,
+      contactInfo,
+      phone: contactInfo,
+      status: 'pending',
+      appliedAt: existingTeacherRecord?.appliedAt || db.serverDate(),
+      updatedAt: db.serverDate()
+    })
+
+    if (teacherLookup.teacherSourceAvailable) {
+      await db.runTransaction(async (transaction) => {
+        if (existingUser) {
+          await transaction.collection(USERS_COLLECTION).doc(existingUser._id).update({
+            data: {
+              teacherApplication
+            }
+          })
+        } else {
+          await transaction.collection(USERS_COLLECTION).add({
+            data: {
+              _openid: OPENID,
+              teacherApplication
+            }
+          })
+        }
+
+        if (teacherLookup.docId) {
+          await transaction.collection(TEACHERS_COLLECTION).doc(teacherLookup.docId).update({
+            data: {
+              userOpenid: OPENID,
+              openid: OPENID,
+              name: applicantName,
+              contactInfo,
+              phone: contactInfo,
+              status: 'pending',
+              appliedAt: existingTeacherRecord?.appliedAt || db.serverDate(),
+              updatedAt: db.serverDate()
+            }
+          })
+        } else {
+          await transaction.collection(TEACHERS_COLLECTION).add({
+            data: {
+              userOpenid: OPENID,
+              openid: OPENID,
+              name: applicantName,
+              contactInfo,
+              phone: contactInfo,
+              status: 'pending',
+              appliedAt: db.serverDate(),
+              updatedAt: db.serverDate()
+            }
+          })
+        }
+      })
+    } else if (existingUser) {
       await db.collection(USERS_COLLECTION).doc(existingUser._id).update({
         data: {
           teacherApplication
@@ -765,7 +848,7 @@ exports.main = async (event = {}) => {
       alreadySubmitted: false,
       application: normalizeApplication(teacherApplication, OPENID),
       teacherProfile: effectiveTeacherProfile,
-      teacherRecord: existingTeacherRecord,
+      teacherRecord: teacherLookup.teacherSourceAvailable ? nextPendingTeacherRecord : existingTeacherRecord,
       roles: existingRoles,
       msg: '提交成功',
       ...pickTeacherSourceMeta(teacherLookup)
