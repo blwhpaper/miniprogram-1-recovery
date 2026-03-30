@@ -936,7 +936,7 @@ Page({
 
   async onLoad(options = {}) {
     const entryLessonId = this.syncPendingLessonIdFromEntry(options);
-    const currentTeacher = await this.ensureApprovedTeacherSession();
+    const currentTeacher = await ensureApprovedTeacherSession();
     if (!this.hasStudentEntryContext({ lessonId: entryLessonId }) && this.redirectToTeacherHomeIfNeeded(currentTeacher)) return;
     const currentUser = await this.syncCurrentUser();
     await this.rebuildHomeState(currentUser, { entryLessonId });
@@ -944,7 +944,7 @@ Page({
 
   async onShow() {
     const entryLessonId = this.syncPendingLessonIdFromEntry();
-    const currentTeacher = await this.ensureApprovedTeacherSession();
+    const currentTeacher = await ensureApprovedTeacherSession();
     if (!this.hasStudentEntryContext({ lessonId: entryLessonId }) && this.redirectToTeacherHomeIfNeeded(currentTeacher)) return;
     const currentUser = await this.syncCurrentUser();
     await this.rebuildHomeState(currentUser, { entryLessonId });
