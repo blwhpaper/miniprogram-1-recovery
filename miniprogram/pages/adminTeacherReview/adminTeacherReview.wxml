@@ -26,7 +26,7 @@
 
   <view class="card">
     <view class="section-title">重置老师测试态</view>
-    <view class="summary">会清理 users 文档中的 teacherApplication、teacherProfile，并将 teachers 真源记录置为 inactive；users.roles.teacher 仅保留兼容，不影响学生基础身份数据。</view>
+    <view class="summary">会清理 users 文档中的 teacherApplication，并将 teachers 真源记录置为 inactive；users.teacherProfile、users.roles.teacher 仅保留历史兼容，不影响学生基础身份数据。</view>
 
     <view class="field-label">目标账号 openid</view>
     <input
