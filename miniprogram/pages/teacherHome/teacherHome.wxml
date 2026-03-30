@@ -18,11 +18,14 @@
     <view class="panel-title">老师注册申请</view>
     <view class="panel-text">当前状态：{{teacherApplyStatusText}}</view>
     <view class="panel-text">{{teacherApplySummaryText}}</view>
+    <button wx:if="{{canResumeTeacherSession}}" type="primary" bindtap="resumeTeacherSession">
+      重新进入当前账号的教师态
+    </button>
     <button wx:if="{{canEnterTeacherWorkspace}}" type="primary" bindtap="enterApprovedTeacherWorkspace">
       进入班级管理
     </button>
-    <button wx:else type="primary" bindtap="goToTeacherApply" disabled="{{!canSubmitTeacherApply}}">
-      {{canSubmitTeacherApply ? "申请成为老师" : "已提交，等待审核"}}
+    <button wx:if="{{showTeacherApplyButton}}" type="primary" bindtap="goToTeacherApply" disabled="{{teacherApplyButtonDisabled}}">
+      {{teacherApplyButtonText}}
     </button>
   </view>
 

@@ -13,6 +13,9 @@ Page({
     hasTeacherSession: false,
     canEnterTeacherWorkspace: false,
     canResumeTeacherSession: false,
+    showTeacherApplyButton: false,
+    teacherApplyButtonText: "申请成为老师",
+    teacherApplyButtonDisabled: false,
     teacherId: "",
     teacherName: "",
     teacherStatusText: "",
@@ -62,6 +65,9 @@ Page({
         hasTeacherSession: true,
         canEnterTeacherWorkspace: true,
         canResumeTeacherSession: false,
+        showTeacherApplyButton: false,
+        teacherApplyButtonText: "",
+        teacherApplyButtonDisabled: false,
         teacherId,
         teacherName: this.getTeacherDisplayName(teacherId),
         teacherStatusText: "教师身份已就绪",
@@ -78,6 +84,9 @@ Page({
       hasTeacherSession: false,
       canEnterTeacherWorkspace: false,
       canResumeTeacherSession: false,
+      showTeacherApplyButton: true,
+      teacherApplyButtonText: "申请成为老师",
+      teacherApplyButtonDisabled: false,
       teacherId: "",
       teacherName: "老师入口",
       teacherStatusText: "教师身份未开通",
@@ -106,10 +115,20 @@ Page({
         ? cacheApprovedTeacherSession(approvedTeacherId)
         : "";
       const isApprovedTeacher = !!approvedTeacherId;
+      const showTeacherApplyButton = !isApprovedTeacher;
+      const teacherApplyButtonText = status === "pending"
+        ? "已提交，等待审核"
+        : status === "rejected"
+          ? "重新申请成为老师"
+          : "申请成为老师";
+      const teacherApplyButtonDisabled = status === "pending";
       this.setData({
         hasTeacherSession: !!activeTeacherId,
         canEnterTeacherWorkspace: isApprovedTeacher && !hasLoggedOutTeacher,
         canResumeTeacherSession: isApprovedTeacher && hasLoggedOutTeacher,
+        showTeacherApplyButton,
+        teacherApplyButtonText,
+        teacherApplyButtonDisabled,
         teacherId: approvedTeacherId || "",
         teacherName: approvedTeacherId ? this.getTeacherDisplayName(approvedTeacherId) : "老师入口",
         teacherStatusText: hasLoggedOutTeacher && isApprovedTeacher
@@ -133,7 +152,7 @@ Page({
             : status === "rejected"
               ? "当前申请未通过，可重新填写后再次提交。"
               : "当前还没有老师注册申请记录。",
-        canSubmitTeacherApply: status !== "pending"
+        canSubmitTeacherApply: showTeacherApplyButton && !teacherApplyButtonDisabled
       });
     } catch (err) {
       console.error("[teacherHome] load teacher apply status failed", err);
