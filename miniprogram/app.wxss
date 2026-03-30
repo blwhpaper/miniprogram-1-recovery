@@ -55,6 +55,12 @@ page {
 
 button {
   background: initial;
+  transition: all 0.2s ease;
+}
+
+.ui-btn-active {
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 
 button:focus{

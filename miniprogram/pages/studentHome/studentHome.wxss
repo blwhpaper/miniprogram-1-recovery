@@ -1,5 +1,7 @@
 .page {
-  padding-top: 40rpx;
+  /* 页面顶部预留安全距离 */
+  padding-top: calc(var(--ui-space-5) + constant(safe-area-inset-top));
+  padding-top: calc(var(--ui-space-5) + env(safe-area-inset-top));
 }
 
 .title-row {
@@ -7,7 +9,7 @@
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: var(--ui-space-3);
 }
 
 .title-wrap {
@@ -21,28 +23,50 @@
 }
 
 .hero-block {
-  margin-top: 8rpx;
-  padding: 28rpx;
-  border-radius: 20rpx;
-  border: 1rpx solid #dbe7ff;
+  margin-top: var(--ui-space-2);
+  /* 增加微弱渐变增强质感 */
+  background: linear-gradient(135deg, var(--ui-color-primary-soft) 0%, #ffffff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 装饰性光晕效果（可选，提升样板页完成度） */
+.hero-block::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 200rpx;
+  height: 200rpx;
+  background: var(--ui-color-primary);
+  opacity: 0.03;
+  filter: blur(40rpx);
+  border-radius: 50%;
+}
+
+.hero-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
 .hero-status {
-  margin-top: 12rpx;
-  font-size: 40rpx;
+  transition: all 0.3s ease;
+}
+
+.hero-summary {
+  margin-top: var(--ui-space-2);
 }
 
 .hero-entry-btn {
-  margin-top: 24rpx;
+  margin-top: var(--ui-space-4);
+  width: 100% !important;
 }
 
-.info-block,
-.lesson-block,
-.summary-block,
-.action-card {
-  margin-top: 0;
-}
-
-.secondary-action {
-  margin-top: 0;
+.summary-tip {
+  margin-top: var(--ui-space-2);
+  padding: var(--ui-space-2) var(--ui-space-3);
+  background: var(--ui-color-card-subtle);
+  border-radius: var(--ui-radius-sm);
+  font-style: italic;
 }
