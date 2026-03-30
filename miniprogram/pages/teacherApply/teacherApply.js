@@ -1,5 +1,7 @@
 Page({
   data: {
+    pageLoading: false,
+    pageErrorText: "",
     applicantName: "",
     contactInfo: "",
     remark: "",
@@ -34,7 +36,9 @@ Page({
 
   async loadApplicationState() {
     this.setData({
-      hasTeacherSession: false
+      hasTeacherSession: false,
+      pageLoading: true,
+      pageErrorText: ""
     });
 
     try {
@@ -85,11 +89,22 @@ Page({
       });
     } catch (err) {
       console.error("[teacherApply] load application state failed", err);
+      this.setData({
+        pageErrorText: "申请状态读取失败，请稍后重试。"
+      });
       wx.showToast({
         title: "申请状态读取失败",
         icon: "none"
       });
+    } finally {
+      this.setData({
+        pageLoading: false
+      });
     }
+  },
+
+  retryLoadApplicationState() {
+    this.loadApplicationState();
   },
 
   inputApplicantName(e) {

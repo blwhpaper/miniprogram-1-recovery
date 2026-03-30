@@ -6,6 +6,8 @@ Page({
     classId: "",
     lessonId: "",
     qrcode: "",
+    pageLoading: false,
+    pageErrorText: "",
     currentLessonStatusText: "当前暂无进行中的课堂",
     showEndLessonButton: false,
     debugAppEnv: "",
@@ -294,6 +296,10 @@ Page({
     const cachedLessonId = String(this.data.lessonId || wx.getStorageSync(`LATEST_LESSON_${classId}`) || "").trim()
 
     this.restoringCurrentLessonQr = true
+    this.setData({
+      pageLoading: true,
+      pageErrorText: ""
+    })
 
     try {
       const resolveResult = await this.resolveCurrentLessonByCloud({
@@ -310,6 +316,7 @@ Page({
           this.setData({
             lessonId: activeLessonId,
             qrcode: cachedQrCode,
+            pageErrorText: "",
             currentLessonStatusText: "当前课进行中",
             showEndLessonButton: true
           })
@@ -319,6 +326,7 @@ Page({
 
         this.setData({
           lessonId: activeLessonId,
+          pageErrorText: "",
           currentLessonStatusText: "当前课进行中",
           showEndLessonButton: true
         })
@@ -349,6 +357,7 @@ Page({
         this.setData({
           lessonId: "",
           qrcode: "",
+          pageErrorText: "",
           currentLessonStatusText: "当前暂无进行中的课堂",
           showEndLessonButton: false
         })
@@ -356,8 +365,14 @@ Page({
       }
     } catch (err) {
       console.error("[classHome] restoreCurrentLessonQr failed", err)
+      this.setData({
+        pageErrorText: "当前课堂状态读取失败，请稍后重试。"
+      })
     } finally {
       this.restoringCurrentLessonQr = false
+      this.setData({
+        pageLoading: false
+      })
     }
   },
 
@@ -377,6 +392,9 @@ Page({
     wx.showLoading({ title: "正在开启签到...", mask: true })
 
     try {
+      this.setData({
+        pageErrorText: ""
+      })
       const currentLessonResult = await this.resolveCurrentLessonByCloud({ classId })
       const existedActiveLesson = currentLessonResult.ok ? currentLessonResult.lesson : null
       if (existedActiveLesson) {
@@ -434,6 +452,9 @@ Page({
     } catch (err) {
       wx.hideLoading()
       console.error("签到开启失败：", err)
+      this.setData({
+        pageErrorText: String(err?.message || "").trim() || "当前课堂处理失败，请稍后重试。"
+      })
       wx.showModal({
         title: "错误",
         content: err.message || "无法生成签到码，请检查网络",
@@ -487,5 +508,9 @@ Page({
         }
       }
     })
+  },
+
+  retryRestoreCurrentLesson() {
+    this.restoreCurrentLessonQr()
   }
 })

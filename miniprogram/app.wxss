@@ -373,6 +373,57 @@ button.ui-btn-danger {
   text-align: center;
 }
 
+.ui-empty-title,
+.ui-state-title {
+  font-size: var(--ui-font-md);
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--ui-color-text);
+}
+
+.ui-empty-desc,
+.ui-state-desc {
+  font-size: var(--ui-font-sm);
+  line-height: 1.7;
+  color: var(--ui-color-text-muted);
+}
+
+.ui-state-block {
+  width: 100%;
+  padding: 36rpx 28rpx;
+  border-radius: var(--ui-radius-md);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-space-2);
+  text-align: center;
+}
+
+.ui-loading-state {
+  background: var(--ui-color-primary-soft);
+  border: 1rpx solid var(--ui-color-primary-border);
+}
+
+.ui-error-state {
+  background: var(--ui-color-danger-soft);
+  border: 1rpx solid #fecaca;
+}
+
+.ui-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--ui-space-3);
+  margin-top: var(--ui-space-2);
+}
+
+.ui-state-note {
+  font-size: var(--ui-font-xs);
+  line-height: 1.6;
+  color: var(--ui-color-text-weak);
+}
+
 .ui-info-list {
   display: flex;
   flex-direction: column;

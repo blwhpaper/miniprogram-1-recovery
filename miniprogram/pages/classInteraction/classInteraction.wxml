@@ -11,6 +11,19 @@
     </view>
   </view>
 
+  <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
+    <view class="ui-state-title">课堂互动加载中</view>
+    <view class="ui-state-desc">正在同步课次、名单、互动状态和互动记录。</view>
+  </view>
+
+  <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
+    <view class="ui-state-title">课堂互动读取失败</view>
+    <view class="ui-state-desc">{{pageErrorText}}</view>
+    <view class="ui-state-actions">
+      <button class="ui-btn-ghost" size="mini" bindtap="retryPageLoad">重新加载</button>
+    </view>
+  </view>
+
   <view class="ui-card ui-section">
     <view class="ui-card-head">
       <view class="ui-title-md">历史课次</view>
@@ -31,7 +44,8 @@
       </view>
     </scroll-view>
     <view wx:else class="ui-empty-state">
-      <view class="ui-text-body">暂无历史课次</view>
+      <view class="ui-empty-title">暂无历史课次</view>
+      <view class="ui-empty-desc">开始上课后，这里会显示可切换的课堂互动课次。</view>
     </view>
   </view>
 
@@ -128,7 +142,8 @@
         </view>
       </view>
       <view wx:else class="ui-empty-state">
-        <view class="ui-text-body">当前题暂无学生作答</view>
+        <view class="ui-empty-title">当前题暂无学生作答</view>
+        <view class="ui-empty-desc">学生作答后，会在这里实时显示结果。</view>
       </view>
     </view>
   </view>
@@ -139,8 +154,9 @@
       <view class="ui-text-helper">包括提问、测试和互动评分记录。</view>
     </view>
 
-    <view wx:if="{{lessonEventsLoading}}" class="ui-empty-state">
-      <view class="ui-text-body">互动记录加载中</view>
+    <view wx:if="{{lessonEventsLoading}}" class="ui-state-block ui-loading-state">
+      <view class="ui-state-title">互动记录加载中</view>
+      <view class="ui-state-desc">正在同步本节课的提问、测试与评分记录。</view>
     </view>
 
     <view wx:elif="{{lessonEvents.length > 0}}" class="ui-record-list">
@@ -160,7 +176,8 @@
     </view>
 
     <view wx:else class="ui-empty-state">
-      <view class="ui-text-body">本节暂无互动记录</view>
+      <view class="ui-empty-title">本节暂无互动记录</view>
+      <view class="ui-empty-desc">提问、测试或评分产生后，会在这里显示。</view>
     </view>
   </view>
 </view>

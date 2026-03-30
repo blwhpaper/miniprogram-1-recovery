@@ -23,6 +23,19 @@
     </view>
   </view>
 
+  <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
+    <view class="ui-state-title">签到记录加载中</view>
+    <view class="ui-state-desc">正在同步花名册、历史课次与签到记录。</view>
+  </view>
+
+  <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
+    <view class="ui-state-title">签到记录读取失败</view>
+    <view class="ui-state-desc">{{pageErrorText}}</view>
+    <view class="ui-state-actions">
+      <button class="ui-btn-ghost" size="mini" bindtap="retryPageLoad">重新加载</button>
+    </view>
+  </view>
+
   <view class="ui-card ui-section">
     <view class="ui-card-head">
       <view class="ui-title-md">历史课次</view>
@@ -45,7 +58,8 @@
     </scroll-view>
 
     <view wx:else class="ui-empty-state">
-      <view class="ui-text-body">暂无历史课次</view>
+      <view class="ui-empty-title">暂无历史课次</view>
+      <view class="ui-empty-desc">开始上课后，这里会显示可切换的课次记录。</view>
     </view>
   </view>
 
@@ -176,7 +190,8 @@
     </view>
 
     <view wx:else class="ui-empty-state">
-      <view class="ui-text-body">暂无学生</view>
+      <view class="ui-empty-title">暂无学生</view>
+      <view class="ui-empty-desc">当前班级还没有可展示的学生名单。</view>
     </view>
   </view>
 </view>

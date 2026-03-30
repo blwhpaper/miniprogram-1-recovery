@@ -26,7 +26,10 @@
   </view>
 
   <view wx:else class="ui-card ui-empty-state">
-    <view class="ui-title-md">当前还没有班级</view>
-    <view class="ui-text-body">先创建一个班级，再进入课堂开启签到、互动和记录管理。</view>
+    <view class="ui-empty-title">当前还没有班级</view>
+    <view class="ui-empty-desc">先创建一个班级，再进入课堂开启签到、互动和记录管理。</view>
+    <view class="ui-state-actions">
+      <button type="primary" size="mini" bindtap="addClass">新建班级</button>
+    </view>
   </view>
 </view>

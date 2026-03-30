@@ -28,7 +28,20 @@
       <view class="ui-text-helper">开启签到后，学生扫码会进入学生主页并承接当前课。</view>
     </view>
 
-    <view wx:if="{{qrcode}}" class="qr-wrap">
+    <view wx:if="{{pageLoading && !qrcode}}" class="ui-state-block ui-loading-state qr-empty">
+      <view class="ui-state-title">当前课堂同步中</view>
+      <view class="ui-state-desc">正在恢复当前课状态与签到二维码。</view>
+    </view>
+
+    <view wx:elif="{{pageErrorText && !qrcode}}" class="ui-state-block ui-error-state qr-empty">
+      <view class="ui-state-title">当前课堂读取失败</view>
+      <view class="ui-state-desc">{{pageErrorText}}</view>
+      <view class="ui-state-actions">
+        <button class="ui-btn-ghost" size="mini" bindtap="retryRestoreCurrentLesson">重新读取</button>
+      </view>
+    </view>
+
+    <view wx:elif="{{qrcode}}" class="qr-wrap">
       <image
         class="qr-image"
         src="{{qrcode}}"
@@ -37,7 +50,8 @@
     </view>
 
     <view wx:else class="ui-empty-state qr-empty">
-      <view class="ui-text-body">二维码将显示在这里</view>
+      <view class="ui-empty-title">二维码将显示在这里</view>
+      <view class="ui-empty-desc">开始当前课后，学生扫码会自动承接到学生主页。</view>
     </view>
   </view>
 

@@ -17,6 +17,19 @@
     </view>
   </view>
 
+  <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
+    <view class="ui-state-title">随机点名加载中</view>
+    <view class="ui-state-desc">正在同步课次、名单、点名进度和互动记录。</view>
+  </view>
+
+  <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
+    <view class="ui-state-title">随机点名读取失败</view>
+    <view class="ui-state-desc">{{pageErrorText}}</view>
+    <view class="ui-state-actions">
+      <button class="ui-btn-ghost" size="mini" bindtap="retryPageLoad">重新加载</button>
+    </view>
+  </view>
+
   <view class="ui-card ui-status-card ui-section">
     <view wx:if="{{currentCalledStudent}}" class="ui-card-head">
       <view class="ui-text-helper">当前点到</view>
@@ -106,7 +119,8 @@
       </view>
     </scroll-view>
     <view wx:else class="ui-empty-state">
-      <view class="ui-text-body">暂无历史课次</view>
+      <view class="ui-empty-title">暂无历史课次</view>
+      <view class="ui-empty-desc">开始上课后，这里会显示可切换的点名课次。</view>
     </view>
   </view>
 
@@ -116,8 +130,9 @@
       <view class="ui-text-helper">展示本节课的点名与得分记录。</view>
     </view>
 
-    <view wx:if="{{lessonEventsLoading}}" class="ui-empty-state">
-      <view class="ui-text-body">互动记录加载中</view>
+    <view wx:if="{{lessonEventsLoading}}" class="ui-state-block ui-loading-state">
+      <view class="ui-state-title">互动记录加载中</view>
+      <view class="ui-state-desc">正在同步本节课的点名与评分记录。</view>
     </view>
 
     <view wx:elif="{{lessonEvents.length > 0}}" class="ui-record-list">
@@ -137,7 +152,8 @@
     </view>
 
     <view wx:else class="ui-empty-state">
-      <view class="ui-text-body">本节暂无互动记录</view>
+      <view class="ui-empty-title">本节暂无互动记录</view>
+      <view class="ui-empty-desc">开始点名和评分后，会在这里显示记录。</view>
     </view>
   </view>
 </view>

@@ -6,6 +6,8 @@ Page({
   data: {
     classId: "",
     lessonId: "",
+    pageLoading: false,
+    pageErrorText: "",
     lessons: [],
     selectedLessonId: "",
     lessonsLoading: false,
@@ -261,6 +263,10 @@ Page({
     this.ensureRuntimeCaches();
     if (this.isInitializing) return;
     this.isInitializing = true;
+    this.setData({
+      pageLoading: true,
+      pageErrorText: ""
+    });
     wx.showLoading({ title: "加载中..." });
     try {
       const [_, lessons] = await Promise.all([
@@ -281,10 +287,22 @@ Page({
         });
         void this.loadStats({ includeHistory: false });
       }
+    } catch (err) {
+      console.error("[signRecord] initData failed", err);
+      this.setData({
+        pageErrorText: "页面初始化失败，请重新加载后再试。"
+      });
     } finally {
       this.isInitializing = false;
+      this.setData({
+        pageLoading: false
+      });
       wx.hideLoading();
     }
+  },
+
+  retryPageLoad() {
+    this.initData();
   },
 
   async loadStats(options = {}) {
@@ -2993,6 +3011,9 @@ Page({
       });
     } catch (err) {
       console.error("加载花名册失败：", err);
+      this.setData({
+        pageErrorText: "名单读取失败，请下拉刷新或重新加载。"
+      });
       wx.showToast({ title: "加载名单失败", icon: "none" });
     }
   },
@@ -3024,6 +3045,9 @@ Page({
       console.error("[signRecord] load lessons failed", {
         classId,
         err
+      });
+      this.setData({
+        pageErrorText: "课次读取失败，请下拉刷新或重新加载。"
       });
       this.setData({ lessons: [] });
       this.refreshExportDisabledState();

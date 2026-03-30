@@ -10,6 +10,8 @@ const TEACHER_HOME_RETURN_KEY = "TEACHER_HOME_RETURN_ONCE";
 
 Page({
   data: {
+    pageLoading: false,
+    pageErrorText: "",
     hasTeacherSession: false,
     canEnterTeacherWorkspace: false,
     canResumeTeacherSession: false,
@@ -59,6 +61,10 @@ Page({
   },
 
   async loadTeacherHomeState() {
+    this.setData({
+      pageLoading: true,
+      pageErrorText: ""
+    });
     const localTeacherId = getStoredTeacherSession();
     if (localTeacherId) {
       this.setData({
@@ -169,9 +175,18 @@ Page({
     } catch (err) {
       console.error("[teacherHome] load teacher apply status failed", err);
       this.setData({
+        pageErrorText: "教师状态读取失败，请稍后重试。",
         teacherApplySummaryText: "当前暂时无法读取申请状态，请稍后重试。"
       });
+    } finally {
+      this.setData({
+        pageLoading: false
+      });
     }
+  },
+
+  retryLoadTeacherHomeState() {
+    this.loadTeacherHomeState();
   },
 
   goToClassManager() {

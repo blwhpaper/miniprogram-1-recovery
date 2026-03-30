@@ -10,6 +10,19 @@
     <view class="hero-desc ui-text-body">{{teacherLeadText}}</view>
   </view>
 
+  <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
+    <view class="ui-state-title">状态同步中</view>
+    <view class="ui-state-desc">正在刷新教师申请状态与教师身份入口。</view>
+  </view>
+
+  <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
+    <view class="ui-state-title">当前状态读取失败</view>
+    <view class="ui-state-desc">{{pageErrorText}}</view>
+    <view class="ui-state-actions">
+      <button class="ui-btn-ghost" size="mini" bindtap="retryLoadTeacherHomeState">重新读取</button>
+    </view>
+  </view>
+
   <view wx:if="{{hasTeacherSession}}" class="panel ui-card ui-section">
     <view class="ui-card-head">
       <view class="panel-title ui-title-md">教师工作区</view>
