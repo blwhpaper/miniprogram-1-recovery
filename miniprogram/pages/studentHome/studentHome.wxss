@@ -6,15 +6,18 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16rpx;
 }
 
 .title-wrap {
   flex: 1;
+  min-width: 0;
 }
 
 .page-badge {
   flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .hero-block {

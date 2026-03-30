@@ -8,6 +8,8 @@
 
 .export-btn {
   margin: 0;
+  flex: 1 1 280rpx;
+  min-width: 0;
 }
 
 .export-btn--disabled {
@@ -34,6 +36,8 @@
 
 .attendance-btn {
   margin: 0;
+  flex: 1 1 220rpx;
+  min-width: 0;
   background: #eef4ff;
   color: #1d4ed8;
   border-radius: 999rpx;

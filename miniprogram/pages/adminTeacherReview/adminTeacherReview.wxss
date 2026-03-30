@@ -38,11 +38,13 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16rpx;
 }
 
 .row-head-main {
   flex: 1;
+  min-width: 0;
 }
 
 .review-item {
@@ -51,8 +53,14 @@
 
 .action-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 20rpx;
   margin-top: 4rpx;
+}
+
+.action-row button {
+  flex: 1 1 220rpx;
+  min-width: 0;
 }
 
 .row-inline-tag {
