@@ -61,7 +61,10 @@ async function ensureApprovedTeacherSession() {
 
     return cacheApprovedTeacherSession(approvedTeacherId);
   } catch (err) {
-    return currentTeacher || "";
+    if (currentTeacher) {
+      wx.removeStorageSync(TEACHER_SESSION_KEY);
+    }
+    return "";
   }
 }
 

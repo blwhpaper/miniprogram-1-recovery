@@ -110,11 +110,15 @@ function teacherRecordToProfile(record = {}) {
   })
 }
 
-function getTeacherEntityProfile(teacherRecord = null, teacherProfile = null) {
+function getTeacherEntityProfile(teacherRecord = null) {
   const teacherProfileFromRecord = teacherRecordToProfile(teacherRecord)
   if (hasActiveTeacherRecord(teacherRecord)) {
     return teacherProfileFromRecord
   }
+  return null
+}
+
+function getTeacherProfileCompat(teacherProfile = null) {
   return normalizeTeacherProfile(teacherProfile)
 }
 
@@ -147,20 +151,20 @@ function isValidContactInfo(contactInfo = '') {
 
 function buildTeacherSourceState({
   teacherRecord = null,
-  teacherProfile = null,
+  teacherProfileCompat = null,
   teacherSourceAvailable = true,
   teacherSourceDegraded = false,
   teacherSourceReason = '',
   teacherSourceMessage = ''
 } = {}) {
   const normalizedTeacherRecord = normalizeTeacherRecord(teacherRecord)
-  const normalizedTeacherProfile = normalizeTeacherProfile(teacherProfile)
+  const normalizedTeacherProfileCompat = getTeacherProfileCompat(teacherProfileCompat)
 
   if (!teacherSourceAvailable || teacherSourceDegraded) {
     return {
       teacherSourceStatus: 'degraded',
       teacherSourceLabel: 'teachers 真源异常',
-      teacherInfoSource: normalizedTeacherProfile ? 'users-compat' : 'teachers',
+      teacherInfoSource: normalizedTeacherProfileCompat ? 'users-compat' : 'teachers',
       teacherSourceDegraded: true,
       teacherSourceMessage: teacherSourceMessage || 'teachers 真源异常，当前展示为兼容信息'
     }
@@ -198,10 +202,10 @@ function buildTeacherSourceState({
 
   return {
     teacherSourceStatus: 'missing',
-    teacherSourceLabel: normalizedTeacherProfile ? '未找到 teachers 真源记录' : '暂无 teachers 真源记录',
-    teacherInfoSource: normalizedTeacherProfile ? 'users-compat' : 'teachers',
+    teacherSourceLabel: normalizedTeacherProfileCompat ? '未找到 teachers 真源记录' : '暂无 teachers 真源记录',
+    teacherInfoSource: normalizedTeacherProfileCompat ? 'users-compat' : 'teachers',
     teacherSourceDegraded: false,
-    teacherSourceMessage: normalizedTeacherProfile
+    teacherSourceMessage: normalizedTeacherProfileCompat
       ? '当前教师信息来自 users 兼容字段，未在 teachers 真源中确认'
       : teacherSourceReason
         ? String(teacherSourceReason).trim()
@@ -378,7 +382,8 @@ exports.main = async (event = {}) => {
     const existingTeacherRecord = teacherLookup.record
     const existingApplication = normalizeApplication(existingUser?.teacherApplication, OPENID)
     const existingTeacherProfile = normalizeTeacherProfile(existingUser?.teacherProfile)
-    const effectiveTeacherProfile = getTeacherEntityProfile(existingTeacherRecord, existingUser?.teacherProfile)
+    const effectiveTeacherProfile = getTeacherEntityProfile(existingTeacherRecord)
+    const teacherProfileCompat = getTeacherProfileCompat(existingUser?.teacherProfile)
     const existingRoles = normalizeRoles(existingUser?.roles)
     const isTeacherFromTeachers = hasActiveTeacherRecord(existingTeacherRecord)
     const effectiveIsTeacher = isTeacherFromTeachers
@@ -389,6 +394,7 @@ exports.main = async (event = {}) => {
         hasApplication: !!existingApplication,
         application: existingApplication,
         teacherProfile: effectiveTeacherProfile,
+        teacherProfileCompat,
         teacherRecord: existingTeacherRecord,
         roles: existingRoles,
         isTeacher: effectiveIsTeacher,
@@ -413,16 +419,18 @@ exports.main = async (event = {}) => {
           const application = normalizeApplication(user?.teacherApplication, user?._openid || '')
           if (!application) return null
           const teacherRecord = teacherByOpenid.get(String(user?._openid || '').trim()) || null
-          const teacherProfile = getTeacherEntityProfile(teacherRecord, user?.teacherProfile)
+          const teacherProfile = getTeacherEntityProfile(teacherRecord)
+          const teacherProfileCompat = getTeacherProfileCompat(user?.teacherProfile)
           const teacherSourceState = buildTeacherSourceState({
             teacherRecord,
-            teacherProfile,
+            teacherProfileCompat,
             ...teacherListLookup
           })
           return {
             _openid: String(user?._openid || '').trim(),
             application,
             teacherProfile,
+            teacherProfileCompat,
             applicationStatus: String(application.status || '').trim(),
             teacherSourceStatus: teacherSourceState.teacherSourceStatus,
             teacherSourceLabel: teacherSourceState.teacherSourceLabel,
@@ -599,7 +607,7 @@ exports.main = async (event = {}) => {
         : null
       const resultTeacherSourceState = buildTeacherSourceState({
         teacherRecord: resultTeacherRecord,
-        teacherProfile: resultTeacherProfile,
+        teacherProfileCompat: null,
         teacherSourceAvailable: true,
         teacherSourceDegraded: false
       })
@@ -705,7 +713,7 @@ exports.main = async (event = {}) => {
               updatedAt: null
             })
           : null,
-        teacherProfile: null,
+        teacherProfileCompat: null,
         teacherSourceAvailable: true,
         teacherSourceDegraded: false
       })
@@ -760,6 +768,7 @@ exports.main = async (event = {}) => {
         alreadyTeacher: true,
         application: existingApplication,
         teacherProfile: effectiveTeacherProfile,
+        teacherProfileCompat,
         teacherRecord: existingTeacherRecord,
         roles: existingRoles,
         msg: '当前账号已具备教师身份',
@@ -865,6 +874,7 @@ exports.main = async (event = {}) => {
       alreadySubmitted: false,
       application: normalizeApplication(teacherApplication, OPENID),
       teacherProfile: effectiveTeacherProfile,
+      teacherProfileCompat,
       teacherRecord: teacherLookup.teacherSourceAvailable ? nextPendingTeacherRecord : existingTeacherRecord,
       roles: existingRoles,
       msg: '提交成功',
