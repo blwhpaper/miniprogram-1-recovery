@@ -3,8 +3,14 @@ Page({
 
   data: {
     adminReviewKey: "",
+    resetApplicantOpenId: "",
     applications: [],
     loading: false,
+    teacherSourceAvailable: true,
+    teacherSourceDegraded: false,
+    teacherSourceReason: "",
+    teacherSourceMessage: "",
+    resettingTeacherState: false,
     reviewingOpenId: "",
     emptyText: "暂无待审核申请",
     pageState: "passwordRequired",
@@ -65,6 +71,10 @@ Page({
     this.setPageState("passwordRequired", {
       applications: [],
       loading: false,
+      teacherSourceAvailable: true,
+      teacherSourceDegraded: false,
+      teacherSourceReason: "",
+      teacherSourceMessage: "",
       reviewingOpenId: "",
       emptyText: "暂无待审核申请"
     });
@@ -73,6 +83,12 @@ Page({
   inputAdminReviewKey(e) {
     this.setData({
       adminReviewKey: String(e.detail.value || "").trim()
+    });
+  },
+
+  inputResetApplicantOpenId(e) {
+    this.setData({
+      resetApplicantOpenId: String(e.detail.value || "").trim()
     });
   },
 
@@ -95,10 +111,56 @@ Page({
     return map[normalizedStatus] || "未申请";
   },
 
+  getTeacherSourceStatusText(status = "") {
+    const normalizedStatus = String(status || "").trim();
+    const map = {
+      active: "已进入 teachers 真源",
+      inactive: "teachers 真源未生效",
+      missing: "未找到 teachers 真源记录",
+      degraded: "teachers 真源异常"
+    };
+    return map[normalizedStatus] || "未确认 teachers 真源状态";
+  },
+
+  getTeacherInfoSourceText(source = "") {
+    const normalizedSource = String(source || "").trim();
+    const map = {
+      teachers: "teachers",
+      "users-compat": "users 兼容信息"
+    };
+    return map[normalizedSource] || "-";
+  },
+
+  buildReviewSuccessToast(result = {}, reviewStatus = "") {
+    const teacherSourceStatus = String(result.teacherSourceStatus || "").trim();
+    if (reviewStatus === "approved") {
+      return teacherSourceStatus === "active"
+        ? "审核通过，真源已生效"
+        : "申请已通过，真源待确认";
+    }
+
+    if (teacherSourceStatus === "inactive") {
+      return "已驳回，真源已回退";
+    }
+
+    return "已驳回，当前无真源";
+  },
+
+  buildResetSuccessToast(result = {}) {
+    const teacherSourceStatus = String(result.teacherSourceStatus || "").trim();
+    return teacherSourceStatus === "inactive"
+      ? "已重置，真源已回退"
+      : "已重置，真源待确认";
+  },
+
   normalizeApplicationItem(item = {}) {
     const application = item.application || {};
     const teacherProfile = item.teacherProfile || null;
     const status = String(application.status || "").trim();
+    const teacherSourceStatus = String(item.teacherSourceStatus || "").trim();
+    const teacherInfoSource = String(item.teacherInfoSource || "").trim();
+    const teacherSourceDegraded = !!item.teacherSourceDegraded;
+    const teacherSourceMessage = String(item.teacherSourceMessage || "").trim();
     return {
       applicantOpenId: String(application.applicantOpenId || item._openid || "").trim(),
       applicantName: String(application.applicantName || "").trim() || "-",
@@ -106,6 +168,14 @@ Page({
       remark: String(application.remark || "").trim() || "无",
       status,
       statusText: this.getStatusText(status),
+      applicationStatusText: this.getStatusText(item.applicationStatus || status),
+      teacherSourceStatusText: String(item.teacherSourceLabel || "").trim() || this.getTeacherSourceStatusText(teacherSourceStatus),
+      teacherInfoSourceText: this.getTeacherInfoSourceText(teacherInfoSource),
+      teacherSourceWarningText: teacherSourceDegraded
+        ? (teacherSourceMessage || "teachers 真源异常，当前教师信息来自兼容信息")
+        : (teacherInfoSource === "users-compat" && teacherProfile?.teacherId
+          ? "当前教师标识来自 users 兼容信息，不是 teachers 真源确认结果"
+          : ""),
       createdAtText: this.formatDateTime(application.createdAt),
       updatedAtText: this.formatDateTime(application.updatedAt),
       teacherId: String(teacherProfile?.teacherId || "").trim()
@@ -156,7 +226,11 @@ Page({
         const isUnauthorized = msg.includes("无管理员权限");
         this.setPageState(isUnauthorized ? "unauthorized" : "passwordRequired", {
           loading: false,
-          applications: []
+          applications: [],
+          teacherSourceAvailable: true,
+          teacherSourceDegraded: false,
+          teacherSourceReason: "",
+          teacherSourceMessage: ""
         });
         wx.showToast({
           title: msg,
@@ -170,12 +244,22 @@ Page({
         : [];
 
       wx.setStorageSync(this.adminReviewSessionKey, adminReviewKey);
+      this.setData({
+        teacherSourceAvailable: !!res.result?.teacherSourceAvailable,
+        teacherSourceDegraded: !!res.result?.teacherSourceDegraded,
+        teacherSourceReason: String(res.result?.teacherSourceReason || "").trim(),
+        teacherSourceMessage: String(res.result?.teacherSourceMessage || "").trim()
+      });
       this.applyApplicationsState(applications);
     } catch (err) {
       wx.hideLoading();
       this.setPageState("passwordRequired", {
         loading: false,
-        applications: []
+        applications: [],
+        teacherSourceAvailable: true,
+        teacherSourceDegraded: false,
+        teacherSourceReason: "",
+        teacherSourceMessage: ""
       });
       console.error("[adminTeacherReview] loadApplications failed", err);
       wx.showToast({
@@ -188,11 +272,84 @@ Page({
   clearAdminReviewSession() {
     wx.removeStorageSync(this.adminReviewSessionKey);
     this.setData({
-      adminReviewKey: ""
+      adminReviewKey: "",
+      resetApplicantOpenId: ""
     });
     this.resetPageState();
     wx.reLaunch({
       url: "/pages/index/index"
+    });
+  },
+
+  resetTeacherTestState() {
+    const applicantOpenId = String(this.data.resetApplicantOpenId || "").trim();
+    const adminReviewKey = String(this.data.adminReviewKey || "").trim();
+
+    if (!adminReviewKey) {
+      wx.showToast({
+        title: "请输入管理员审核口令",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!applicantOpenId) {
+      wx.showToast({
+        title: "请输入目标账号 openid",
+        icon: "none"
+      });
+      return;
+    }
+
+    wx.showModal({
+      title: "确认重置",
+      content: "将清理该账号的老师申请与老师资格，仅用于重新测试老师申请流程。是否继续？",
+      success: async (res) => {
+        if (!res.confirm) return;
+
+        this.setData({ resettingTeacherState: true });
+        wx.showLoading({ title: "重置中...", mask: true });
+
+        try {
+          const resetRes = await wx.cloud.callFunction({
+            name: "teacherApply",
+            data: {
+              action: "reset",
+              applicantOpenId,
+              adminReviewKey
+            }
+          });
+
+          wx.hideLoading();
+          this.setData({ resettingTeacherState: false });
+
+          if (!resetRes.result?.success) {
+            wx.showToast({
+              title: String(resetRes.result?.msg || "重置失败"),
+              icon: "none"
+            });
+            return;
+          }
+
+          this.setData({
+            resetApplicantOpenId: ""
+          });
+          wx.showToast({
+            title: this.buildResetSuccessToast(resetRes.result || {}),
+            icon: "success"
+          });
+
+          await this.loadApplications();
+        } catch (err) {
+          wx.hideLoading();
+          this.setData({ resettingTeacherState: false });
+          console.error("[adminTeacherReview] resetTeacherTestState failed", err);
+          wx.showToast({
+            title: "重置失败，请稍后重试",
+            icon: "none"
+          });
+        }
+      }
     });
   },
 
@@ -243,7 +400,7 @@ Page({
           }
 
           wx.showToast({
-            title: reviewStatus === "approved" ? "审核通过" : "已驳回",
+            title: this.buildReviewSuccessToast(reviewRes.result || {}, reviewStatus),
             icon: "success"
           });
 

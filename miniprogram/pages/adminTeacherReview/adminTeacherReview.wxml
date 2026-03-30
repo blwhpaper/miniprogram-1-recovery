@@ -44,7 +44,9 @@
   <view wx:if="{{pageState === 'ready'}}" class="list-wrap">
     <view class="card">
       <view class="section-title">待审核申请列表</view>
-      <view class="summary">当前仅展示待审核申请，历史审核记录不在本页查看。</view>
+      <view class="summary">申请状态来自 users.teacherApplication；真源状态来自 teachers。</view>
+      <view wx:if="{{teacherSourceDegraded}}" class="summary">teachers 真源异常，当前列表为兼容/降级信息。{{teacherSourceMessage}}</view>
+      <view wx:else class="summary">当前页面已读取 teachers 真源状态。</view>
     </view>
 
     <view wx:for="{{applications}}" wx:key="applicantOpenId" class="card">
@@ -54,8 +56,11 @@
       <view class="row-text">备注：{{item.remark}}</view>
       <view class="row-text">提交时间：{{item.createdAtText}}</view>
       <view class="row-text">更新时间：{{item.updatedAtText}}</view>
-      <view class="row-text">当前状态：{{item.statusText}}</view>
+      <view class="row-text">申请状态：{{item.applicationStatusText}}</view>
+      <view class="row-text">真源状态：{{item.teacherSourceStatusText}}</view>
+      <view class="row-text">当前展示来源：{{item.teacherInfoSourceText}}</view>
       <view wx:if="{{item.teacherId}}" class="row-text">教师标识：{{item.teacherId}}</view>
+      <view wx:if="{{item.teacherSourceWarningText}}" class="row-text">{{item.teacherSourceWarningText}}</view>
 
       <view wx:if="{{item.status === 'pending'}}" class="action-row">
         <button

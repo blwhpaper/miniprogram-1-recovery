@@ -130,6 +130,60 @@ function hasActiveTeacherRecord(record = {}) {
   return normalizedRecord.status === 'active' && !!normalizedRecord.teacherId
 }
 
+function buildTeacherSourceState({
+  teacherRecord = null,
+  teacherProfile = null,
+  teacherSourceAvailable = true,
+  teacherSourceDegraded = false,
+  teacherSourceReason = '',
+  teacherSourceMessage = ''
+} = {}) {
+  const normalizedTeacherRecord = normalizeTeacherRecord(teacherRecord)
+  const normalizedTeacherProfile = normalizeTeacherProfile(teacherProfile)
+
+  if (!teacherSourceAvailable || teacherSourceDegraded) {
+    return {
+      teacherSourceStatus: 'degraded',
+      teacherSourceLabel: 'teachers 真源异常',
+      teacherInfoSource: normalizedTeacherProfile ? 'users-compat' : 'teachers',
+      teacherSourceDegraded: true,
+      teacherSourceMessage: teacherSourceMessage || 'teachers 真源异常，当前展示为兼容信息'
+    }
+  }
+
+  if (normalizedTeacherRecord) {
+    if (hasActiveTeacherRecord(normalizedTeacherRecord)) {
+      return {
+        teacherSourceStatus: 'active',
+        teacherSourceLabel: '已进入 teachers 真源',
+        teacherInfoSource: 'teachers',
+        teacherSourceDegraded: false,
+        teacherSourceMessage: ''
+      }
+    }
+
+    return {
+      teacherSourceStatus: 'inactive',
+      teacherSourceLabel: 'teachers 真源未生效',
+      teacherInfoSource: 'teachers',
+      teacherSourceDegraded: false,
+      teacherSourceMessage: 'teachers 中存在记录，但当前不是 active 状态'
+    }
+  }
+
+  return {
+    teacherSourceStatus: 'missing',
+    teacherSourceLabel: normalizedTeacherProfile ? '未找到 teachers 真源记录' : '暂无 teachers 真源记录',
+    teacherInfoSource: normalizedTeacherProfile ? 'users-compat' : 'teachers',
+    teacherSourceDegraded: false,
+    teacherSourceMessage: normalizedTeacherProfile
+      ? '当前教师信息来自 users 兼容字段，未在 teachers 真源中确认'
+      : teacherSourceReason
+        ? String(teacherSourceReason).trim()
+        : ''
+  }
+}
+
 function hasAdminAccess({ openId = '', adminReviewKey = '' } = {}) {
   const normalizedOpenId = String(openId || '').trim()
   const normalizedReviewKey = String(adminReviewKey || '').trim()
@@ -302,10 +356,22 @@ exports.main = async (event = {}) => {
           const application = normalizeApplication(user?.teacherApplication, user?._openid || '')
           if (!application) return null
           const teacherRecord = teacherByOpenid.get(String(user?._openid || '').trim()) || null
+          const teacherProfile = teacherRecordToProfile(teacherRecord) || normalizeTeacherProfile(user?.teacherProfile)
+          const teacherSourceState = buildTeacherSourceState({
+            teacherRecord,
+            teacherProfile,
+            ...teacherListLookup
+          })
           return {
             _openid: String(user?._openid || '').trim(),
             application,
-            teacherProfile: teacherRecordToProfile(teacherRecord) || normalizeTeacherProfile(user?.teacherProfile)
+            teacherProfile,
+            applicationStatus: String(application.status || '').trim(),
+            teacherSourceStatus: teacherSourceState.teacherSourceStatus,
+            teacherSourceLabel: teacherSourceState.teacherSourceLabel,
+            teacherInfoSource: teacherSourceState.teacherInfoSource,
+            teacherSourceDegraded: teacherSourceState.teacherSourceDegraded,
+            teacherSourceMessage: teacherSourceState.teacherSourceMessage
           }
         })
         .filter(Boolean)
@@ -454,17 +520,54 @@ exports.main = async (event = {}) => {
         })
       }
 
+      const resultTeacherRecord = reviewStatus === 'approved'
+        ? normalizeTeacherRecord({
+            userOpenid: applicantOpenId,
+            teacherId: nextTeacherProfile.teacherId,
+            status: 'active',
+            isTestTeacher: true,
+            applicationId: String(targetUser._id || '').trim(),
+            name: targetApplication.applicantName,
+            phone: targetApplication.contactInfo,
+            createdAt: targetTeacherRecord?.createdAt || null,
+            updatedAt: null,
+            approvedAt: targetTeacherRecord?.approvedAt || targetUser.teacherProfile?.approvedAt || null,
+            approvedBy: OPENID
+          })
+        : targetTeacherDocId
+          ? normalizeTeacherRecord({
+              ...targetTeacherRecord,
+              status: 'inactive',
+              updatedAt: null,
+              approvedBy: OPENID
+            })
+          : null
+      const resultTeacherProfile = reviewStatus === 'approved'
+        ? normalizeTeacherProfile({
+            teacherId: nextTeacherProfile.teacherId,
+            status: 'active',
+            approvedAt: targetTeacherRecord?.approvedAt || targetUser.teacherProfile?.approvedAt || null,
+            updatedAt: null
+          })
+        : null
+      const resultTeacherSourceState = buildTeacherSourceState({
+        teacherRecord: resultTeacherRecord,
+        teacherProfile: resultTeacherProfile,
+        teacherSourceAvailable: true,
+        teacherSourceDegraded: false
+      })
+
       return {
         success: true,
         application: normalizeApplication(nextApplication, applicantOpenId),
-        teacherProfile: reviewStatus === 'approved'
-          ? normalizeTeacherProfile({
-              teacherId: buildTeacherId(targetUser, targetUser.teacherProfile, targetTeacherRecord),
-              status: 'active',
-              approvedAt: targetTeacherRecord?.approvedAt || targetUser.teacherProfile?.approvedAt || null,
-              updatedAt: null
-            })
-          : null,
+        teacherProfile: resultTeacherProfile,
+        teacherRecord: resultTeacherRecord,
+        teacherSourceAvailable: true,
+        teacherSourceDegraded: false,
+        teacherSourceStatus: resultTeacherSourceState.teacherSourceStatus,
+        teacherSourceLabel: resultTeacherSourceState.teacherSourceLabel,
+        teacherInfoSource: resultTeacherSourceState.teacherInfoSource,
+        teacherSourceMessage: resultTeacherSourceState.teacherSourceMessage,
         msg: reviewStatus === 'approved' ? '审核通过' : '已驳回'
       }
     }
@@ -547,8 +650,27 @@ exports.main = async (event = {}) => {
         })
       }
 
+      const resetTeacherSourceState = buildTeacherSourceState({
+        teacherRecord: targetTeacherRecord && targetTeacherDocId
+          ? normalizeTeacherRecord({
+              ...targetTeacherRecord,
+              status: 'inactive',
+              updatedAt: null
+            })
+          : null,
+        teacherProfile: null,
+        teacherSourceAvailable: true,
+        teacherSourceDegraded: false
+      })
+
       return {
         success: true,
+        teacherSourceAvailable: true,
+        teacherSourceDegraded: false,
+        teacherSourceStatus: resetTeacherSourceState.teacherSourceStatus,
+        teacherSourceLabel: resetTeacherSourceState.teacherSourceLabel,
+        teacherInfoSource: resetTeacherSourceState.teacherInfoSource,
+        teacherSourceMessage: resetTeacherSourceState.teacherSourceMessage,
         msg: '已重置老师测试态'
       }
     }
