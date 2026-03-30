@@ -17,6 +17,7 @@ try {
 const DEV_ADMIN_REVIEW_PASSWORD = String(localSettings.DEV_ADMIN_REVIEW_PASSWORD || '').trim()
 const ADMIN_REVIEW_KEYS = DEV_ADMIN_REVIEW_PASSWORD ? [DEV_ADMIN_REVIEW_PASSWORD] : []
 const ADMIN_OPENIDS = []
+const TEACHERS_SOURCE_UNAVAILABLE_CODE = 'TEACHERS_SOURCE_UNAVAILABLE'
 
 function normalizeApplication(application = {}, openId = '') {
   if (!application || typeof application !== 'object') {
@@ -155,6 +156,102 @@ function buildTeacherId(user = {}, existingTeacherProfile = {}, existingTeacherR
   return `TEACHER_${userIdSeed || Date.now()}`
 }
 
+function getSafeErrorMessage(err = {}) {
+  return String(err?.message || err?.errMsg || '').trim()
+}
+
+function buildTeacherSourceMeta({
+  available = true,
+  degraded = false,
+  reason = '',
+  message = '',
+  errorCode = ''
+} = {}) {
+  return {
+    teacherSourceAvailable: !!available,
+    teacherSourceDegraded: !!degraded,
+    teacherSourceReason: String(reason || '').trim(),
+    teacherSourceMessage: String(message || '').trim(),
+    teacherSourceErrorCode: String(errorCode || '').trim()
+  }
+}
+
+function pickTeacherSourceMeta(source = {}) {
+  return buildTeacherSourceMeta(source)
+}
+
+async function safeGetTeacherRecordByOpenid(userOpenid = '') {
+  const normalizedOpenid = String(userOpenid || '').trim()
+  if (!normalizedOpenid) {
+    return {
+      record: null,
+      docId: '',
+      ...buildTeacherSourceMeta()
+    }
+  }
+
+  try {
+    const teacherRes = await db.collection(TEACHERS_COLLECTION).where({
+      userOpenid: normalizedOpenid
+    }).limit(1).get()
+    const teacherDoc = (teacherRes.data || [])[0] || null
+    return {
+      record: normalizeTeacherRecord(teacherDoc),
+      docId: String(teacherDoc?._id || '').trim(),
+      ...buildTeacherSourceMeta()
+    }
+  } catch (err) {
+    return {
+      record: null,
+      docId: '',
+      ...buildTeacherSourceMeta({
+        available: false,
+        degraded: true,
+        reason: 'teachers_unavailable',
+        message: getSafeErrorMessage(err),
+        errorCode: String(err?.errCode || TEACHERS_SOURCE_UNAVAILABLE_CODE).trim()
+      })
+    }
+  }
+}
+
+async function safeListTeacherRecords() {
+  try {
+    const teacherListRes = await db.collection(TEACHERS_COLLECTION).limit(100).get()
+    const teacherByOpenid = new Map(
+      (teacherListRes.data || [])
+        .map((item) => normalizeTeacherRecord(item))
+        .filter(Boolean)
+        .map((item) => [item.userOpenid, item])
+    )
+
+    return {
+      teacherByOpenid,
+      ...buildTeacherSourceMeta()
+    }
+  } catch (err) {
+    return {
+      teacherByOpenid: new Map(),
+      ...buildTeacherSourceMeta({
+        available: false,
+        degraded: true,
+        reason: 'teachers_unavailable',
+        message: getSafeErrorMessage(err),
+        errorCode: String(err?.errCode || TEACHERS_SOURCE_UNAVAILABLE_CODE).trim()
+      })
+    }
+  }
+}
+
+function buildTeachersUnavailableFailure(message = '', meta = {}) {
+  return {
+    success: false,
+    code: TEACHERS_SOURCE_UNAVAILABLE_CODE,
+    msg: message || 'teachers 真源不可用，请先初始化或修复 teachers 集合',
+    ...buildTeacherSourceMeta(meta)
+  }
+}
+
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext()
   const action = String(event.action || 'get').trim()
@@ -163,12 +260,10 @@ exports.main = async (event = {}) => {
     const userRes = await db.collection(USERS_COLLECTION).where({
       _openid: OPENID
     }).limit(1).get()
-    const teacherRes = await db.collection(TEACHERS_COLLECTION).where({
-      userOpenid: OPENID
-    }).limit(1).get()
+    const teacherLookup = await safeGetTeacherRecordByOpenid(OPENID)
 
     const existingUser = (userRes.data || [])[0] || null
-    const existingTeacherRecord = normalizeTeacherRecord((teacherRes.data || [])[0] || null)
+    const existingTeacherRecord = teacherLookup.record
     const existingApplication = normalizeApplication(existingUser?.teacherApplication, OPENID)
     const existingTeacherProfile = normalizeTeacherProfile(existingUser?.teacherProfile)
     const teacherProfileFromRecord = teacherRecordToProfile(existingTeacherRecord)
@@ -185,7 +280,8 @@ exports.main = async (event = {}) => {
         teacherProfile: effectiveTeacherProfile,
         teacherRecord: existingTeacherRecord,
         roles: existingRoles,
-        isTeacher: effectiveIsTeacher
+        isTeacher: effectiveIsTeacher,
+        ...pickTeacherSourceMeta(teacherLookup)
       }
     }
 
@@ -199,13 +295,8 @@ exports.main = async (event = {}) => {
       }
 
       const listRes = await db.collection(USERS_COLLECTION).limit(100).get()
-      const teacherListRes = await db.collection(TEACHERS_COLLECTION).limit(100).get()
-      const teacherByOpenid = new Map(
-        (teacherListRes.data || [])
-          .map((item) => normalizeTeacherRecord(item))
-          .filter(Boolean)
-          .map((item) => [item.userOpenid, item])
-      )
+      const teacherListLookup = await safeListTeacherRecords()
+      const teacherByOpenid = teacherListLookup.teacherByOpenid
       const applications = (listRes.data || [])
         .map((user) => {
           const application = normalizeApplication(user?.teacherApplication, user?._openid || '')
@@ -226,7 +317,8 @@ exports.main = async (event = {}) => {
 
       return {
         success: true,
-        applications
+        applications,
+        ...pickTeacherSourceMeta(teacherListLookup)
       }
     }
 
@@ -259,11 +351,10 @@ exports.main = async (event = {}) => {
       const targetRes = await db.collection(USERS_COLLECTION).where({
         _openid: applicantOpenId
       }).limit(1).get()
-      const targetTeacherRes = await db.collection(TEACHERS_COLLECTION).where({
-        userOpenid: applicantOpenId
-      }).limit(1).get()
       const targetUser = (targetRes.data || [])[0] || null
-      const targetTeacherRecord = normalizeTeacherRecord((targetTeacherRes.data || [])[0] || null)
+      const targetTeacherLookup = await safeGetTeacherRecordByOpenid(applicantOpenId)
+      const targetTeacherRecord = targetTeacherLookup.record
+      const targetTeacherDocId = targetTeacherLookup.docId
 
       if (!targetUser) {
         return {
@@ -278,6 +369,10 @@ exports.main = async (event = {}) => {
           success: false,
           msg: '申请记录不存在'
         }
+      }
+
+      if (!targetTeacherLookup.teacherSourceAvailable) {
+        return buildTeachersUnavailableFailure('teachers 真源不可用，无法完成审核，请先初始化或修复 teachers 集合', targetTeacherLookup)
       }
 
       const nextApplication = {
@@ -305,45 +400,57 @@ exports.main = async (event = {}) => {
         teacher: reviewStatus === 'approved'
       }
 
-      await db.collection(USERS_COLLECTION).doc(targetUser._id).update({
-        data: {
-          teacherApplication: nextApplication,
-          teacherProfile: nextTeacherProfile,
-          roles: nextRoles
-        }
-      })
-
-      if (reviewStatus === 'approved') {
-        const nextTeacherRecord = {
-          userOpenid: applicantOpenId,
-          teacherId: nextTeacherProfile.teacherId,
-          status: 'active',
-          isTestTeacher: true,
-          applicationId: String(targetUser._id || '').trim(),
-          name: targetApplication.applicantName,
-          phone: targetApplication.contactInfo,
-          createdAt: targetTeacherRecord?.createdAt || db.serverDate(),
-          updatedAt: db.serverDate(),
-          approvedAt: targetTeacherRecord?.approvedAt || db.serverDate(),
-          approvedBy: OPENID
-        }
-
-        if (targetTeacherRecord && targetTeacherRes.data?.[0]?._id) {
-          await db.collection(TEACHERS_COLLECTION).doc(targetTeacherRes.data[0]._id).update({
-            data: nextTeacherRecord
+      try {
+        await db.runTransaction(async (transaction) => {
+          await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
+            data: {
+              teacherApplication: nextApplication,
+              teacherProfile: nextTeacherProfile,
+              roles: nextRoles
+            }
           })
-        } else {
-          await db.collection(TEACHERS_COLLECTION).add({
-            data: nextTeacherRecord
-          })
-        }
-      } else if (targetTeacherRecord && targetTeacherRes.data?.[0]?._id) {
-        await db.collection(TEACHERS_COLLECTION).doc(targetTeacherRes.data[0]._id).update({
-          data: {
-            status: 'inactive',
-            updatedAt: db.serverDate(),
-            approvedBy: OPENID
+
+          if (reviewStatus === 'approved') {
+            const nextTeacherRecord = {
+              userOpenid: applicantOpenId,
+              teacherId: nextTeacherProfile.teacherId,
+              status: 'active',
+              isTestTeacher: true,
+              applicationId: String(targetUser._id || '').trim(),
+              name: targetApplication.applicantName,
+              phone: targetApplication.contactInfo,
+              createdAt: targetTeacherRecord?.createdAt || db.serverDate(),
+              updatedAt: db.serverDate(),
+              approvedAt: targetTeacherRecord?.approvedAt || db.serverDate(),
+              approvedBy: OPENID
+            }
+
+            if (targetTeacherDocId) {
+              await transaction.collection(TEACHERS_COLLECTION).doc(targetTeacherDocId).update({
+                data: nextTeacherRecord
+              })
+            } else {
+              await transaction.collection(TEACHERS_COLLECTION).add({
+                data: nextTeacherRecord
+              })
+            }
+          } else if (targetTeacherDocId) {
+            await transaction.collection(TEACHERS_COLLECTION).doc(targetTeacherDocId).update({
+              data: {
+                status: 'inactive',
+                updatedAt: db.serverDate(),
+                approvedBy: OPENID
+              }
+            })
           }
+        })
+      } catch (err) {
+        return buildTeachersUnavailableFailure('teachers 真源写入失败，审核未提交，请检查 teachers 集合后重试', {
+          available: false,
+          degraded: true,
+          reason: 'teachers_write_failed',
+          message: getSafeErrorMessage(err),
+          errorCode: String(err?.errCode || TEACHERS_SOURCE_UNAVAILABLE_CODE).trim()
         })
       }
 
@@ -382,11 +489,10 @@ exports.main = async (event = {}) => {
       const targetRes = await db.collection(USERS_COLLECTION).where({
         _openid: applicantOpenId
       }).limit(1).get()
-      const targetTeacherRes = await db.collection(TEACHERS_COLLECTION).where({
-        userOpenid: applicantOpenId
-      }).limit(1).get()
       const targetUser = (targetRes.data || [])[0] || null
-      const targetTeacherRecord = normalizeTeacherRecord((targetTeacherRes.data || [])[0] || null)
+      const targetTeacherLookup = await safeGetTeacherRecordByOpenid(applicantOpenId)
+      const targetTeacherRecord = targetTeacherLookup.record
+      const targetTeacherDocId = targetTeacherLookup.docId
 
       if (!targetUser) {
         return {
@@ -405,23 +511,39 @@ exports.main = async (event = {}) => {
         }
       }
 
-      await db.collection(USERS_COLLECTION).doc(targetUser._id).update({
-        data: {
-          teacherApplication: _.remove(),
-          teacherProfile: _.remove(),
-          roles: {
-            ...normalizeRoles(targetUser.roles),
-            teacher: false
-          }
-        }
-      })
+      if (!targetTeacherLookup.teacherSourceAvailable) {
+        return buildTeachersUnavailableFailure('teachers 真源不可用，无法完成重置，请先初始化或修复 teachers 集合', targetTeacherLookup)
+      }
 
-      if (targetTeacherRecord && targetTeacherRes.data?.[0]?._id) {
-        await db.collection(TEACHERS_COLLECTION).doc(targetTeacherRes.data[0]._id).update({
-          data: {
-            status: 'inactive',
-            updatedAt: db.serverDate()
+      try {
+        await db.runTransaction(async (transaction) => {
+          await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
+            data: {
+              teacherApplication: _.remove(),
+              teacherProfile: _.remove(),
+              roles: {
+                ...normalizeRoles(targetUser.roles),
+                teacher: false
+              }
+            }
+          })
+
+          if (targetTeacherRecord && targetTeacherDocId) {
+            await transaction.collection(TEACHERS_COLLECTION).doc(targetTeacherDocId).update({
+              data: {
+                status: 'inactive',
+                updatedAt: db.serverDate()
+              }
+            })
           }
+        })
+      } catch (err) {
+        return buildTeachersUnavailableFailure('teachers 真源写入失败，重置未完成，请检查 teachers 集合后重试', {
+          available: false,
+          degraded: true,
+          reason: 'teachers_write_failed',
+          message: getSafeErrorMessage(err),
+          errorCode: String(err?.errCode || TEACHERS_SOURCE_UNAVAILABLE_CODE).trim()
         })
       }
 
@@ -464,7 +586,8 @@ exports.main = async (event = {}) => {
         teacherProfile: effectiveTeacherProfile,
         teacherRecord: existingTeacherRecord,
         roles: existingRoles,
-        msg: '当前账号已具备教师身份'
+        msg: '当前账号已具备教师身份',
+        ...pickTeacherSourceMeta(teacherLookup)
       }
     }
 
@@ -474,7 +597,8 @@ exports.main = async (event = {}) => {
         alreadySubmitted: true,
         application: existingApplication,
         roles: existingRoles,
-        msg: '已提交，等待审核'
+        msg: '已提交，等待审核',
+        ...pickTeacherSourceMeta(teacherLookup)
       }
     }
 
@@ -510,7 +634,8 @@ exports.main = async (event = {}) => {
       teacherProfile: effectiveTeacherProfile,
       teacherRecord: existingTeacherRecord,
       roles: existingRoles,
-      msg: '提交成功'
+      msg: '提交成功',
+      ...pickTeacherSourceMeta(teacherLookup)
     }
   } catch (err) {
     return {
