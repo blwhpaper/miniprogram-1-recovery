@@ -112,6 +112,19 @@ Page({
     };
   },
 
+  getReviewableApplications(applications = []) {
+    return applications.filter((item) => item.status === "pending");
+  },
+
+  applyApplicationsState(applications = []) {
+    const reviewableApplications = this.getReviewableApplications(applications);
+    this.setPageState(reviewableApplications.length ? "ready" : "empty", {
+      applications: reviewableApplications,
+      loading: false,
+      emptyText: "暂无待审核数据"
+    });
+  },
+
   async loadApplications() {
     const adminReviewKey = String(this.data.adminReviewKey || "").trim();
     if (!adminReviewKey) {
@@ -157,12 +170,7 @@ Page({
         : [];
 
       wx.setStorageSync(this.adminReviewSessionKey, adminReviewKey);
-
-      this.setPageState(applications.length ? "ready" : "empty", {
-        applications,
-        loading: false,
-        emptyText: "暂无待审核数据"
-      });
+      this.applyApplicationsState(applications);
     } catch (err) {
       wx.hideLoading();
       this.setPageState("passwordRequired", {
