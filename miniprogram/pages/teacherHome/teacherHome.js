@@ -59,8 +59,8 @@ Page({
   },
 
   async loadTeacherHomeState() {
-    const teacherId = getStoredTeacherSession();
-    if (teacherId) {
+    const localTeacherId = getStoredTeacherSession();
+    if (localTeacherId) {
       this.setData({
         hasTeacherSession: true,
         canEnterTeacherWorkspace: true,
@@ -68,8 +68,8 @@ Page({
         showTeacherApplyButton: false,
         teacherApplyButtonText: "",
         teacherApplyButtonDisabled: false,
-        teacherId,
-        teacherName: this.getTeacherDisplayName(teacherId),
+        teacherId: localTeacherId,
+        teacherName: this.getTeacherDisplayName(localTeacherId),
         teacherStatusText: "教师身份已就绪",
         teacherLeadText: "这里是教师主页，将统一承接教师端入口与后续教师业务。",
         teacherApplyStatus: "",
@@ -77,25 +77,24 @@ Page({
         teacherApplySummaryText: "",
         canSubmitTeacherApply: false
       });
-      return;
+    } else {
+      this.setData({
+        hasTeacherSession: false,
+        canEnterTeacherWorkspace: false,
+        canResumeTeacherSession: false,
+        showTeacherApplyButton: true,
+        teacherApplyButtonText: "申请成为老师",
+        teacherApplyButtonDisabled: false,
+        teacherId: "",
+        teacherName: "老师入口",
+        teacherStatusText: "教师身份未开通",
+        teacherLeadText: "如果你需要进入教师端，请先提交老师注册申请。",
+        teacherApplyStatus: "",
+        teacherApplyStatusText: "未申请",
+        teacherApplySummaryText: "当前还没有老师注册申请记录。",
+        canSubmitTeacherApply: true
+      });
     }
-
-    this.setData({
-      hasTeacherSession: false,
-      canEnterTeacherWorkspace: false,
-      canResumeTeacherSession: false,
-      showTeacherApplyButton: true,
-      teacherApplyButtonText: "申请成为老师",
-      teacherApplyButtonDisabled: false,
-      teacherId: "",
-      teacherName: "老师入口",
-      teacherStatusText: "教师身份未开通",
-      teacherLeadText: "如果你需要进入教师端，请先提交老师注册申请。",
-      teacherApplyStatus: "",
-      teacherApplyStatusText: "未申请",
-      teacherApplySummaryText: "当前还没有老师注册申请记录。",
-      canSubmitTeacherApply: true
-    });
 
     try {
       const res = await wx.cloud.callFunction({
@@ -106,11 +105,15 @@ Page({
       });
       const application = res.result?.application || null;
       const teacherProfile = res.result?.teacherProfile || null;
+      const isTeacher = !!res.result?.isTeacher;
       const status = String(application?.status || "").trim();
       const isPending = status === "pending";
-      const approvedTeacherId = getApprovedTeacherId(teacherProfile);
+      const approvedTeacherId = getApprovedTeacherId(teacherProfile, isTeacher);
       const hasLoggedOutTeacher = hasTeacherLogoutGate();
       const canAutoRestoreTeacherSession = !hasLoggedOutTeacher;
+      if (!approvedTeacherId && localTeacherId) {
+        wx.removeStorageSync("CURRENT_TEACHER");
+      }
       const activeTeacherId = canAutoRestoreTeacherSession
         ? cacheApprovedTeacherSession(approvedTeacherId)
         : "";

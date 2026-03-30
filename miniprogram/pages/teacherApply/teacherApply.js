@@ -18,10 +18,6 @@ Page({
     this.loadApplicationState();
   },
 
-  getCurrentTeacherSession() {
-    return String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
-  },
-
   getApplicationStatusText(status = "") {
     const normalizedStatus = String(status || "").trim();
     const map = {
@@ -33,18 +29,6 @@ Page({
   },
 
   async loadApplicationState() {
-    const currentTeacher = this.getCurrentTeacherSession();
-    if (currentTeacher) {
-      this.setData({
-        hasTeacherSession: true,
-        applicationStatus: "approved",
-        applicationStatusText: "已开通",
-        applicationSummaryText: "当前账号已具备教师身份，无需重复提交申请。",
-        submitDisabled: true
-      });
-      return;
-    }
-
     this.setData({
       hasTeacherSession: false
     });
@@ -57,8 +41,21 @@ Page({
         }
       });
       const application = res.result?.application || null;
+      const teacherProfile = res.result?.teacherProfile || null;
       const status = String(application?.status || "").trim();
       const isPending = status === "pending";
+      const isTeacher = !!res.result?.isTeacher && !!String(teacherProfile?.teacherId || "").trim();
+
+      if (isTeacher) {
+        this.setData({
+          hasTeacherSession: true,
+          applicationStatus: "approved",
+          applicationStatusText: "已开通",
+          applicationSummaryText: "当前账号已具备教师身份，无需重复提交申请。",
+          submitDisabled: true
+        });
+        return;
+      }
 
       this.setData({
         applicantName: String(application?.applicantName || ""),

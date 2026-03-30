@@ -24,6 +24,23 @@
     </button>
   </view>
 
+  <view class="card">
+    <view class="section-title">重置老师测试态</view>
+    <view class="summary">会清理 users 文档中的 teacherApplication、teacherProfile，并将 teachers 真源记录置为 inactive；users.roles.teacher 仅保留兼容，不影响学生基础身份数据。</view>
+
+    <view class="field-label">目标账号 openid</view>
+    <input
+      class="field-input"
+      placeholder="请输入需要重置的账号 openid"
+      value="{{resetApplicantOpenId}}"
+      bindinput="inputResetApplicantOpenId"
+    />
+
+    <button class="reset-btn" bindtap="resetTeacherTestState" loading="{{resettingTeacherState}}">
+      重置老师测试态
+    </button>
+  </view>
+
   <view wx:if="{{pageState === 'ready'}}" class="list-wrap">
     <view class="card">
       <view class="section-title">待审核申请列表</view>
@@ -32,6 +49,7 @@
 
     <view wx:for="{{applications}}" wx:key="applicantOpenId" class="card">
       <view class="row-title">{{item.applicantName}}</view>
+      <view class="row-text">账号 openid：{{item.applicantOpenId}}</view>
       <view class="row-text">联系方式：{{item.contactInfo}}</view>
       <view class="row-text">备注：{{item.remark}}</view>
       <view class="row-text">提交时间：{{item.createdAtText}}</view>

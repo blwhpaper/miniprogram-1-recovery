@@ -9,10 +9,10 @@ function hasTeacherLogoutGate() {
   return !!String(wx.getStorageSync(TEACHER_LOGOUT_GATE_KEY) || "").trim();
 }
 
-function getApprovedTeacherId(teacherProfile = {}) {
+function getApprovedTeacherId(teacherProfile = {}, isTeacher = false) {
   const teacherId = String(teacherProfile?.teacherId || "").trim();
   const teacherStatus = String(teacherProfile?.status || "").trim();
-  return teacherId && teacherStatus === "active" ? teacherId : "";
+  return teacherId && (teacherStatus === "active" || !!isTeacher) ? teacherId : "";
 }
 
 function cacheApprovedTeacherSession(teacherId = "") {
@@ -26,12 +26,8 @@ function cacheApprovedTeacherSession(teacherId = "") {
 
 async function ensureApprovedTeacherSession() {
   const currentTeacher = getStoredTeacherSession();
-  if (currentTeacher) {
-    wx.removeStorageSync(TEACHER_LOGOUT_GATE_KEY);
-    return currentTeacher;
-  }
-
-  if (hasTeacherLogoutGate()) {
+  const hasLogoutGate = hasTeacherLogoutGate();
+  if (!currentTeacher && hasLogoutGate) {
     return "";
   }
 
@@ -42,9 +38,30 @@ async function ensureApprovedTeacherSession() {
         action: "get"
       }
     });
-    return cacheApprovedTeacherSession(getApprovedTeacherId(res.result?.teacherProfile || null));
+    const approvedTeacherId = getApprovedTeacherId(
+      res.result?.teacherProfile || null,
+      res.result?.isTeacher
+    );
+
+    if (!approvedTeacherId) {
+      if (currentTeacher) {
+        wx.removeStorageSync(TEACHER_SESSION_KEY);
+      }
+      return "";
+    }
+
+    if (hasLogoutGate) {
+      return "";
+    }
+
+    if (currentTeacher === approvedTeacherId) {
+      wx.removeStorageSync(TEACHER_LOGOUT_GATE_KEY);
+      return currentTeacher;
+    }
+
+    return cacheApprovedTeacherSession(approvedTeacherId);
   } catch (err) {
-    return "";
+    return currentTeacher || "";
   }
 }
 
