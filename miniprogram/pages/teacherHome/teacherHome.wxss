@@ -2,17 +2,23 @@
   align-items: stretch;
 }
 
+.hero-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.hero-head-main {
+  flex: 1;
+}
+
 .hero-kicker {
-  margin-bottom: 12rpx;
+  margin-bottom: 0;
 }
 
 .hero-status {
-  margin-top: 16rpx;
   align-self: flex-start;
-}
-
-.hero-desc {
-  margin-top: 16rpx;
 }
 
 .panel--muted {
@@ -28,6 +34,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
+}
+
+.panel-row--muted {
+  align-items: flex-start;
 }
 
 .weak-entry-btn {

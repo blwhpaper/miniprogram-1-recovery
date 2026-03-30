@@ -1,6 +1,8 @@
 <view class="dispatch-page ui-page ui-page--center">
-  <view class="dispatch-card ui-card">
+  <view class="dispatch-card ui-card ui-hero-card ui-section">
+    <view class="dispatch-mark ui-eyebrow">课堂签到</view>
     <view class="dispatch-title ui-title-lg">正在进入课堂签到</view>
-    <view class="dispatch-desc ui-text-muted">请稍候，系统正在为你恢复当前入口。</view>
+    <view class="dispatch-desc ui-text-body">请稍候，系统正在为你恢复当前入口。</view>
+    <view class="dispatch-tip ui-text-helper">系统会根据当前身份和本地会话恢复到正确入口。</view>
   </view>
 </view>

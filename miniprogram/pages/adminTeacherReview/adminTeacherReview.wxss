@@ -34,14 +34,6 @@
   margin-top: 0;
 }
 
-.load-btn {
-  margin-top: 0;
-}
-
-.reset-btn {
-  margin-top: 0;
-}
-
 .row-header {
   display: flex;
   align-items: flex-start;
@@ -49,15 +41,27 @@
   gap: 16rpx;
 }
 
+.row-head-main {
+  flex: 1;
+}
+
+.review-item {
+  gap: 20rpx;
+}
+
 .action-row {
   display: flex;
   gap: 20rpx;
-  margin-top: 24rpx;
+  margin-top: 4rpx;
 }
 
 .row-inline-tag {
-  margin-left: 12rpx;
+  margin-left: 0;
   vertical-align: middle;
+}
+
+.warning-text {
+  color: #b45309;
 }
 
 .empty-card {

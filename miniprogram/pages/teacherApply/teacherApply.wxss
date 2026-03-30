@@ -2,12 +2,18 @@
   align-items: stretch;
 }
 
-.status { align-self: flex-start; }
+.hero-head-main {
+  flex: 1;
+}
+
+.status {
+  align-self: flex-start;
+}
 
 .field-label {
   margin-bottom: 0;
 }
 
 .submit-btn {
-  margin-top: 12rpx;
+  margin-top: 4rpx;
 }

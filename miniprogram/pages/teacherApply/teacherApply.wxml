@@ -1,38 +1,61 @@
 <view class="container ui-page ui-page--stack">
-  <view class="card ui-card ui-section">
-    <view class="title ui-title-lg">老师注册申请</view>
-    <view class="status ui-tag ui-tag--{{applicationStatus || 'inactive'}}">{{applicationStatusText}}</view>
+  <view class="card ui-card ui-hero-card ui-section">
+    <view class="ui-card-head ui-card-head--row">
+      <view class="hero-head-main ui-card-head">
+        <view class="ui-eyebrow">教师申请</view>
+        <view class="title ui-title-lg">老师注册申请</view>
+      </view>
+      <view class="status ui-tag ui-tag--{{applicationStatus || 'inactive'}}">{{applicationStatusText}}</view>
+    </view>
     <view class="summary ui-text-body">{{applicationSummaryText}}</view>
   </view>
 
-  <view class="card ui-card ui-section">
-    <view class="field-label ui-form-label">姓名</view>
-    <input
-      class="field-input ui-input"
-      placeholder="请输入姓名"
-      value="{{applicantName}}"
-      bindinput="inputApplicantName"
-      disabled="{{submitDisabled}}"
-    />
+  <view class="notice-card ui-card ui-notice-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">申请说明</view>
+      <view class="ui-text-helper">表单提交后进入审核流程，当前页只负责展示申请状态与提交入口。</view>
+    </view>
+    <view class="ui-text-muted">{{applicationSummaryText}}</view>
+  </view>
 
-    <view class="field-label ui-form-label">联系方式</view>
-    <input
-      class="field-input ui-input"
-      placeholder="请输入手机号或微信号"
-      value="{{contactInfo}}"
-      bindinput="inputContactInfo"
-      disabled="{{submitDisabled}}"
-    />
+  <view class="card ui-card ui-section ui-form-card">
+    <view class="ui-card-head">
+      <view class="ui-title-md">填写申请信息</view>
+      <view class="ui-text-helper">请填写基础联系信息，避免审核时无法联系。</view>
+    </view>
+    <view class="ui-form-item">
+      <view class="field-label ui-form-label">姓名</view>
+      <input
+        class="field-input ui-input"
+        placeholder="请输入姓名"
+        value="{{applicantName}}"
+        bindinput="inputApplicantName"
+        disabled="{{submitDisabled}}"
+      />
+    </view>
 
-    <view class="field-label ui-form-label">备注（选填）</view>
-    <textarea
-      class="field-textarea ui-textarea"
-      placeholder="可填写任教说明或补充信息"
-      value="{{remark}}"
-      bindinput="inputRemark"
-      maxlength="100"
-      disabled="{{submitDisabled}}"
-    />
+    <view class="ui-form-item">
+      <view class="field-label ui-form-label">联系方式</view>
+      <input
+        class="field-input ui-input"
+        placeholder="请输入手机号或微信号"
+        value="{{contactInfo}}"
+        bindinput="inputContactInfo"
+        disabled="{{submitDisabled}}"
+      />
+    </view>
+
+    <view class="ui-form-item">
+      <view class="field-label ui-form-label">备注（选填）</view>
+      <textarea
+        class="field-textarea ui-textarea"
+        placeholder="可填写任教说明或补充信息"
+        value="{{remark}}"
+        bindinput="inputRemark"
+        maxlength="100"
+        disabled="{{submitDisabled}}"
+      />
+    </view>
 
     <button
       class="submit-btn"

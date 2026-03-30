@@ -4,9 +4,13 @@
 
 .title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16rpx;
+}
+
+.title-wrap {
+  flex: 1;
 }
 
 .page-badge {
@@ -14,7 +18,7 @@
 }
 
 .hero-block {
-  margin-top: 24rpx;
+  margin-top: 8rpx;
   padding: 28rpx;
   border-radius: 20rpx;
   border: 1rpx solid #dbe7ff;
@@ -48,17 +52,11 @@
 
 .info-block,
 .lesson-block,
-.summary-block {
-  margin-top: 28rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
-}
-
-.action-block {
-  margin-top: 28rpx;
+.summary-block,
+.action-card {
+  margin-top: 0;
 }
 
 .secondary-action {
-  margin-top: 20rpx;
+  margin-top: 0;
 }

@@ -2,26 +2,28 @@
 page {
   --ui-color-primary: #2563eb;
   --ui-color-primary-soft: #eff6ff;
+  --ui-color-primary-border: #cfe0ff;
   --ui-color-success: #16a34a;
   --ui-color-success-soft: #ecfdf3;
   --ui-color-warning: #d97706;
   --ui-color-warning-soft: #fff7ed;
   --ui-color-danger: #dc2626;
   --ui-color-danger-soft: #fef2f2;
+  --ui-color-neutral-soft: #f8fafc;
   --ui-color-text: #111827;
   --ui-color-text-secondary: #374151;
   --ui-color-text-muted: #6b7280;
   --ui-color-text-weak: #9ca3af;
-  --ui-color-page-bg: #f6f7fb;
+  --ui-color-page-bg: #f4f7fb;
   --ui-color-card-bg: #ffffff;
   --ui-color-card-subtle: #f8fafc;
   --ui-color-border: #dbe3f0;
   --ui-color-divider: #e5e7eb;
   --ui-radius-sm: 16rpx;
   --ui-radius-md: 24rpx;
-  --ui-radius-lg: 32rpx;
-  --ui-shadow-card: 0 16rpx 40rpx rgba(28, 38, 61, 0.08);
-  --ui-shadow-soft: 0 8rpx 24rpx rgba(28, 38, 61, 0.06);
+  --ui-radius-lg: 36rpx;
+  --ui-shadow-card: 0 14rpx 40rpx rgba(31, 41, 55, 0.08);
+  --ui-shadow-soft: 0 8rpx 20rpx rgba(31, 41, 55, 0.05);
   --ui-space-1: 8rpx;
   --ui-space-2: 12rpx;
   --ui-space-3: 16rpx;
@@ -66,7 +68,7 @@ button::after{
 button[type="primary"] {
   height: var(--ui-button-height);
   line-height: var(--ui-button-height);
-  border-radius: 18rpx;
+  border-radius: 22rpx;
   background: var(--ui-color-primary);
   box-shadow: var(--ui-shadow-soft);
   font-size: var(--ui-font-base);
@@ -128,12 +130,42 @@ button[size="mini"] {
 .ui-card--info {
   background: var(--ui-color-primary-soft);
   box-shadow: none;
-  border: 1rpx solid #cfe0ff;
+  border: 1rpx solid var(--ui-color-primary-border);
 }
 
 .ui-section {
   display: flex;
   flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+.ui-hero-card {
+  padding: 36rpx 32rpx;
+  border-radius: var(--ui-radius-lg);
+  gap: var(--ui-space-4);
+}
+
+.ui-status-card {
+  border: 1rpx solid var(--ui-color-divider);
+  box-shadow: none;
+}
+
+.ui-notice-card {
+  background: var(--ui-color-neutral-soft);
+  border: 1rpx solid var(--ui-color-divider);
+  box-shadow: none;
+}
+
+.ui-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.ui-card-head--row {
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--ui-space-3);
 }
 
@@ -182,10 +214,26 @@ button[size="mini"] {
   color: var(--ui-color-text-weak);
 }
 
+.ui-divider {
+  width: 100%;
+  height: 1rpx;
+  background: var(--ui-color-divider);
+}
+
 .ui-form-label {
   font-size: var(--ui-font-base);
   font-weight: 600;
   color: var(--ui-color-text);
+}
+
+.ui-form-card {
+  gap: var(--ui-space-5);
+}
+
+.ui-form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
 }
 
 .ui-input,
@@ -216,7 +264,7 @@ button.ui-btn-ghost,
 button.ui-btn-danger {
   height: var(--ui-button-height);
   line-height: var(--ui-button-height);
-  border-radius: 18rpx;
+  border-radius: 22rpx;
   font-size: var(--ui-font-base);
   font-weight: 600;
 }
@@ -252,6 +300,10 @@ button.ui-btn-danger {
   display: flex;
   flex-direction: column;
   gap: var(--ui-space-3);
+}
+
+.ui-button-group--compact {
+  gap: var(--ui-space-2);
 }
 
 .ui-tag {
@@ -298,4 +350,33 @@ button.ui-btn-danger {
 .ui-empty-state {
   padding: 40rpx 24rpx;
   text-align: center;
+}
+
+.ui-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+.ui-info-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-4);
+}
+
+.ui-info-label {
+  flex-shrink: 0;
+  font-size: var(--ui-font-sm);
+  line-height: 1.6;
+  color: var(--ui-color-text-muted);
+}
+
+.ui-info-value {
+  flex: 1;
+  text-align: right;
+  font-size: var(--ui-font-md);
+  line-height: 1.7;
+  color: var(--ui-color-text-secondary);
+  word-break: break-word;
 }

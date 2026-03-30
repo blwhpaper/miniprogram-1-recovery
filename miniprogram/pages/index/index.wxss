@@ -5,10 +5,18 @@
 
 .dispatch-card {
   max-width: 640rpx;
-  padding: 56rpx 48rpx;
+  padding: 68rpx 52rpx;
   text-align: center;
 }
 
+.dispatch-mark {
+  letter-spacing: 2rpx;
+}
+
 .dispatch-desc {
-  margin-top: 20rpx;
+  margin-top: 8rpx;
+}
+
+.dispatch-tip {
+  margin-top: 4rpx;
 }

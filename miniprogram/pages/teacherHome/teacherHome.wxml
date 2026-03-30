@@ -1,41 +1,61 @@
 <view class="container ui-page ui-page--stack">
-  <view class="hero-card ui-card">
-    <view class="hero-kicker ui-eyebrow">教师入口</view>
-    <view class="hero-title ui-title-hero">{{teacherName}}</view>
-    <view class="hero-status ui-tag ui-tag--{{teacherApplyStatus || 'inactive'}}">{{teacherStatusText}}</view>
+  <view class="hero-card ui-card ui-hero-card ui-section">
+    <view class="hero-head">
+      <view class="hero-head-main ui-card-head">
+        <view class="hero-kicker ui-eyebrow">课堂签到</view>
+        <view class="hero-title ui-title-lg">{{teacherName}}</view>
+      </view>
+      <view class="hero-status ui-tag ui-tag--{{teacherApplyStatus || 'inactive'}}">{{teacherStatusText}}</view>
+    </view>
     <view class="hero-desc ui-text-body">{{teacherLeadText}}</view>
   </view>
 
   <view wx:if="{{hasTeacherSession}}" class="panel ui-card ui-section">
-    <view class="panel-title ui-title-md">核心功能</view>
-    <button type="primary" bindtap="goToClassManager">进入班级管理</button>
-    <button class="secondary-btn ui-btn-secondary" bindtap="logoutTeacherSession">
-      退出教师登录（仅本地测试态）
-    </button>
+    <view class="ui-card-head">
+      <view class="panel-title ui-title-md">教师工作区</view>
+      <view class="ui-text-helper">主入口已就绪，辅助操作弱化展示</view>
+    </view>
+    <view class="ui-button-group">
+      <button type="primary" bindtap="goToClassManager">进入班级管理</button>
+      <button class="secondary-btn ui-btn-secondary" bindtap="logoutTeacherSession">
+        退出教师登录（仅本地测试态）
+      </button>
+    </view>
   </view>
 
   <view wx:else class="panel ui-card ui-section">
-    <view class="panel-title ui-title-md">老师注册申请</view>
+    <view class="ui-card-head">
+      <view class="panel-title ui-title-md">老师注册申请</view>
+      <view class="ui-text-helper">申请态、待审核和教师态切换都在这里承接</view>
+    </view>
     <view class="panel-row">
       <view class="panel-text ui-text-body">当前状态</view>
       <view class="ui-tag ui-tag--{{teacherApplyStatus || 'inactive'}}">{{teacherApplyStatusText}}</view>
     </view>
     <view class="panel-text ui-text-body">{{teacherApplySummaryText}}</view>
-    <button wx:if="{{canResumeTeacherSession}}" type="primary" bindtap="resumeTeacherSession">
-      重新进入当前账号的教师态
-    </button>
-    <button wx:if="{{canEnterTeacherWorkspace}}" type="primary" bindtap="enterApprovedTeacherWorkspace">
-      进入班级管理
-    </button>
-    <button wx:if="{{showTeacherApplyButton}}" type="primary" bindtap="goToTeacherApply" disabled="{{teacherApplyButtonDisabled}}">
-      {{teacherApplyButtonText}}
-    </button>
+    <view class="ui-button-group">
+      <button wx:if="{{canResumeTeacherSession}}" type="primary" bindtap="resumeTeacherSession">
+        重新进入当前账号的教师态
+      </button>
+      <button wx:if="{{canEnterTeacherWorkspace}}" type="primary" bindtap="enterApprovedTeacherWorkspace">
+        进入班级管理
+      </button>
+      <button wx:if="{{showTeacherApplyButton}}" type="primary" bindtap="goToTeacherApply" disabled="{{teacherApplyButtonDisabled}}">
+        {{teacherApplyButtonText}}
+      </button>
+    </view>
   </view>
 
-  <view class="panel panel--muted ui-card ui-card--subtle ui-section">
-    <view class="panel-title ui-title-md">当前承接说明</view>
+  <view class="panel panel--muted ui-card ui-notice-card ui-section">
+    <view class="ui-card-head">
+      <view class="panel-title ui-title-md">当前承接说明</view>
+      <view class="ui-text-helper">说明卡统一承接状态说明和弱入口</view>
+    </view>
     <view class="panel-text ui-text-muted">当前版本先承接教师首页入口与老师注册申请，后续管理员审核与教师身份开通将在此基础上继续完善。</view>
-    <view class="panel-text ui-text-muted">教师标识：{{teacherId || "未开通"}}</view>
+    <view class="panel-row panel-row--muted">
+      <view class="ui-text-muted">教师标识</view>
+      <view class="ui-tag ui-tag--{{teacherId ? 'active' : 'inactive'}}">{{teacherId || "未开通"}}</view>
+    </view>
     <button class="weak-entry-btn ui-btn-ghost" size="mini" bindtap="goToAdminTeacherReview">
       进入管理员审核
     </button>
