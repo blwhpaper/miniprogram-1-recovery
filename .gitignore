@@ -2,3 +2,4 @@
 .DS_Store
 .agents/
 scripts/done.sh
+cloudfunctions/teacherApply/local.settings.json
