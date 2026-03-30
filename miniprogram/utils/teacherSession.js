@@ -9,10 +9,10 @@ function hasTeacherLogoutGate() {
   return !!String(wx.getStorageSync(TEACHER_LOGOUT_GATE_KEY) || "").trim();
 }
 
-function getApprovedTeacherId(teacherProfile = {}, isTeacher = false) {
+function getApprovedTeacherId(teacherProfile = {}) {
   const teacherId = String(teacherProfile?.teacherId || "").trim();
   const teacherStatus = String(teacherProfile?.status || "").trim();
-  return teacherId && teacherStatus === "active" && !!isTeacher ? teacherId : "";
+  return teacherId && teacherStatus === "active" ? teacherId : "";
 }
 
 function cacheApprovedTeacherSession(teacherId = "") {
@@ -38,10 +38,7 @@ async function ensureApprovedTeacherSession() {
         action: "get"
       }
     });
-    const approvedTeacherId = getApprovedTeacherId(
-      res.result?.teacherProfile || null,
-      res.result?.isTeacher
-    );
+    const approvedTeacherId = getApprovedTeacherId(res.result?.teacherProfile || null);
 
     if (!approvedTeacherId) {
       if (currentTeacher) {

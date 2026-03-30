@@ -105,10 +105,12 @@ Page({
       });
       const application = res.result?.application || null;
       const teacherProfile = res.result?.teacherProfile || null;
-      const isTeacher = !!res.result?.isTeacher;
       const status = String(application?.status || "").trim();
       const isPending = status === "pending";
-      const approvedTeacherId = getApprovedTeacherId(teacherProfile, isTeacher);
+      const approvedTeacherId = getApprovedTeacherId(teacherProfile);
+      const isApprovedTeacher = !!approvedTeacherId;
+      const hasTeacherSyncGap = !isApprovedTeacher && status === "approved";
+      const effectiveApplyStatus = isApprovedTeacher ? "approved" : status;
       const hasLoggedOutTeacher = hasTeacherLogoutGate();
       const canAutoRestoreTeacherSession = !hasLoggedOutTeacher;
       if (!approvedTeacherId && localTeacherId) {
@@ -117,14 +119,15 @@ Page({
       const activeTeacherId = canAutoRestoreTeacherSession
         ? cacheApprovedTeacherSession(approvedTeacherId)
         : "";
-      const isApprovedTeacher = !!approvedTeacherId;
-      const showTeacherApplyButton = !isApprovedTeacher;
-      const teacherApplyButtonText = status === "pending"
+      const showTeacherApplyButton = !isApprovedTeacher && !hasTeacherSyncGap;
+      const teacherApplyButtonText = hasTeacherSyncGap
+        ? "教师身份待同步"
+        : status === "pending"
         ? "已提交，等待审核"
         : status === "rejected"
           ? "重新申请成为老师"
           : "申请成为老师";
-      const teacherApplyButtonDisabled = status === "pending";
+      const teacherApplyButtonDisabled = status === "pending" || hasTeacherSyncGap;
       this.setData({
         hasTeacherSession: !!activeTeacherId,
         canEnterTeacherWorkspace: isApprovedTeacher && !hasLoggedOutTeacher,
@@ -138,18 +141,24 @@ Page({
           ? "教师态已退出"
           : isApprovedTeacher
             ? "教师身份已开通"
+            : hasTeacherSyncGap
+              ? "教师身份待同步"
             : "教师身份未开通",
         teacherLeadText: hasLoggedOutTeacher && isApprovedTeacher
           ? "你已退出当前本地教师登录态，如需继续使用教师端，请手动重新进入教师态。"
           : isApprovedTeacher
           ? "当前申请已审核通过，可进入教师业务承接页。"
+          : hasTeacherSyncGap
+            ? "当前申请已通过，正在等待教师身份同步，请稍后刷新或联系管理员。"
           : "如果你需要进入教师端，请先提交老师注册申请。",
-        teacherApplyStatus: status,
-        teacherApplyStatusText: this.getTeacherApplyStatusText(status),
+        teacherApplyStatus: effectiveApplyStatus,
+        teacherApplyStatusText: this.getTeacherApplyStatusText(effectiveApplyStatus),
         teacherApplySummaryText: hasLoggedOutTeacher && isApprovedTeacher
           ? "当前教师身份已开通，但你已退出本地教师态，可手动重新进入。"
           : isPending
           ? "已提交，等待审核"
+          : hasTeacherSyncGap
+            ? "当前申请已通过，教师身份正在同步中，请稍后刷新或联系管理员。"
           : status === "approved"
             ? "当前申请已通过，可进入教师业务承接页。"
             : status === "rejected"

@@ -122,15 +122,6 @@ Page({
     return map[normalizedStatus] || "未确认 teachers 真源状态";
   },
 
-  getTeacherInfoSourceText(source = "") {
-    const normalizedSource = String(source || "").trim();
-    const map = {
-      teachers: "teachers",
-      "users-compat": "users 兼容信息"
-    };
-    return map[normalizedSource] || "-";
-  },
-
   buildReviewSuccessToast(result = {}, reviewStatus = "") {
     const teacherSourceStatus = String(result.teacherSourceStatus || "").trim();
     if (reviewStatus === "approved") {
@@ -158,7 +149,6 @@ Page({
     const teacherProfile = item.teacherProfile || null;
     const status = String(application.status || "").trim();
     const teacherSourceStatus = String(item.teacherSourceStatus || "").trim();
-    const teacherInfoSource = String(item.teacherInfoSource || "").trim();
     const teacherSourceDegraded = !!item.teacherSourceDegraded;
     const teacherSourceMessage = String(item.teacherSourceMessage || "").trim();
     return {
@@ -167,15 +157,13 @@ Page({
       contactInfo: String(application.contactInfo || "").trim() || "-",
       remark: String(application.remark || "").trim() || "无",
       status,
+      teacherSourceStatus,
       statusText: this.getStatusText(status),
-      applicationStatusText: this.getStatusText(item.applicationStatus || status),
+      applicationStatusText: this.getStatusText(status),
       teacherSourceStatusText: String(item.teacherSourceLabel || "").trim() || this.getTeacherSourceStatusText(teacherSourceStatus),
-      teacherInfoSourceText: this.getTeacherInfoSourceText(teacherInfoSource),
       teacherSourceWarningText: teacherSourceDegraded
-        ? (teacherSourceMessage || "teachers 真源异常，当前教师信息来自兼容信息")
-        : (teacherInfoSource === "users-compat" && teacherProfile?.teacherId
-          ? "当前教师标识来自 users 兼容信息，不是 teachers 真源确认结果"
-          : ""),
+        ? (teacherSourceMessage || "teachers 真源异常，请稍后重试。")
+        : "",
       createdAtText: this.formatDateTime(application.createdAt),
       updatedAtText: this.formatDateTime(application.updatedAt),
       teacherId: String(teacherProfile?.teacherId || "").trim()
@@ -183,7 +171,9 @@ Page({
   },
 
   getReviewableApplications(applications = []) {
-    return applications.filter((item) => item.status === "pending");
+    return applications.filter((item) => {
+      return item.status === "pending" && String(item.teacherSourceStatus || "").trim() !== "active";
+    });
   },
 
   applyApplicationsState(applications = []) {

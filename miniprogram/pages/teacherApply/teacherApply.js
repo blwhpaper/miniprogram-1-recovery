@@ -48,11 +48,16 @@ Page({
       const teacherProfile = res.result?.teacherProfile || null;
       const status = String(application?.status || "").trim();
       const isPending = status === "pending";
-      const isTeacher = !!res.result?.isTeacher && !!String(teacherProfile?.teacherId || "").trim();
+      const isTeacher = !!String(teacherProfile?.teacherId || "").trim()
+        && String(teacherProfile?.status || "").trim() === "active";
+      const hasTeacherSyncGap = !isTeacher && status === "approved";
 
       if (isTeacher) {
         this.setData({
           hasTeacherSession: true,
+          applicantName: String(application?.applicantName || ""),
+          contactInfo: String(application?.contactInfo || ""),
+          remark: String(application?.remark || ""),
           applicationStatus: "approved",
           applicationStatusText: "已开通",
           applicationSummaryText: "当前账号已具备教师身份，无需重复提交申请。",
@@ -69,12 +74,14 @@ Page({
         applicationStatusText: this.getApplicationStatusText(status),
         applicationSummaryText: isPending
           ? "已提交，等待审核"
+          : hasTeacherSyncGap
+            ? "当前申请已通过，教师身份正在同步中，请稍后刷新或联系管理员。"
           : status === "approved"
             ? "当前申请已通过，后续可接入教师身份开通。"
             : status === "rejected"
               ? "当前申请未通过，可修改后重新提交。"
               : "请填写最小资料并提交老师注册申请。",
-        submitDisabled: isPending
+        submitDisabled: isPending || hasTeacherSyncGap
       });
     } catch (err) {
       console.error("[teacherApply] load application state failed", err);

@@ -374,6 +374,50 @@ function buildTeachersUnavailableFailure(message = '', meta = {}) {
   }
 }
 
+function buildTeacherApplyGetPayload({
+  application = null,
+  teacherProfile = null,
+  teacherLookup = {}
+} = {}) {
+  return {
+    success: true,
+    hasApplication: !!application,
+    application,
+    teacherProfile,
+    ...pickTeacherSourceMeta(teacherLookup)
+  }
+}
+
+function buildPendingApplicationFromTeacherRecord(teacherRecord = null, openId = '') {
+  const normalizedTeacherRecord = normalizeTeacherRecord(teacherRecord)
+  if (!normalizedTeacherRecord || normalizedTeacherRecord.status !== 'pending') {
+    return null
+  }
+
+  const normalizedOpenId = String(openId || normalizedTeacherRecord.userOpenid || '').trim()
+  return normalizeApplication({
+    applicantOpenId: normalizedOpenId,
+    applicantName: normalizedTeacherRecord.name,
+    contactInfo: normalizedTeacherRecord.contactInfo,
+    status: 'pending',
+    createdAt: normalizedTeacherRecord.appliedAt || normalizedTeacherRecord.createdAt || null,
+    updatedAt: normalizedTeacherRecord.updatedAt || normalizedTeacherRecord.appliedAt || normalizedTeacherRecord.createdAt || null
+  }, normalizedOpenId)
+}
+
+function resolveEffectiveApplication({
+  application = null,
+  teacherRecord = null,
+  openId = ''
+} = {}) {
+  const normalizedApplication = normalizeApplication(application, openId)
+  if (normalizedApplication) {
+    return normalizedApplication
+  }
+
+  return buildPendingApplicationFromTeacherRecord(teacherRecord, openId)
+}
+
 exports.main = async (event = {}) => {
   const { OPENID } = cloud.getWXContext()
   const action = String(event.action || 'get').trim()
@@ -386,26 +430,21 @@ exports.main = async (event = {}) => {
 
     const existingUser = (userRes.data || [])[0] || null
     const existingTeacherRecord = teacherLookup.record
-    const existingApplication = normalizeApplication(existingUser?.teacherApplication, OPENID)
-    const existingTeacherProfile = normalizeTeacherProfile(existingUser?.teacherProfile)
+    const existingApplication = resolveEffectiveApplication({
+      application: existingUser?.teacherApplication,
+      teacherRecord: existingTeacherRecord,
+      openId: OPENID
+    })
     const effectiveTeacherProfile = getTeacherEntityProfile(existingTeacherRecord)
-    const teacherProfileCompat = getTeacherProfileCompat(existingUser?.teacherProfile)
-    const existingRoles = normalizeRoles(existingUser?.roles)
     const isTeacherFromTeachers = hasActiveTeacherRecord(existingTeacherRecord)
     const effectiveIsTeacher = isTeacherFromTeachers
 
     if (action === 'get') {
-      return {
-        success: true,
-        hasApplication: !!existingApplication,
+      return buildTeacherApplyGetPayload({
         application: existingApplication,
         teacherProfile: effectiveTeacherProfile,
-        teacherProfileCompat,
-        teacherRecord: existingTeacherRecord,
-        roles: existingRoles,
-        isTeacher: effectiveIsTeacher,
-        ...pickTeacherSourceMeta(teacherLookup)
-      }
+        teacherLookup
+      })
     }
 
     if (action === 'list') {
@@ -420,11 +459,18 @@ exports.main = async (event = {}) => {
       const listRes = await db.collection(USERS_COLLECTION).limit(100).get()
       const teacherListLookup = await safeListTeacherRecords()
       const teacherByOpenid = teacherListLookup.teacherByOpenid
+      const seenOpenids = new Set()
       const applications = (listRes.data || [])
         .map((user) => {
-          const application = normalizeApplication(user?.teacherApplication, user?._openid || '')
+          const openId = String(user?._openid || '').trim()
+          const teacherRecord = teacherByOpenid.get(openId) || null
+          const application = resolveEffectiveApplication({
+            application: user?.teacherApplication,
+            teacherRecord,
+            openId
+          })
           if (!application) return null
-          const teacherRecord = teacherByOpenid.get(String(user?._openid || '').trim()) || null
+          seenOpenids.add(openId)
           const teacherProfile = getTeacherEntityProfile(teacherRecord)
           const teacherProfileCompat = getTeacherProfileCompat(user?.teacherProfile)
           const teacherSourceState = buildTeacherSourceState({
@@ -433,24 +479,43 @@ exports.main = async (event = {}) => {
             ...teacherListLookup
           })
           return {
-            _openid: String(user?._openid || '').trim(),
+            _openid: openId,
             application,
             teacherProfile,
-            teacherProfileCompat,
-            applicationStatus: String(application.status || '').trim(),
             teacherSourceStatus: teacherSourceState.teacherSourceStatus,
             teacherSourceLabel: teacherSourceState.teacherSourceLabel,
-            teacherInfoSource: teacherSourceState.teacherInfoSource,
             teacherSourceDegraded: teacherSourceState.teacherSourceDegraded,
             teacherSourceMessage: teacherSourceState.teacherSourceMessage
           }
         })
         .filter(Boolean)
-        .sort((a, b) => {
-          const aTime = new Date(a.application.updatedAt || a.application.createdAt || 0).getTime() || 0
-          const bTime = new Date(b.application.updatedAt || b.application.createdAt || 0).getTime() || 0
-          return bTime - aTime
+
+      teacherByOpenid.forEach((teacherRecord, openId) => {
+        if (seenOpenids.has(openId)) return
+        const application = buildPendingApplicationFromTeacherRecord(teacherRecord, openId)
+        if (!application) return
+
+        const teacherSourceState = buildTeacherSourceState({
+          teacherRecord,
+          teacherProfileCompat: null,
+          ...teacherListLookup
         })
+        applications.push({
+          _openid: openId,
+          application,
+          teacherProfile: getTeacherEntityProfile(teacherRecord),
+          teacherSourceStatus: teacherSourceState.teacherSourceStatus,
+          teacherSourceLabel: teacherSourceState.teacherSourceLabel,
+          teacherSourceDegraded: teacherSourceState.teacherSourceDegraded,
+          teacherSourceMessage: teacherSourceState.teacherSourceMessage
+        })
+      })
+
+      applications.sort((a, b) => {
+        const aTime = new Date(a.application.updatedAt || a.application.createdAt || 0).getTime() || 0
+        const bTime = new Date(b.application.updatedAt || b.application.createdAt || 0).getTime() || 0
+        return bTime - aTime
+      })
 
       return {
         success: true,
@@ -493,14 +558,18 @@ exports.main = async (event = {}) => {
       const targetTeacherRecord = targetTeacherLookup.record
       const targetTeacherDocId = targetTeacherLookup.docId
 
-      if (!targetUser) {
+      if (!targetUser && !targetTeacherRecord) {
         return {
           success: false,
           msg: '申请记录不存在'
         }
       }
 
-      const targetApplication = normalizeApplication(targetUser.teacherApplication, applicantOpenId)
+      const targetApplication = resolveEffectiveApplication({
+        application: targetUser?.teacherApplication,
+        teacherRecord: targetTeacherRecord,
+        openId: applicantOpenId
+      })
       if (!targetApplication) {
         return {
           success: false,
@@ -518,7 +587,7 @@ exports.main = async (event = {}) => {
         contactInfo: targetApplication.contactInfo,
         remark: targetApplication.remark,
         status: reviewStatus,
-        createdAt: targetUser.teacherApplication?.createdAt || db.serverDate(),
+        createdAt: targetUser?.teacherApplication?.createdAt || targetApplication.createdAt || db.serverDate(),
         updatedAt: db.serverDate(),
         reviewedAt: db.serverDate(),
         reviewedByOpenId: OPENID
@@ -526,9 +595,9 @@ exports.main = async (event = {}) => {
 
       const nextTeacherProfile = reviewStatus === 'approved'
         ? {
-            teacherId: buildTeacherId(targetUser, targetUser.teacherProfile, targetTeacherRecord),
+            teacherId: buildTeacherId(targetUser || {}, targetUser?.teacherProfile || {}, targetTeacherRecord),
             status: 'active',
-            approvedAt: targetUser.teacherProfile?.approvedAt || db.serverDate(),
+            approvedAt: targetUser?.teacherProfile?.approvedAt || db.serverDate(),
             updatedAt: db.serverDate()
           }
         : _.remove()
@@ -545,9 +614,18 @@ exports.main = async (event = {}) => {
 
       try {
         await db.runTransaction(async (transaction) => {
-          await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
-            data: buildUserTeacherApplicationPatch(nextApplication)
-          })
+          if (targetUser?._id) {
+            await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
+              data: buildUserTeacherApplicationPatch(nextApplication)
+            })
+          } else {
+            await transaction.collection(USERS_COLLECTION).add({
+              data: {
+                _openid: applicantOpenId,
+                ...buildUserTeacherApplicationPatch(nextApplication)
+              }
+            })
+          }
 
           if (reviewStatus === 'approved') {
             if (targetTeacherDocId) {
@@ -599,7 +677,7 @@ exports.main = async (event = {}) => {
         ? normalizeTeacherProfile({
             teacherId: nextTeacherProfile.teacherId,
             status: 'active',
-            approvedAt: targetTeacherRecord?.approvedAt || targetUser.teacherProfile?.approvedAt || null,
+            approvedAt: targetTeacherRecord?.approvedAt || targetUser?.teacherProfile?.approvedAt || null,
             updatedAt: null
           })
         : null
@@ -614,12 +692,10 @@ exports.main = async (event = {}) => {
         success: true,
         application: normalizeApplication(nextApplication, applicantOpenId),
         teacherProfile: resultTeacherProfile,
-        teacherRecord: resultTeacherRecord,
         teacherSourceAvailable: true,
         teacherSourceDegraded: false,
         teacherSourceStatus: resultTeacherSourceState.teacherSourceStatus,
         teacherSourceLabel: resultTeacherSourceState.teacherSourceLabel,
-        teacherInfoSource: resultTeacherSourceState.teacherInfoSource,
         teacherSourceMessage: resultTeacherSourceState.teacherSourceMessage,
         msg: reviewStatus === 'approved' ? '审核通过' : '已驳回'
       }
@@ -650,15 +726,15 @@ exports.main = async (event = {}) => {
       const targetTeacherRecord = targetTeacherLookup.record
       const targetTeacherDocId = targetTeacherLookup.docId
 
-      if (!targetUser) {
+      if (!targetUser && !targetTeacherRecord) {
         return {
           success: false,
           msg: '目标账号不存在'
         }
       }
 
-      const targetApplication = normalizeApplication(targetUser.teacherApplication, applicantOpenId)
-      const targetTeacherProfile = normalizeTeacherProfile(targetUser.teacherProfile)
+      const targetApplication = normalizeApplication(targetUser?.teacherApplication, applicantOpenId)
+      const targetTeacherProfile = normalizeTeacherProfile(targetUser?.teacherProfile)
 
       if (!targetApplication && !targetTeacherProfile && !targetTeacherRecord) {
         return {
@@ -673,9 +749,11 @@ exports.main = async (event = {}) => {
 
       try {
         await db.runTransaction(async (transaction) => {
-          await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
-            data: buildUserTeacherApplicationPatch(_.remove())
-          })
+          if (targetUser?._id) {
+            await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
+              data: buildUserTeacherApplicationPatch(_.remove())
+            })
+          }
 
           if (targetTeacherRecord && targetTeacherDocId) {
             await transaction.collection(TEACHERS_COLLECTION).doc(targetTeacherDocId).update({
@@ -715,7 +793,6 @@ exports.main = async (event = {}) => {
         teacherSourceDegraded: false,
         teacherSourceStatus: resetTeacherSourceState.teacherSourceStatus,
         teacherSourceLabel: resetTeacherSourceState.teacherSourceLabel,
-        teacherInfoSource: resetTeacherSourceState.teacherInfoSource,
         teacherSourceMessage: resetTeacherSourceState.teacherSourceMessage,
         msg: '已重置老师测试态'
       }
@@ -755,15 +832,13 @@ exports.main = async (event = {}) => {
 
     if (effectiveIsTeacher && effectiveTeacherProfile?.teacherId) {
       return {
-        success: true,
+        ...buildTeacherApplyGetPayload({
+          application: existingApplication,
+          teacherProfile: effectiveTeacherProfile,
+          teacherLookup
+        }),
         alreadyTeacher: true,
-        application: existingApplication,
-        teacherProfile: effectiveTeacherProfile,
-        teacherProfileCompat,
-        teacherRecord: existingTeacherRecord,
-        roles: existingRoles,
-        msg: '当前账号已具备教师身份',
-        ...pickTeacherSourceMeta(teacherLookup)
+        msg: '当前账号已具备教师身份'
       }
     }
 
@@ -772,7 +847,6 @@ exports.main = async (event = {}) => {
         success: true,
         alreadySubmitted: true,
         application: existingApplication,
-        roles: existingRoles,
         msg: '已提交，等待审核',
         ...pickTeacherSourceMeta(teacherLookup)
       }
@@ -787,18 +861,6 @@ exports.main = async (event = {}) => {
       createdAt: existingApplication?.createdAt || db.serverDate(),
       updatedAt: db.serverDate()
     }
-
-    const nextPendingTeacherRecord = normalizeTeacherRecord({
-      ...(existingTeacherRecord || {}),
-      userOpenid: OPENID,
-      openid: OPENID,
-      name: applicantName,
-      contactInfo,
-      phone: contactInfo,
-      status: 'pending',
-      appliedAt: existingTeacherRecord?.appliedAt || db.serverDate(),
-      updatedAt: db.serverDate()
-    })
 
     if (teacherLookup.teacherSourceAvailable) {
       await db.runTransaction(async (transaction) => {
@@ -861,9 +923,6 @@ exports.main = async (event = {}) => {
       alreadySubmitted: false,
       application: normalizeApplication(teacherApplication, OPENID),
       teacherProfile: effectiveTeacherProfile,
-      teacherProfileCompat,
-      teacherRecord: teacherLookup.teacherSourceAvailable ? nextPendingTeacherRecord : existingTeacherRecord,
-      roles: existingRoles,
       msg: '提交成功',
       ...pickTeacherSourceMeta(teacherLookup)
     }
