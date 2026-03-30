@@ -1,8 +1,7 @@
 const db = wx.cloud.database()
+const { ensureApprovedTeacherSession } = require("../../utils/teacherSession")
 
 Page({
-  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
-
   data: {
     classId: "",
     lessonId: "",
@@ -21,22 +20,14 @@ Page({
   lessonAutoEndTimer: null,
   currentLifecycleLessonId: "",
 
-  ensureTeacherPageAccess() {
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim()
-    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim()
-
-    if (currentTeacher) {
-      wx.removeStorageSync(this.teacherLogoutGateKey)
-      return true
-    }
-
-    if (hasLoggedOutTeacher || !currentTeacher) {
+  async ensureTeacherPageAccess() {
+    const currentTeacher = await ensureApprovedTeacherSession()
+    if (!currentTeacher) {
       wx.reLaunch({
         url: "/pages/teacherHome/teacherHome"
       })
       return false
     }
-
     return true
   },
 
@@ -66,8 +57,8 @@ Page({
     wx.removeStorageSync(storageKey)
   },
 
-  onLoad(options) {
-    if (!this.ensureTeacherPageAccess()) return
+  async onLoad(options) {
+    if (!(await this.ensureTeacherPageAccess())) return
     const classId = String(options.classId || options.id || "").trim()
     const app = getApp()
 
@@ -79,8 +70,8 @@ Page({
     this.restoreCurrentLessonQr()
   },
 
-  onShow() {
-    if (!this.ensureTeacherPageAccess()) return
+  async onShow() {
+    if (!(await this.ensureTeacherPageAccess())) return
     this.restoreCurrentLessonQr()
   },
 

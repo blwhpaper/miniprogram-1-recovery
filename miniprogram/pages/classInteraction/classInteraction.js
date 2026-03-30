@@ -1,9 +1,8 @@
 const db = wx.cloud.database()
 const _ = db.command
+const { ensureApprovedTeacherSession } = require("../../utils/teacherSession");
 
 Page({
-  teacherLogoutGateKey: "TEACHER_SESSION_EXITED",
-
   data: {
     classId: "",
     lessonId: "",
@@ -39,16 +38,9 @@ Page({
   latestAttendanceDocs: [],
   isInitializing: false,
 
-  ensureTeacherPageAccess() {
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
-    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
-
-    if (currentTeacher) {
-      wx.removeStorageSync(this.teacherLogoutGateKey);
-      return true;
-    }
-
-    if (hasLoggedOutTeacher || !currentTeacher) {
+  async ensureTeacherPageAccess() {
+    const currentTeacher = await ensureApprovedTeacherSession();
+    if (!currentTeacher) {
       this.clearAttendancePolling();
       this.clearLessonEventPolling();
       wx.reLaunch({
@@ -56,7 +48,6 @@ Page({
       });
       return false;
     }
-
     return true;
   },
 
@@ -143,8 +134,8 @@ Page({
     });
   },
 
-  onLoad(options) {
-    if (!this.ensureTeacherPageAccess()) return;
+  async onLoad(options) {
+    if (!(await this.ensureTeacherPageAccess())) return;
     // 从上一页（classHome 或 studentList）传入的参数
     const lessonId = String(options.lessonId || "").trim();
     const classId = String(options.classId || "").trim();
@@ -160,8 +151,8 @@ Page({
     });
   },
 
-  onShow() {
-    if (!this.ensureTeacherPageAccess()) return;
+  async onShow() {
+    if (!(await this.ensureTeacherPageAccess())) return;
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
     if (!lessonId || this.isInitializing) return;
 

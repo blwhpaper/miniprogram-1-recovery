@@ -26,7 +26,7 @@
 
   <view class="card">
     <view class="section-title">重置老师测试态</view>
-    <view class="summary">会清理 users 文档中的 teacherApplication，并将 teachers 真源记录置为 inactive；users.teacherProfile、users.roles.teacher 仅保留历史兼容，不影响学生基础身份数据。</view>
+    <view class="summary">会清理 users 文档中的 teacherApplication，并将 teachers 真源记录置为 inactive，不影响学生基础身份数据。</view>
 
     <view class="field-label">目标账号 openid</view>
     <input
@@ -58,7 +58,6 @@
       <view class="row-text">更新时间：{{item.updatedAtText}}</view>
       <view class="row-text">申请状态：{{item.applicationStatusText}}</view>
       <view class="row-text">真源状态：{{item.teacherSourceStatusText}}</view>
-      <view class="row-text">当前展示来源：{{item.teacherInfoSourceText}}</view>
       <view wx:if="{{item.teacherId}}" class="row-text">教师标识：{{item.teacherId}}</view>
       <view wx:if="{{item.teacherSourceWarningText}}" class="row-text">{{item.teacherSourceWarningText}}</view>
 

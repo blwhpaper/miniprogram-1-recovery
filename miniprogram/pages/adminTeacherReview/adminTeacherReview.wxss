@@ -88,6 +88,13 @@
   border-radius: 16rpx;
 }
 
+.reset-btn {
+  margin-top: 24rpx;
+  border-radius: 16rpx;
+  background: #111827;
+  color: #ffffff;
+}
+
 .row-title {
   font-size: 30rpx;
   font-weight: 600;
