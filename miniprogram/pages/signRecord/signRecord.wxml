@@ -1,65 +1,81 @@
-
-<view class="page">
-  <view class="stats-fixed">
-    <view wx:if="{{currentStats}}" class="attendance-summary">
-      <view class="attendance-summary-top">
-        <view>
-          <text class="attendance-summary-title">
-            出勤：{{currentStats.signedCount}} / {{currentStats.rosterCount}}
-          </text>
-          <text class="attendance-summary-sub">
-            未到：{{currentStats.unsignedCount}}
-          </text>
-        </view>
-        <view class="export-btn-group">
-          <button class="export-btn {{statsExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" bindtap="onTapExportLessonStats">导出全部课次统计</button>
-          <button class="export-btn export-btn-secondary {{detailExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" bindtap="onTapExportLessonDetail">导出本次课明细</button>
-        </view>
-      </view>
+<view class="sign-record-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-eyebrow">教师业务页</view>
+      <view class="ui-title-lg">签到记录</view>
     </view>
 
-    <view class="lesson-section">
-      <view class="lesson-header">
-        <text class="lesson-title">历史课次</text>
+    <view wx:if="{{currentStats}}" class="ui-info-list">
+      <view class="ui-info-item">
+        <view class="ui-info-label">到课情况</view>
+        <view class="ui-info-value">出勤 {{currentStats.signedCount}} / {{currentStats.rosterCount}}</view>
       </view>
+      <view class="ui-info-item">
+        <view class="ui-info-label">未到人数</view>
+        <view class="ui-info-value">{{currentStats.unsignedCount}}</view>
+      </view>
+    </view>
+    <view wx:else class="ui-text-body">当前页用于查看签到状态、处理请假申请和导出课堂记录。</view>
 
-      <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
-        <view class="lesson-list">
-          <view
-            wx:for="{{lessons}}"
-            wx:key="_id"
-            class="lesson-item {{selectedLessonId === item._id ? 'active' : ''}}"
-            bindtap="onSelectLesson"
-            data-lesson-id="{{item._id}}"
-          >
-            <text class="lesson-item-title">课次 {{lessons.length - index}}</text>
-            <text class="lesson-item-id">{{item._id}}</text>
-          </view>
-        </view>
-      </scroll-view>
-
-      <view wx:else class="lesson-empty">暂无历史课次</view>
+    <view class="ui-record-actions export-actions">
+      <button class="ui-btn-secondary export-btn {{statsExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" bindtap="onTapExportLessonStats">导出全部课次统计</button>
+      <button class="ui-btn-ghost export-btn {{detailExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" bindtap="onTapExportLessonDetail">导出本次课明细</button>
     </view>
   </view>
 
-  <view class="list-container">
-    <view wx:if="{{pendingLeaveRequests.length > 0}}" class="event-list">
-      <view class="lesson-header">
-        <text class="lesson-title">待处理请假申请</text>
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">历史课次</view>
+      <view class="ui-text-helper">切换课次后，下方会同步刷新请假申请与签到记录。</view>
+    </view>
+
+    <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
+      <view class="ui-chip-list">
+        <view
+          wx:for="{{lessons}}"
+          wx:key="_id"
+          class="ui-chip-card {{selectedLessonId === item._id ? 'ui-chip-card--active' : ''}}"
+          bindtap="onSelectLesson"
+          data-lesson-id="{{item._id}}"
+        >
+          <text class="ui-chip-title">课次 {{lessons.length - index}}</text>
+          <text class="ui-chip-meta">{{item._id}}</text>
+        </view>
       </view>
-      <view class="event-item" wx:for="{{pendingLeaveRequests}}" wx:key="_id">
-        <view class="info">
-          <text class="name">{{item.studentName}}</text>
+    </scroll-view>
+
+    <view wx:else class="ui-empty-state">
+      <view class="ui-text-body">暂无历史课次</view>
+    </view>
+  </view>
+
+  <view wx:if="{{pendingLeaveRequests.length > 0}}" class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">待处理请假申请</view>
+      <view class="ui-text-helper">仅当前选中的进行中课次允许处理请假申请。</view>
+    </view>
+
+    <view class="ui-record-list">
+      <view class="ui-record-card" wx:for="{{pendingLeaveRequests}}" wx:key="_id">
+        <view class="ui-record-head">
+          <view class="ui-card-head">
+            <view class="ui-title-md">{{item.studentName}}</view>
+            <view class="ui-text-helper">{{item.displayTime}}</view>
+          </view>
+          <view class="ui-tag ui-tag--pending">{{item.leaveRequestStatusLabel}}</view>
         </view>
-        <view class="sub">
-          <text>处理态：{{item.leaveRequestStatusLabel}}</text>
+
+        <view class="ui-info-list">
+          <view class="ui-info-item">
+            <view class="ui-info-label">处理态</view>
+            <view class="ui-info-value">{{item.leaveRequestStatusLabel}}</view>
+          </view>
+          <view wx:if="{{item.leaveApplicantStudentName}}" class="ui-info-item">
+            <view class="ui-info-label">代提交</view>
+            <view class="ui-info-value">{{item.leaveApplicantStudentName}}</view>
+          </view>
         </view>
-        <view class="sub">
-          <text wx:if="{{item.leaveApplicantStudentName}}">代提交：{{item.leaveApplicantStudentName}}</text>
-        </view>
-        <view class="sub">
-          <text>{{item.displayTime}}</text>
-        </view>
+
         <image
           wx:if="{{item.leaveRequestImageFileId}}"
           class="leave-img"
@@ -68,9 +84,10 @@
           bindtap="previewImg"
           data-src="{{item.leaveRequestImageFileId}}"
         />
-        <view class="score-btn-group">
+
+        <view class="ui-record-actions">
           <button
-            class="score-btn {{!isCurrentLessonSelected ? 'score-btn--disabled' : ''}}"
+            class="leave-action-btn {{!isCurrentLessonSelected ? 'leave-action-btn--disabled' : ''}}"
             size="mini"
             bindtap="onTapApproveLeaveRequest"
             data-request-id="{{item._id}}"
@@ -84,74 +101,82 @@
         </view>
       </view>
     </view>
+  </view>
 
-    <view class="card" wx:for="{{list}}" wx:key="studentId" wx:for-item="item" wx:for-index="index" id="item-{{index}}">
-      <view class="info">
-        <text class="name">学生姓名：{{item.name}}</text>
-      </view>
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">学生签到状态</view>
+      <view class="ui-text-helper">支持查看状态、手动设为请假或旷课，并展示本课评分结果。</view>
+    </view>
 
-      <view class="sub">
-        <text>学号：{{item.studentId || '-'}}</text>
-      </view>
+    <view wx:if="{{list.length > 0}}" class="ui-record-list">
+      <view class="ui-record-card" wx:for="{{list}}" wx:key="studentId" wx:for-item="item" wx:for-index="index" id="item-{{index}}">
+        <view class="ui-record-head">
+          <view class="ui-card-head">
+            <view class="ui-title-md">{{item.name}}</view>
+            <view class="ui-text-helper">学号：{{item.studentId || '-'}}</view>
+          </view>
+          <view class="ui-tag ui-tag--{{item.status || 'unsigned'}}">{{item.statusLabel || (item.status === 'signed' ? '已签到' : '未签到')}}</view>
+        </view>
 
-      <view class="sub">
-        <text>状态：{{item.statusLabel || (item.status === 'signed' ? '已签到' : '未签到')}}</text>
-      </view>
+        <view wx:if="{{item.hasPendingLeaveRequest && item.status !== 'leave_agree'}}" class="ui-text-muted">请假申请：待处理{{item.pendingLeaveApplicantName ? '（代提交：' + item.pendingLeaveApplicantName + '）' : ''}}</view>
 
-      <view class="sub" wx:if="{{item.hasPendingLeaveRequest && item.status !== 'leave_agree'}}">
-        <text>请假申请：待处理{{item.pendingLeaveApplicantName ? '（代提交：' + item.pendingLeaveApplicantName + '）' : ''}}</text>
-      </view>
+        <view class="ui-record-actions">
+          <button
+            class="attendance-btn attendance-btn--leave {{item.canOperateAttendanceStatus && item.status === 'leave_agree' ? 'attendance-btn--active' : ''}} {{!item.canOperateAttendanceStatus ? 'attendance-btn--disabled' : ''}}"
+            size="mini"
+            bindtap="onTapSetAttendanceStatus"
+            data-status="leave_agree"
+            data-current-status="{{item.status}}"
+            data-student-id="{{item.studentId}}"
+            data-student-name="{{item.name}}"
+            data-can-operate="{{item.canOperateAttendanceStatus}}"
+            disabled="{{!item.canOperateAttendanceStatus}}"
+          >
+            设为请假
+          </button>
+          <button
+            class="attendance-btn attendance-btn--absent {{item.canOperateAttendanceStatus && item.status === 'absent' ? 'attendance-btn--active-danger' : ''}} {{!item.canOperateAttendanceStatus ? 'attendance-btn--disabled' : ''}}"
+            size="mini"
+            bindtap="onTapSetAttendanceStatus"
+            data-status="absent"
+            data-current-status="{{item.status}}"
+            data-student-id="{{item.studentId}}"
+            data-student-name="{{item.name}}"
+            data-can-operate="{{item.canOperateAttendanceStatus}}"
+            disabled="{{!item.canOperateAttendanceStatus}}"
+          >
+            设为旷课
+          </button>
+        </view>
 
-      <view class="btn-row">
-        <button
-          class="btn {{item.canOperateAttendanceStatus && item.status === 'leave_agree' ? 'on' : ''}} {{!item.canOperateAttendanceStatus ? 'btn--disabled' : ''}}"
-          size="mini"
-          bindtap="onTapSetAttendanceStatus"
-          data-status="leave_agree"
-          data-current-status="{{item.status}}"
-          data-student-id="{{item.studentId}}"
-          data-student-name="{{item.name}}"
-          data-can-operate="{{item.canOperateAttendanceStatus}}"
-          disabled="{{!item.canOperateAttendanceStatus}}"
-        >
-          设为请假
-        </button>
-        <button
-          class="btn {{item.canOperateAttendanceStatus && item.status === 'absent' ? 'on' : ''}} {{!item.canOperateAttendanceStatus ? 'btn--disabled' : ''}}"
-          size="mini"
-          bindtap="onTapSetAttendanceStatus"
-          data-status="absent"
-          data-current-status="{{item.status}}"
-          data-student-id="{{item.studentId}}"
-          data-student-name="{{item.name}}"
-          data-can-operate="{{item.canOperateAttendanceStatus}}"
-          disabled="{{!item.canOperateAttendanceStatus}}"
-        >
-          设为旷课
-        </button>
-      </view>
-
-      <view class="sub" wx:if="{{item.lessonScoreText}}">
-        <text>单次课最终分：{{item.lessonScoreText}}</text>
-      </view>
-
-      <view class="sub" wx:if="{{item.lessonScoreBreakdownText}}">
-        <text>评分项：{{item.lessonScoreBreakdownText}}</text>
-      </view>
-
-      <view class="sub" wx:if="{{item.answerScoreText}}">
-        <text>随机点名：{{item.answerScoreText}}（均分 {{item.answerScoreAvgText}}）</text>
-      </view>
-
-      <view class="sub" wx:if="{{item.questionScoreText}}">
-        <text>主动提问：{{item.questionScoreText}}（均分 {{item.questionScoreAvgText}}）</text>
-      </view>
-
-      <view class="sub" wx:if="{{item.testScoreText}}">
-        <text>随堂测试：{{item.testScoreText}}（均分 {{item.testScoreAvgText}}）</text>
+        <view wx:if="{{item.lessonScoreText || item.lessonScoreBreakdownText || item.answerScoreText || item.questionScoreText || item.testScoreText}}" class="ui-info-list">
+          <view wx:if="{{item.lessonScoreText}}" class="ui-info-item">
+            <view class="ui-info-label">单次课最终分</view>
+            <view class="ui-info-value">{{item.lessonScoreText}}</view>
+          </view>
+          <view wx:if="{{item.lessonScoreBreakdownText}}" class="ui-info-item">
+            <view class="ui-info-label">评分项</view>
+            <view class="ui-info-value">{{item.lessonScoreBreakdownText}}</view>
+          </view>
+          <view wx:if="{{item.answerScoreText}}" class="ui-info-item">
+            <view class="ui-info-label">随机点名</view>
+            <view class="ui-info-value">{{item.answerScoreText}}（均分 {{item.answerScoreAvgText}}）</view>
+          </view>
+          <view wx:if="{{item.questionScoreText}}" class="ui-info-item">
+            <view class="ui-info-label">主动提问</view>
+            <view class="ui-info-value">{{item.questionScoreText}}（均分 {{item.questionScoreAvgText}}）</view>
+          </view>
+          <view wx:if="{{item.testScoreText}}" class="ui-info-item">
+            <view class="ui-info-label">随堂测试</view>
+            <view class="ui-info-value">{{item.testScoreText}}（均分 {{item.testScoreAvgText}}）</view>
+          </view>
+        </view>
       </view>
     </view>
 
-    <view wx:if="{{list.length === 0}}" class="empty">暂无学生</view>
+    <view wx:else class="ui-empty-state">
+      <view class="ui-text-body">暂无学生</view>
+    </view>
   </view>
 </view>

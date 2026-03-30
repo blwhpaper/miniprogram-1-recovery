@@ -1,23 +1,27 @@
-.container {
-  padding: 30rpx;
+.class-home-page {
+  align-items: stretch;
 }
-.title {
-  font-size: 40rpx;
-  font-weight: bold;
-  margin-bottom: 30rpx;
-  text-align: center;
+
+.class-home-head {
+  flex: 1;
 }
-.class-item {
-  padding: 30rpx;
-  background: white;
-  border-radius: 15rpx;
-  margin-bottom: 20rpx;
-}
-.class-name {
-  font-size: 34rpx;
-  margin-bottom: 20rpx;
-}
-.btns {
+
+.qr-wrap {
   display: flex;
-  gap: 20rpx;
+  justify-content: center;
+  padding: 12rpx 0;
+}
+
+.qr-image {
+  width: 400rpx;
+  height: 400rpx;
+  padding: 20rpx;
+  border-radius: 28rpx;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.qr-empty {
+  padding-top: 56rpx;
+  padding-bottom: 56rpx;
 }

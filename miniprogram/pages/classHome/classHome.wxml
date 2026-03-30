@@ -1,31 +1,55 @@
-<button bindtap="createSignCode" type="primary">生成签到码</button>
+<view class="class-home-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-section">
+    <view class="ui-card-head ui-card-head--row">
+      <view class="ui-card-head class-home-head">
+        <view class="ui-eyebrow">教师业务页</view>
+        <view class="ui-title-lg">当前课堂</view>
+      </view>
+      <view wx:if="{{showEndLessonButton}}" class="ui-tag ui-tag--active">进行中</view>
+      <view wx:else class="ui-tag ui-tag--inactive">未开始</view>
+    </view>
+    <view class="ui-text-body">{{currentLessonStatusText}}</view>
+    <view class="ui-info-list">
+      <view class="ui-info-item">
+        <view class="ui-info-label">班级标识</view>
+        <view class="ui-info-value">{{classId || '-'}}</view>
+      </view>
+      <view class="ui-info-item">
+        <view class="ui-info-label">当前课次</view>
+        <view class="ui-info-value">{{lessonId || '-'}}</view>
+      </view>
+    </view>
+    <button bindtap="createSignCode" type="primary">生成签到码</button>
+  </view>
 
-<view style="margin-top:20rpx;color:#666;">
-  {{currentLessonStatusText}}
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">签到二维码</view>
+      <view class="ui-text-helper">开启签到后，学生扫码会进入学生主页并承接当前课。</view>
+    </view>
+
+    <view wx:if="{{qrcode}}" class="qr-wrap">
+      <image
+        class="qr-image"
+        src="{{qrcode}}"
+        mode="aspectFit"
+      ></image>
+    </view>
+
+    <view wx:else class="ui-empty-state qr-empty">
+      <view class="ui-text-body">二维码将显示在这里</view>
+    </view>
+  </view>
+
+  <view class="ui-card ui-notice-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">课堂操作</view>
+      <view class="ui-text-helper">课堂相关入口集中放在这里，主次操作保持统一视觉层级。</view>
+    </view>
+    <view class="ui-button-group ui-button-group--compact">
+      <button class="ui-btn-secondary" bindtap="goToStudentList">学生名单管理</button>
+      <button class="ui-btn-secondary" bindtap="goToClassInteraction">进入课堂互动</button>
+      <button wx:if="{{showEndLessonButton}}" class="ui-btn-danger" bindtap="confirmEndCurrentLesson">下课</button>
+    </view>
+  </view>
 </view>
-
-<view wx:if="{{!qrcode}}" style="margin-top:30rpx;color:#999;">
-  二维码将显示在这里
-</view>
-
-<image 
-  wx:if="{{qrcode}}" 
-  src="{{qrcode}}" 
-  style="width:400rpx;height:400rpx;margin-top:20rpx;background:#f5f5f5;"
->
-</image>
-
-<!-- 学生名单管理 -->
-<view style="margin-top:25rpx; font-size:30rpx; color:#2f70e6; text-decoration:underline;"
-  bindtap="goToStudentList">
-  学生名单管理
-</view>
-
-<view style="margin-top:25rpx; font-size:30rpx; color:#2f70e6; text-decoration:underline;"
-  bindtap="goToClassInteraction">
-  进入课堂互动
-</view>
-
-<button wx:if="{{showEndLessonButton}}" bindtap="confirmEndCurrentLesson" type="warn" style="margin-top:30rpx;">
-  下课
-</button>

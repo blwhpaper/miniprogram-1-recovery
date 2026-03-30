@@ -1,174 +1,54 @@
-.page {
-  min-height: 100vh;
-  background: #f6f7fb;
+.sign-record-page {
+  align-items: stretch;
 }
 
-.stats-fixed {
-  position: sticky; top:0; background:#fff; z-index:999;
-  display:flex; flex-direction:column; padding:20rpx; border-bottom:1rpx solid #eee;
+.export-actions {
+  margin-top: 4rpx;
 }
-.attendance-summary {
-  background:#f5f5f5;
-  border-radius:16rpx;
-  padding:20rpx;
-  margin-bottom:20rpx;
-}
-.attendance-summary-top {
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:16rpx;
-}
-.export-btn-group {
-  display:flex;
-  gap:12rpx;
-}
-.attendance-summary-title {
-  display:block;
-  font-size:30rpx;
-  font-weight:600;
-  color:#333;
-}
-.attendance-summary-sub {
-  display:block;
-  margin-top:8rpx;
-  font-size:24rpx;
-  color:#666;
-}
+
 .export-btn {
-  margin:0;
-  background:#2f77ff;
-  color:#fff;
-  border-radius:999rpx;
-  line-height:1.6;
+  margin: 0;
 }
-.export-btn-secondary {
-  background:#5b6573;
-}
+
 .export-btn--disabled {
   opacity: 0.45;
   filter: grayscale(1);
 }
-.interaction-card {
-  background:#f5f5f5;
-  border-radius:16rpx;
-  padding:20rpx;
-  margin-bottom:20rpx;
+.lesson-scroll {
+  white-space: nowrap;
 }
-.interaction-title {
-  font-size:28rpx;
-  font-weight:600;
-  color:#333;
-  margin-bottom:16rpx;
+
+.leave-img {
+  width: 100%;
+  height: 240rpx;
+  border-radius: 20rpx;
 }
-.interaction-current {
-  margin-top:16rpx;
-  font-size:24rpx;
-  color:#555;
+
+.leave-action-btn {
+  margin: 0;
 }
-.score-btn-group {
-  display:flex;
-  flex-wrap:wrap;
-  gap:12rpx;
-  margin-top:16rpx;
-}
-.score-btn {
-  margin:0;
-  background:#2f77ff;
-  color:#fff;
-  border-radius:999rpx;
-  line-height:1.6;
-}
-.score-btn--disabled {
+
+.leave-action-btn--disabled {
   opacity: 0.45;
-  filter: grayscale(1);
 }
-.lesson-section { margin-bottom:20rpx; }
-.lesson-header { margin-bottom:12rpx; }
-.lesson-title { font-size:26rpx; font-weight:600; color:#333; }
-.lesson-scroll { white-space:nowrap; }
-.lesson-list { display:flex; }
-.lesson-item {
-  flex:0 0 auto; width:220rpx; margin-right:16rpx; padding:18rpx 20rpx;
-  border-radius:16rpx; background:#f4f6f8; box-sizing:border-box;
-}
-.lesson-item.active { background:#dce9ff; }
-.lesson-item-title {
-  display:block; font-size:24rpx; color:#333; font-weight:600; margin-bottom:8rpx;
-}
-.lesson-item-id {
-  display:block; font-size:20rpx; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-}
-.lesson-empty { font-size:22rpx; color:#999; padding:12rpx 0; }
 
-.list-container { padding-top:20rpx; padding-bottom:40rpx; }
+.attendance-btn {
+  margin: 0;
+  background: #eef4ff;
+  color: #1d4ed8;
+  border-radius: 999rpx;
+}
 
-.card {
-  background:#fff; border-radius:20rpx; margin:0 20rpx 20rpx; padding:30rpx;
+.attendance-btn--leave.attendance-btn--active {
+  background: #f3e8ff;
+  color: #7c3aed;
 }
-.info { display:flex; justify-content:space-between; }
-.name { font-size:32rpx; }
-.sub { margin-top:12rpx; font-size:24rpx; color:#666; }
-.interaction-result-box {
-  margin-top:18rpx;
-  padding:16rpx 20rpx;
-  background:#f7faff;
-  border-radius:16rpx;
-}
-.interaction-result-row {
-  margin-top:0;
-}
-.interaction-result-row + .interaction-result-row {
-  margin-top:10rpx;
-}
-.question-btn-row {
-  display:flex;
-  flex-wrap:wrap;
-  gap:12rpx;
-  margin-top:20rpx;
-}
-.question-btn {
-  margin:0;
-  background:#eef4ff;
-  color:#2f77ff;
-  border-radius:999rpx;
-  line-height:1.6;
-}
-.event-list {
-  margin:0 20rpx 20rpx;
-}
-.event-item {
-  background:#fff;
-  border-radius:20rpx;
-  padding:24rpx 30rpx;
-  margin-bottom:20rpx;
-}
-.event-type {
-  color:#2f77ff;
-}
-.event-score {
-  font-size:28rpx;
-  font-weight:600;
-  color:#00a870;
-}
-.status { font-size:24rpx; padding:6rpx 14rpx; border-radius:50rpx; }
 
-.signed { background:#e6fffa; color:#00c48c; }
-.unsigned { background:#f2f3f5; color:#666; }
-.absent { background:#fff1f0; color:#f53f3f; }
-.leave_wait { background:#fff7e8; color:#ff9500; }
-.leave_agree { background:#f8f0ff; color:#722ed1; }
+.attendance-btn--absent.attendance-btn--active-danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
 
-.leave-box { background:#f9f7ff; border-radius:16rpx; padding:20rpx; margin:20rpx 0; }
-.leave-img { width:100%; height:240rpx; border-radius:12rpx; }
-.agree-btn { background:#722ed1; color:#fff; margin-top:16rpx; }
-
-.btn-row { display:flex; gap:16rpx; margin-top:20rpx; }
-.btn { flex:1; height:68rpx; line-height:68rpx; font-size:24rpx; border-radius:12rpx; background:#f2f5f9; }
-.btn.on { background:#2f77ff; color:#fff; }
-.btn--disabled { opacity: 0.5; }
-
-.empty { text-align:center; color:#aaa; margin-top:200rpx; }
-
-/* 在最后面加一行即可 */
-.clear-leave-btn { background: #ff4444; color: #fff; margin-top: 16rpx; }
+.attendance-btn--disabled {
+  opacity: 0.5;
+}

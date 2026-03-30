@@ -1,134 +1,143 @@
-
-<view class="page">
-  <view class="stats-fixed">
-    <view class="interaction-card {{pendingScoreLock ? 'interaction-card--pending' : ''}}">
-      <view class="interaction-head">
-        <view>
-          <view class="interaction-title">随机点名</view>
-          <view class="interaction-round">当前轮次：第{{currentRound}}轮</view>
-        </view>
-        <view
-          class="state-badge {{pendingScoreLock ? 'state-badge--pending' : ''}} {{!pendingScoreLock && currentCalledStudent ? 'state-badge--active' : ''}} {{!pendingScoreLock && !currentCalledStudent && lastScoredStudentName ? 'state-badge--done' : ''}} {{!pendingScoreLock && !currentCalledStudent && !lastScoredStudentName ? 'state-badge--idle' : ''}}"
-        >
-          <text wx:if="{{pendingScoreLock}}">待评分</text>
-          <text wx:elif="{{currentCalledStudent}}">点名中</text>
-          <text wx:elif="{{lastScoredStudentName}}">可继续下一位</text>
-          <text wx:else>未开始</text>
-        </view>
+<view class="rollcall-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-section">
+    <view class="ui-card-head ui-card-head--row">
+      <view class="ui-card-head">
+        <view class="ui-eyebrow">教师业务页</view>
+        <view class="ui-title-lg">随机点名</view>
+        <view class="ui-text-helper">当前轮次：第{{currentRound}}轮</view>
       </view>
-
-      <view class="interaction-status-panel">
-        <view wx:if="{{currentCalledStudent}}" class="student-focus">
-          <text class="student-focus-label">当前点到</text>
-          <text class="student-focus-name">{{currentCalledStudent.name}}</text>
-          <text class="student-focus-meta">学号：{{currentCalledStudent.studentId || '-'}}</text>
-        </view>
-
-        <view wx:elif="{{lastScoredStudentName}}" class="status-copy">
-          <text class="status-copy-title">上一位已完成评分</text>
-          <text class="status-copy-main">{{lastScoredStudentName}} 已完成第{{lastScoredRound}}轮评分</text>
-          <text class="status-copy-sub">现在可以继续随机点下一位。</text>
-        </view>
-
-        <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="status-copy">
-          <text class="status-copy-title">当前可开始点名</text>
-          <text class="status-copy-main">已签到 {{signedStudents.length}} 人，可随机点名</text>
-          <text class="status-copy-sub">点到学生后需先评分，才能继续下一位。</text>
-        </view>
-
-        <view wx:elif="{{selectedLessonId}}" class="status-copy">
-          <text class="status-copy-title">当前暂无可点名学生</text>
-          <text class="status-copy-main">请等待学生签到后再开始随机点名</text>
-          <text class="status-copy-sub">随机点名仅从已签到学生中抽取。</text>
-        </view>
-
-        <view wx:else class="status-copy">
-          <text class="status-copy-title">当前无可用课次</text>
-          <text class="status-copy-main">请先选择可用课次</text>
-          <text class="status-copy-sub">课次切换后将自动加载当前名单与互动记录。</text>
-        </view>
+      <view
+        class="ui-tag {{pendingScoreLock ? 'ui-tag--pending' : ''}} {{!pendingScoreLock && currentCalledStudent ? 'ui-tag--active' : ''}} {{!pendingScoreLock && !currentCalledStudent && lastScoredStudentName ? 'ui-tag--approved' : ''}} {{!pendingScoreLock && !currentCalledStudent && !lastScoredStudentName ? 'ui-tag--inactive' : ''}}"
+      >
+        <text wx:if="{{pendingScoreLock}}">待评分</text>
+        <text wx:elif="{{currentCalledStudent}}">点名中</text>
+        <text wx:elif="{{lastScoredStudentName}}">可继续下一位</text>
+        <text wx:else>未开始</text>
       </view>
-
-      <view class="action-section">
-        <button
-          class="primary-action {{pendingScoreLock ? 'primary-action--disabled' : ''}}"
-          bindtap="onTapRandomRollcall"
-          disabled="{{pendingScoreLock || !selectedLessonId || signedStudents.length === 0}}"
-        >
-          {{currentCalledStudent || pendingScoreLock ? '完成评分后继续' : '随机点名'}}
-        </button>
-
-        <view wx:if="{{pendingScoreLock && currentCalledStudent}}" class="score-panel">
-          <view class="score-panel-title">请先给 {{currentCalledStudent.name}} 评分</view>
-          <view class="score-btn-group">
-            <button
-              wx:for="{{interactionScoreOptions}}"
-              wx:key="*this"
-              class="score-btn"
-              size="mini"
-              bindtap="onTapScoreAnswer"
-              data-score="{{item}}"
-            >
-              {{item}}分
-            </button>
-          </view>
-        </view>
-
-        <view wx:else class="action-hint">
-          <text wx:if="{{selectedLessonId && signedStudents.length > 0}}">当前可以继续随机点名。</text>
-          <text wx:elif="{{selectedLessonId}}">当前没有已签到学生，按钮已禁用。</text>
-          <text wx:else>当前没有可用课次，按钮已禁用。</text>
-        </view>
-      </view>
-    </view>
-
-    <view class="lesson-section">
-      <view class="lesson-header">
-        <text class="lesson-title">历史课次</text>
-      </view>
-      <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
-        <view class="lesson-list">
-          <view
-            wx:for="{{lessons}}"
-            wx:key="_id"
-            class="lesson-item {{selectedLessonId === item._id ? 'active' : ''}}"
-            bindtap="onSelectLesson"
-            data-lesson-id="{{item._id}}"
-          >
-            <text class="lesson-item-title">课次 {{lessons.length - index}}</text>
-            <text class="lesson-item-id">{{item._id}}</text>
-          </view>
-        </view>
-      </scroll-view>
-      <view wx:else class="lesson-empty">暂无历史课次</view>
     </view>
   </view>
 
-  <view class="list-container">
-    <view class="event-list">
-      <view class="lesson-header">
-        <text class="lesson-title">本节互动记录</text>
+  <view class="ui-card ui-status-card ui-section">
+    <view wx:if="{{currentCalledStudent}}" class="ui-card-head">
+      <view class="ui-text-helper">当前点到</view>
+      <view class="ui-title-lg">{{currentCalledStudent.name}}</view>
+      <view class="ui-text-body">学号：{{currentCalledStudent.studentId || '-'}}</view>
+    </view>
+
+    <view wx:elif="{{lastScoredStudentName}}" class="ui-card-head">
+      <view class="ui-text-helper">上一位已完成评分</view>
+      <view class="ui-title-md">{{lastScoredStudentName}} 已完成第{{lastScoredRound}}轮评分</view>
+      <view class="ui-text-body">现在可以继续随机点下一位。</view>
+    </view>
+
+    <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="ui-card-head">
+      <view class="ui-text-helper">当前可开始点名</view>
+      <view class="ui-title-md">已签到 {{signedStudents.length}} 人，可随机点名</view>
+      <view class="ui-text-body">点到学生后需先评分，才能继续下一位。</view>
+    </view>
+
+    <view wx:elif="{{selectedLessonId}}" class="ui-card-head">
+      <view class="ui-text-helper">当前暂无可点名学生</view>
+      <view class="ui-title-md">请等待学生签到后再开始随机点名</view>
+      <view class="ui-text-body">随机点名仅从已签到学生中抽取。</view>
+    </view>
+
+    <view wx:else class="ui-card-head">
+      <view class="ui-text-helper">当前无可用课次</view>
+      <view class="ui-title-md">请先选择可用课次</view>
+      <view class="ui-text-body">课次切换后将自动加载当前名单与互动记录。</view>
+    </view>
+  </view>
+
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">点名操作</view>
+      <view class="ui-text-helper">先随机点名，再评分，当前轮次会自动持续。</view>
+    </view>
+
+    <button
+      class="primary-action {{pendingScoreLock ? 'primary-action--disabled' : ''}}"
+      bindtap="onTapRandomRollcall"
+      disabled="{{pendingScoreLock || !selectedLessonId || signedStudents.length === 0}}"
+    >
+      {{currentCalledStudent || pendingScoreLock ? '完成评分后继续' : '随机点名'}}
+    </button>
+
+    <view wx:if="{{pendingScoreLock && currentCalledStudent}}" class="score-panel">
+      <view class="score-panel-title">请先给 {{currentCalledStudent.name}} 评分</view>
+      <view class="ui-record-actions">
+        <button
+          wx:for="{{interactionScoreOptions}}"
+          wx:key="*this"
+          class="score-btn"
+          size="mini"
+          bindtap="onTapScoreAnswer"
+          data-score="{{item}}"
+        >
+          {{item}}分
+        </button>
       </view>
+    </view>
 
-      <view wx:if="{{lessonEventsLoading}}" class="lesson-empty">互动记录加载中</view>
+    <view wx:else class="ui-text-muted">
+      <text wx:if="{{selectedLessonId && signedStudents.length > 0}}">当前可以继续随机点名。</text>
+      <text wx:elif="{{selectedLessonId}}">当前没有已签到学生，按钮已禁用。</text>
+      <text wx:else>当前没有可用课次，按钮已禁用。</text>
+    </view>
+  </view>
 
-      <view wx:elif="{{lessonEvents.length > 0}}">
-        <view class="event-item" wx:for="{{lessonEvents}}" wx:key="_id">
-          <view class="info">
-            <text class="name">{{item.studentName || '未命名学生'}}</text>
-            <text class="event-score" wx:if="{{item.score}}">+{{item.score}}</text>
-          </view>
-          <view class="sub">
-            <text class="event-type">{{item.displayType}}</text>
-            <text wx:if="{{item.round}}" class="event-round">第{{item.round}}轮</text>
-          </view>
-          <view class="sub">
-            <text>{{item.displayTime}}</text>
-          </view>
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">历史课次</view>
+      <view class="ui-text-helper">切换课次后，点名名单和互动记录会同步刷新。</view>
+    </view>
+    <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
+      <view class="ui-chip-list">
+        <view
+          wx:for="{{lessons}}"
+          wx:key="_id"
+          class="ui-chip-card {{selectedLessonId === item._id ? 'ui-chip-card--active' : ''}}"
+          bindtap="onSelectLesson"
+          data-lesson-id="{{item._id}}"
+        >
+          <text class="ui-chip-title">课次 {{lessons.length - index}}</text>
+          <text class="ui-chip-meta">{{item._id}}</text>
         </view>
       </view>
+    </scroll-view>
+    <view wx:else class="ui-empty-state">
+      <view class="ui-text-body">暂无历史课次</view>
+    </view>
+  </view>
 
-      <view wx:else class="lesson-empty">本节暂无互动记录</view>
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">本节互动记录</view>
+      <view class="ui-text-helper">展示本节课的点名与得分记录。</view>
+    </view>
+
+    <view wx:if="{{lessonEventsLoading}}" class="ui-empty-state">
+      <view class="ui-text-body">互动记录加载中</view>
+    </view>
+
+    <view wx:elif="{{lessonEvents.length > 0}}" class="ui-record-list">
+      <view class="ui-record-card" wx:for="{{lessonEvents}}" wx:key="_id">
+        <view class="ui-record-head">
+          <view class="ui-card-head">
+            <view class="ui-title-md">{{item.studentName || '未命名学生'}}</view>
+            <view class="ui-text-helper">{{item.displayType}}</view>
+          </view>
+          <view class="event-score" wx:if="{{item.score}}">+{{item.score}}</view>
+        </view>
+        <view class="ui-text-muted">
+          <text wx:if="{{item.round}}" class="event-round">第{{item.round}}轮</text>
+        </view>
+        <view class="ui-text-helper">{{item.displayTime}}</view>
+      </view>
+    </view>
+
+    <view wx:else class="ui-empty-state">
+      <view class="ui-text-body">本节暂无互动记录</view>
     </view>
   </view>
 </view>

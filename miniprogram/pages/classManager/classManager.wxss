@@ -2,15 +2,11 @@
   align-items: stretch;
 }
 
-.title {
-  text-align: center;
-}
-
 .item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 20rpx;
+  gap: 24rpx;
 }
 
 .item-main {
@@ -19,5 +15,3 @@
   flex-direction: column;
   gap: 10rpx;
 }
-
-.name { flex: 1; }

@@ -1,15 +1,32 @@
 <view class="class-manager-page ui-page ui-page--stack">
-  <view class="ui-page-header">
-    <view class="title ui-title-lg">班级管理</view>
+  <view class="ui-card ui-hero-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-eyebrow">教师业务页</view>
+      <view class="title ui-title-lg">班级管理</view>
+      <view class="ui-text-body">统一承接班级创建与进入入口，保持教师业务页视觉一致。</view>
+    </view>
+    <button bindtap="addClass" type="primary">+ 新建班级</button>
   </view>
 
-  <button bindtap="addClass" type="primary">+ 新建班级</button>
-
-  <view wx:for="{{classList}}" wx:key="id" class="item ui-card">
-    <view class="item-main" bindtap="enterClass" data-id="{{item.id}}">
-      <view class="name ui-title-md">{{item.name}}</view>
-      <view class="ui-text-muted">点击进入班级工作区</view>
+  <view wx:if="{{classList.length > 0}}" class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">我的班级</view>
+      <view class="ui-text-helper">点击卡片进入班级工作区，删除操作保持次级视觉。</view>
     </view>
-    <button class="ui-btn-danger" size="mini" bindtap="deleteClass" data-id="{{item.id}}">删除</button>
+
+    <view class="class-list ui-record-list">
+      <view wx:for="{{classList}}" wx:key="id" class="item ui-record-card">
+        <view class="item-main" bindtap="enterClass" data-id="{{item.id}}">
+          <view class="name ui-title-md">{{item.name}}</view>
+          <view class="ui-text-muted">点击进入班级工作区</view>
+        </view>
+        <button class="ui-btn-danger" size="mini" bindtap="deleteClass" data-id="{{item.id}}">删除</button>
+      </view>
+    </view>
+  </view>
+
+  <view wx:else class="ui-card ui-empty-state">
+    <view class="ui-title-md">当前还没有班级</view>
+    <view class="ui-text-body">先创建一个班级，再进入课堂开启签到、互动和记录管理。</view>
   </view>
 </view>

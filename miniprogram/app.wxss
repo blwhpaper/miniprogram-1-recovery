@@ -329,17 +329,38 @@ button.ui-btn-danger {
   color: var(--ui-color-success);
 }
 
+.ui-tag--signed {
+  background: var(--ui-color-success-soft);
+  color: var(--ui-color-success);
+}
+
 .ui-tag--rejected,
 .ui-tag--danger {
   background: var(--ui-color-danger-soft);
   color: var(--ui-color-danger);
 }
 
+.ui-tag--absent {
+  background: var(--ui-color-danger-soft);
+  color: var(--ui-color-danger);
+}
+
 .ui-tag--inactive,
 .ui-tag--missing,
-.ui-tag--muted {
+.ui-tag--muted,
+.ui-tag--unsigned {
   background: #f3f4f6;
   color: var(--ui-color-text-muted);
+}
+
+.ui-tag--leave_wait {
+  background: var(--ui-color-warning-soft);
+  color: var(--ui-color-warning);
+}
+
+.ui-tag--leave_agree {
+  background: #f3e8ff;
+  color: #7c3aed;
 }
 
 .ui-tag--degraded {
@@ -379,4 +400,71 @@ button.ui-btn-danger {
   line-height: 1.7;
   color: var(--ui-color-text-secondary);
   word-break: break-word;
+}
+
+.ui-chip-list {
+  display: flex;
+  gap: var(--ui-space-3);
+}
+
+.ui-chip-card {
+  flex: 0 0 auto;
+  min-width: 220rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: var(--ui-color-card-subtle);
+  border: 1rpx solid transparent;
+  box-sizing: border-box;
+}
+
+.ui-chip-card--active {
+  background: var(--ui-color-primary-soft);
+  border-color: var(--ui-color-primary-border);
+}
+
+.ui-chip-title {
+  display: block;
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+  color: var(--ui-color-text);
+}
+
+.ui-chip-meta {
+  display: block;
+  margin-top: 8rpx;
+  font-size: var(--ui-font-xs);
+  color: var(--ui-color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-record-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-4);
+}
+
+.ui-record-card {
+  background: var(--ui-color-card-bg);
+  border-radius: var(--ui-radius-md);
+  padding: 28rpx;
+  box-sizing: border-box;
+  box-shadow: var(--ui-shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.ui-record-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+}
+
+.ui-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-3);
 }

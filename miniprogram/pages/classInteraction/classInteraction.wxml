@@ -1,47 +1,80 @@
+<view class="interaction-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-eyebrow">教师业务页</view>
+      <view class="ui-title-lg">课堂互动</view>
+      <view class="ui-text-body">统一承接提问、测试和互动记录，主次操作入口保持清晰。</view>
+    </view>
+    <view class="ui-record-actions">
+      <button type="primary" size="mini" bindtap="goToRandomRollcall">进入随机点名</button>
+      <button class="ui-btn-secondary" size="mini" bindtap="onTapPublishTestExample">发布测试样例</button>
+    </view>
+  </view>
 
-<view class="page">
-  <view class="stats-fixed">
-    <view class="interaction-card">
-      <view class="interaction-title">课堂互动</view>
-      <view class="score-btn-group">
-        <button class="export-btn" size="mini" bindtap="goToRandomRollcall">进入随机点名</button>
-        <button class="export-btn export-btn-secondary" size="mini" bindtap="onTapPublishTestExample">发布测试样例</button>
-      </view>
-
-      <view wx:if="{{pendingQuestionRequests.length > 0}}" class="event-list">
-        <view class="lesson-header">
-          <text class="lesson-title">待处理提问申请</text>
-        </view>
-        <view class="event-item" wx:for="{{pendingQuestionRequests}}" wx:key="_id">
-          <view class="info">
-            <text class="name">{{item.studentName}}</text>
-          </view>
-          <view class="sub">
-            <text>{{item.displayTime}}</text>
-          </view>
-          <view class="score-btn-group">
-            <button
-              class="score-btn"
-              size="mini"
-              bindtap="onTapApproveQuestionRequest"
-              data-request-id="{{item._id}}"
-              data-student-id="{{item.studentId}}"
-              data-student-name="{{item.studentName}}"
-            >
-              允许提问
-            </button>
-          </view>
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">历史课次</view>
+      <view class="ui-text-helper">切换课次后，互动申请、测试结果和互动记录会同步切换。</view>
+    </view>
+    <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
+      <view class="ui-chip-list">
+        <view
+          wx:for="{{lessons}}"
+          wx:key="_id"
+          class="ui-chip-card {{selectedLessonId === item._id ? 'ui-chip-card--active' : ''}}"
+          bindtap="onSelectLesson"
+          data-lesson-id="{{item._id}}"
+        >
+          <text class="ui-chip-title">课次 {{lessons.length - index}}</text>
+          <text class="ui-chip-meta">{{item._id}}</text>
         </view>
       </view>
+    </scroll-view>
+    <view wx:else class="ui-empty-state">
+      <view class="ui-text-body">暂无历史课次</view>
+    </view>
+  </view>
 
-      <view wx:if="{{currentQuestionRequest}}" class="interaction-current">
-        <text>当前提问：{{currentQuestionRequest.studentName}}（{{currentQuestionRequest.studentId || '-'}}）</text>
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">当前互动状态</view>
+      <view class="ui-text-helper">待处理申请、当前提问和当前测试统一在这里查看。</view>
+    </view>
+
+    <view wx:if="{{pendingQuestionRequests.length > 0}}" class="ui-record-list">
+      <view class="ui-record-card" wx:for="{{pendingQuestionRequests}}" wx:key="_id">
+        <view class="ui-record-head">
+          <view class="ui-card-head">
+            <view class="ui-title-md">{{item.studentName}}</view>
+            <view class="ui-text-helper">{{item.displayTime}}</view>
+          </view>
+          <view class="ui-tag ui-tag--pending">待处理</view>
+        </view>
+        <view class="ui-record-actions">
+          <button
+            type="primary"
+            size="mini"
+            bindtap="onTapApproveQuestionRequest"
+            data-request-id="{{item._id}}"
+            data-student-id="{{item.studentId}}"
+            data-student-name="{{item.studentName}}"
+          >
+            允许提问
+          </button>
+        </view>
       </view>
-      <view wx:if="{{currentQuestionRequest}}" class="score-btn-group">
+    </view>
+
+    <view wx:if="{{currentQuestionRequest}}" class="ui-record-card">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前提问</view>
+        <view class="ui-text-body">{{currentQuestionRequest.studentName}}（{{currentQuestionRequest.studentId || '-'}}）</view>
+      </view>
+      <view class="ui-record-actions">
         <button
           wx:for="{{interactionScoreOptions}}"
           wx:key="*this"
-          class="score-btn"
+          type="primary"
           size="mini"
           bindtap="onTapScoreQuestion"
           data-score="{{item}}"
@@ -49,102 +82,85 @@
           提问{{item}}分
         </button>
       </view>
-      <view wx:if="{{currentPublishedTest}}" class="event-list">
-        <view class="lesson-header">
-          <text class="lesson-title">当前单选题</text>
-        </view>
-        <view class="event-item">
-          <view class="info">
-            <text class="name">{{currentPublishedTest.testContent}}</text>
-          </view>
-          <view class="sub">
-            <text>{{currentPublishedTest.displayType}}</text>
-          </view>
-          <view class="sub" wx:if="{{currentPublishedTest.testOptionsText}}">
-            <text>{{currentPublishedTest.testOptionsText}}</text>
-          </view>
-          <view class="sub">
-            <text>正确答案：{{currentPublishedTest.testCorrectAnswer || '-'}}</text>
-          </view>
-        </view>
+    </view>
+
+    <view wx:if="{{currentPublishedTest}}" class="ui-record-card">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前单选题</view>
+        <view class="ui-text-body">{{currentPublishedTest.testContent}}</view>
       </view>
-      <view wx:if="{{currentPublishedTest}}" class="event-list">
-        <view class="lesson-header">
-          <text class="lesson-title">当前题作答结果</text>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">题型</view>
+          <view class="ui-info-value">{{currentPublishedTest.displayType}}</view>
         </view>
-        <view wx:if="{{currentTestRecords.length > 0}}">
-          <view class="event-item" wx:for="{{currentTestRecords}}" wx:key="_id">
-            <view class="info">
-              <text class="name">{{item.studentName || item.studentId}}</text>
-              <text class="event-score" wx:if="{{item.score}}">+{{item.score}}</text>
-            </view>
-            <view class="sub">
-              <text>作答：{{item.testAnswer || '-'}}</text>
-            </view>
-            <view class="sub">
-              <text>结果：{{item.testResult || item.testStatus || '-'}}</text>
-            </view>
-          </view>
+        <view wx:if="{{currentPublishedTest.testOptionsText}}" class="ui-info-item">
+          <view class="ui-info-label">选项</view>
+          <view class="ui-info-value">{{currentPublishedTest.testOptionsText}}</view>
         </view>
-        <view wx:else class="lesson-empty">当前题暂无学生作答</view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">正确答案</view>
+          <view class="ui-info-value">{{currentPublishedTest.testCorrectAnswer || '-'}}</view>
+        </view>
       </view>
     </view>
 
-    <view class="lesson-section">
-      <view class="lesson-header">
-        <text class="lesson-title">历史课次</text>
+    <view wx:if="{{currentPublishedTest}}" class="ui-card ui-card--subtle ui-section test-record-section">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前题作答结果</view>
       </view>
-      <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
-        <view class="lesson-list">
-          <view
-            wx:for="{{lessons}}"
-            wx:key="_id"
-            class="lesson-item {{selectedLessonId === item._id ? 'active' : ''}}"
-            bindtap="onSelectLesson"
-            data-lesson-id="{{item._id}}"
-          >
-            <text class="lesson-item-title">课次 {{lessons.length - index}}</text>
-            <text class="lesson-item-id">{{item._id}}</text>
+      <view wx:if="{{currentTestRecords.length > 0}}" class="ui-record-list">
+        <view class="ui-record-card" wx:for="{{currentTestRecords}}" wx:key="_id">
+          <view class="ui-record-head">
+            <view class="ui-title-md">{{item.studentName || item.studentId}}</view>
+            <view class="test-score" wx:if="{{item.score}}">+{{item.score}}</view>
+          </view>
+          <view class="ui-info-list">
+            <view class="ui-info-item">
+              <view class="ui-info-label">作答</view>
+              <view class="ui-info-value">{{item.testAnswer || '-'}}</view>
+            </view>
+            <view class="ui-info-item">
+              <view class="ui-info-label">结果</view>
+              <view class="ui-info-value">{{item.testResult || item.testStatus || '-'}}</view>
+            </view>
           </view>
         </view>
-      </scroll-view>
-      <view wx:else class="lesson-empty">暂无历史课次</view>
+      </view>
+      <view wx:else class="ui-empty-state">
+        <view class="ui-text-body">当前题暂无学生作答</view>
+      </view>
     </view>
   </view>
 
-  <view class="list-container">
-    <view class="event-list">
-      <view class="lesson-header">
-        <text class="lesson-title">本节互动记录</text>
-      </view>
+  <view class="ui-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-title-md">本节互动记录</view>
+      <view class="ui-text-helper">包括提问、测试和互动评分记录。</view>
+    </view>
 
-      <view wx:if="{{lessonEventsLoading}}" class="lesson-empty">互动记录加载中</view>
+    <view wx:if="{{lessonEventsLoading}}" class="ui-empty-state">
+      <view class="ui-text-body">互动记录加载中</view>
+    </view>
 
-      <view wx:elif="{{lessonEvents.length > 0}}">
-        <view class="event-item" wx:for="{{lessonEvents}}" wx:key="_id">
-          <view class="info">
-            <text class="name">{{item.studentName || (item.type === 'test_publish' ? '全班测试' : '未命名学生')}}</text>
-            <text class="event-score" wx:if="{{item.score}}">+{{item.score}}</text>
+    <view wx:elif="{{lessonEvents.length > 0}}" class="ui-record-list">
+      <view class="ui-record-card" wx:for="{{lessonEvents}}" wx:key="_id">
+        <view class="ui-record-head">
+          <view class="ui-card-head">
+            <view class="ui-title-md">{{item.studentName || (item.type === 'test_publish' ? '全班测试' : '未命名学生')}}</view>
+            <view class="ui-text-helper">{{item.displayType}}</view>
           </view>
-          <view class="sub">
-            <text class="event-type">{{item.displayType}}</text>
-          </view>
-          <view class="sub" wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testSummary}}">
-            <text>{{item.testSummary}}</text>
-          </view>
-          <view class="sub" wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testContent}}">
-            <text>内容：{{item.testContent}}</text>
-          </view>
-          <view class="sub" wx:if="{{item.type === 'test_record' && item.testAnswer}}">
-            <text>答案：{{item.testAnswer}}</text>
-          </view>
-          <view class="sub">
-            <text>{{item.displayTime}}</text>
-          </view>
+          <view class="test-score" wx:if="{{item.score}}">+{{item.score}}</view>
         </view>
+        <view wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testSummary}}" class="ui-text-muted">{{item.testSummary}}</view>
+        <view wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testContent}}" class="ui-text-muted">内容：{{item.testContent}}</view>
+        <view wx:if="{{item.type === 'test_record' && item.testAnswer}}" class="ui-text-muted">答案：{{item.testAnswer}}</view>
+        <view class="ui-text-helper">{{item.displayTime}}</view>
       </view>
+    </view>
 
-      <view wx:else class="lesson-empty">本节暂无互动记录</view>
+    <view wx:else class="ui-empty-state">
+      <view class="ui-text-body">本节暂无互动记录</view>
     </view>
   </view>
 </view>
