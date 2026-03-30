@@ -6,17 +6,68 @@ Page({
     applications: [],
     loading: false,
     reviewingOpenId: "",
-    emptyText: "请输入管理员审核口令后读取申请列表。"
+    emptyText: "暂无待审核数据",
+    pageState: "passwordRequired",
+    stateTitle: "需要管理员审核口令",
+    stateDescription: "请输入管理员审核口令后读取申请列表。"
   },
 
   onLoad() {
     const cachedReviewKey = String(wx.getStorageSync(this.adminReviewSessionKey) || "").trim();
-    if (!cachedReviewKey) return;
+    if (!cachedReviewKey) {
+      this.resetPageState();
+      return;
+    }
 
     this.setData({
       adminReviewKey: cachedReviewKey
     });
     this.loadApplications();
+  },
+
+  getPageStateMeta(pageState) {
+    const map = {
+      loading: {
+        stateTitle: "正在加载审核数据",
+        stateDescription: "正在校验当前审核权限并读取申请列表。"
+      },
+      unauthorized: {
+        stateTitle: "当前无权限",
+        stateDescription: "当前账号或口令未通过管理员校验，无法查看和审核老师申请。"
+      },
+      passwordRequired: {
+        stateTitle: "需要管理员审核口令",
+        stateDescription: "请输入管理员审核口令后读取申请列表。"
+      },
+      empty: {
+        stateTitle: "暂无待审核数据",
+        stateDescription: "当前已通过管理员校验，但暂时没有可处理的老师申请。"
+      },
+      ready: {
+        stateTitle: "可正常审核",
+        stateDescription: "当前已通过管理员校验，可查看申请列表并执行通过或驳回。"
+      }
+    };
+
+    return map[pageState] || map.passwordRequired;
+  },
+
+  setPageState(pageState, extraData = {}) {
+    const meta = this.getPageStateMeta(pageState);
+    this.setData({
+      pageState,
+      ...meta,
+      ...extraData
+    });
+  },
+
+  resetPageState() {
+    this.setPageState("passwordRequired", {
+      applications: [],
+      loading: false,
+      reviewingOpenId: "",
+      emptyText: "暂无待审核数据"
+    });
   },
 
   inputAdminReviewKey(e) {
@@ -64,6 +115,7 @@ Page({
   async loadApplications() {
     const adminReviewKey = String(this.data.adminReviewKey || "").trim();
     if (!adminReviewKey) {
+      this.resetPageState();
       wx.showToast({
         title: "请输入管理员审核口令",
         icon: "none"
@@ -71,7 +123,9 @@ Page({
       return;
     }
 
-    this.setData({ loading: true });
+    this.setPageState("loading", {
+      loading: true
+    });
     wx.showLoading({ title: "加载中...", mask: true });
 
     try {
@@ -85,12 +139,15 @@ Page({
 
       wx.hideLoading();
       if (!res.result?.success) {
-        wx.showToast({
-          title: String(res.result?.msg || "读取失败"),
-          icon: "none"
+        const msg = String(res.result?.msg || "读取失败");
+        const isUnauthorized = msg.includes("无管理员权限");
+        this.setPageState(isUnauthorized ? "unauthorized" : "passwordRequired", {
+          loading: false,
+          applications: []
         });
-        this.setData({
-          loading: false
+        wx.showToast({
+          title: msg,
+          icon: "none"
         });
         return;
       }
@@ -101,14 +158,17 @@ Page({
 
       wx.setStorageSync(this.adminReviewSessionKey, adminReviewKey);
 
-      this.setData({
+      this.setPageState(applications.length ? "ready" : "empty", {
         applications,
         loading: false,
-        emptyText: applications.length ? "" : "当前没有老师申请记录。"
+        emptyText: "暂无待审核数据"
       });
     } catch (err) {
       wx.hideLoading();
-      this.setData({ loading: false });
+      this.setPageState("passwordRequired", {
+        loading: false,
+        applications: []
+      });
       console.error("[adminTeacherReview] loadApplications failed", err);
       wx.showToast({
         title: "读取失败，请稍后重试",
@@ -120,10 +180,9 @@ Page({
   clearAdminReviewSession() {
     wx.removeStorageSync(this.adminReviewSessionKey);
     this.setData({
-      adminReviewKey: "",
-      applications: [],
-      emptyText: "请输入管理员审核口令后读取申请列表。"
+      adminReviewKey: ""
     });
+    this.resetPageState();
     wx.reLaunch({
       url: "/pages/index/index"
     });

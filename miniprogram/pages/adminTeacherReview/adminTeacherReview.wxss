@@ -19,6 +19,37 @@
   color: #111827;
 }
 
+.state-card {
+  border: 1rpx solid #e5e7eb;
+}
+
+.state-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
+.state-loading {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.state-unauthorized {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.state-passwordRequired,
+.state-empty {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.state-ready {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
 .summary,
 .row-text {
   margin-top: 12rpx;

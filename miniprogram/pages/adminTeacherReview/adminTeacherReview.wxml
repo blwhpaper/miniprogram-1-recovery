@@ -2,6 +2,11 @@
   <view class="card">
     <view class="title">管理员审核老师申请</view>
     <view class="summary">当前是最小审核页，仅用于读取老师申请并执行通过/驳回。</view>
+  </view>
+
+  <view class="card state-card state-{{pageState}}">
+    <view class="state-title">{{stateTitle}}</view>
+    <view class="summary">{{stateDescription}}</view>
 
     <view class="field-label">管理员审核口令</view>
     <input
@@ -19,7 +24,7 @@
     </button>
   </view>
 
-  <view wx:if="{{applications.length}}" class="list-wrap">
+  <view wx:if="{{pageState === 'ready'}}" class="list-wrap">
     <view wx:for="{{applications}}" wx:key="applicantOpenId" class="card">
       <view class="row-title">{{item.applicantName}}</view>
       <view class="row-text">联系方式：{{item.contactInfo}}</view>
@@ -54,7 +59,7 @@
     </view>
   </view>
 
-  <view wx:else class="card empty-card">
+  <view wx:elif="{{pageState === 'empty'}}" class="card empty-card">
     <view class="summary">{{emptyText}}</view>
   </view>
 </view>
