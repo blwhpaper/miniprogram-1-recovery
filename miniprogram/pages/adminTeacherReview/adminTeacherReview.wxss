@@ -29,6 +29,12 @@
   color: #111827;
 }
 
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #111827;
+}
+
 .state-loading {
   background: #eff6ff;
   border-color: #bfdbfe;

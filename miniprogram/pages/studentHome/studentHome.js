@@ -60,6 +60,59 @@ Page({
     return !currentTeacher && !!hasLoggedOutTeacher;
   },
 
+  hasStudentEntryContext(options = {}) {
+    const launchEntryParams = this.getLaunchEntryParams();
+    const mergedOptions = {
+      ...launchEntryParams,
+      ...options
+    };
+    const directLessonId = this.parseLessonIdFromOptions(mergedOptions);
+    const pendingLessonId = this.getPendingLessonId();
+    return !!String(directLessonId || pendingLessonId || "").trim();
+  },
+
+  cacheApprovedTeacherSession(teacherId = "") {
+    const normalizedTeacherId = String(teacherId || "").trim();
+    if (!normalizedTeacherId) return "";
+
+    wx.removeStorageSync(this.teacherLogoutGateKey);
+    wx.setStorageSync("CURRENT_TEACHER", normalizedTeacherId);
+    return normalizedTeacherId;
+  },
+
+  async ensureApprovedTeacherSession() {
+    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+    if (currentTeacher) {
+      wx.removeStorageSync(this.teacherLogoutGateKey);
+      return currentTeacher;
+    }
+
+    const hasLoggedOutTeacher = String(wx.getStorageSync(this.teacherLogoutGateKey) || "").trim();
+    if (hasLoggedOutTeacher) {
+      return "";
+    }
+
+    try {
+      const res = await wx.cloud.callFunction({
+        name: "teacherApply",
+        data: {
+          action: "get"
+        }
+      });
+      const teacherProfile = res.result?.teacherProfile || null;
+      const teacherId = String(teacherProfile?.teacherId || "").trim();
+      const teacherStatus = String(teacherProfile?.status || "").trim();
+
+      if (teacherId && teacherStatus === "active") {
+        return this.cacheApprovedTeacherSession(teacherId);
+      }
+    } catch (err) {
+      console.error("[studentHome] ensure teacher session failed", err);
+    }
+
+    return "";
+  },
+
   getPendingLessonId() {
     return String(wx.getStorageSync("pendingLessonId") || "").trim();
   },
@@ -371,8 +424,7 @@ Page({
     }
   },
 
-  redirectToTeacherHomeIfNeeded() {
-    const currentTeacher = String(wx.getStorageSync("CURRENT_TEACHER") || "").trim();
+  redirectToTeacherHomeIfNeeded(currentTeacher = "") {
     if (!currentTeacher) return false;
 
     wx.reLaunch({
@@ -922,15 +974,17 @@ Page({
   },
 
   async onLoad(options = {}) {
-    if (this.redirectToTeacherHomeIfNeeded()) return;
     const entryLessonId = this.syncPendingLessonIdFromEntry(options);
+    const currentTeacher = await this.ensureApprovedTeacherSession();
+    if (!this.hasStudentEntryContext({ lessonId: entryLessonId }) && this.redirectToTeacherHomeIfNeeded(currentTeacher)) return;
     const currentUser = await this.syncCurrentUser();
     await this.rebuildHomeState(currentUser, { entryLessonId });
   },
 
   async onShow() {
-    if (this.redirectToTeacherHomeIfNeeded()) return;
     const entryLessonId = this.syncPendingLessonIdFromEntry();
+    const currentTeacher = await this.ensureApprovedTeacherSession();
+    if (!this.hasStudentEntryContext({ lessonId: entryLessonId }) && this.redirectToTeacherHomeIfNeeded(currentTeacher)) return;
     const currentUser = await this.syncCurrentUser();
     await this.rebuildHomeState(currentUser, { entryLessonId });
   },

@@ -37,6 +37,15 @@ Page({
     return currentTeacher;
   },
 
+  cacheApprovedTeacherSession(teacherId = "") {
+    const normalizedTeacherId = String(teacherId || "").trim();
+    if (!normalizedTeacherId) return "";
+
+    wx.removeStorageSync(this.teacherLogoutGateKey);
+    wx.setStorageSync("CURRENT_TEACHER", normalizedTeacherId);
+    return normalizedTeacherId;
+  },
+
   getTeacherDisplayName(teacherId = "") {
     const normalizedTeacherId = String(teacherId || "").trim();
     if (!normalizedTeacherId || normalizedTeacherId === "default") {
@@ -100,10 +109,14 @@ Page({
       const approvedTeacherId = String(teacherProfile?.teacherId || "").trim();
       const isPending = status === "pending";
       const isApprovedTeacher = teacherProfileStatus === "active" && !!approvedTeacherId;
+      const activeTeacherId = isApprovedTeacher
+        ? this.cacheApprovedTeacherSession(approvedTeacherId)
+        : "";
       this.setData({
+        hasTeacherSession: !!activeTeacherId,
         canEnterTeacherWorkspace: isApprovedTeacher,
-        teacherId: approvedTeacherId || "",
-        teacherName: approvedTeacherId ? this.getTeacherDisplayName(approvedTeacherId) : "老师入口",
+        teacherId: activeTeacherId || "",
+        teacherName: activeTeacherId ? this.getTeacherDisplayName(activeTeacherId) : "老师入口",
         teacherStatusText: isApprovedTeacher ? "教师身份已开通" : "教师身份未开通",
         teacherLeadText: isApprovedTeacher
           ? "当前申请已审核通过，可进入教师业务承接页。"

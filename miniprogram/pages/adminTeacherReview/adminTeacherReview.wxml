@@ -1,7 +1,7 @@
 <view class="container">
   <view class="card">
-    <view class="title">管理员审核老师申请</view>
-    <view class="summary">当前是最小审核页，仅用于读取老师申请并执行通过/驳回。</view>
+    <view class="title">管理员待审核申请</view>
+    <view class="summary">当前页只用于处理待审核申请，不展示已通过或已驳回的历史审核记录。</view>
   </view>
 
   <view class="card state-card state-{{pageState}}">
@@ -17,7 +17,7 @@
     />
 
     <button class="load-btn" type="primary" bindtap="loadApplications" loading="{{loading}}">
-      读取申请列表
+      读取待审核申请
     </button>
     <button class="reject-btn" size="mini" bindtap="clearAdminReviewSession">
       退出管理员审核态
@@ -25,6 +25,11 @@
   </view>
 
   <view wx:if="{{pageState === 'ready'}}" class="list-wrap">
+    <view class="card">
+      <view class="section-title">待审核申请列表</view>
+      <view class="summary">当前仅展示待审核申请，历史审核记录不在本页查看。</view>
+    </view>
+
     <view wx:for="{{applications}}" wx:key="applicantOpenId" class="card">
       <view class="row-title">{{item.applicantName}}</view>
       <view class="row-text">联系方式：{{item.contactInfo}}</view>
