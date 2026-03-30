@@ -272,6 +272,12 @@ function buildApprovedTeacherPatch({
   }
 }
 
+function buildUserTeacherApplicationPatch(application = null) {
+  return {
+    teacherApplication: application
+  }
+}
+
 function getSafeErrorMessage(err = {}) {
   return String(err?.message || err?.errMsg || '').trim()
 }
@@ -526,10 +532,6 @@ exports.main = async (event = {}) => {
             updatedAt: db.serverDate()
           }
         : _.remove()
-      const nextRoles = {
-        ...normalizeRoles(targetUser.roles),
-        teacher: reviewStatus === 'approved'
-      }
       const approvedTeacherPatch = reviewStatus === 'approved'
         ? buildApprovedTeacherPatch({
             applicantOpenId,
@@ -544,11 +546,7 @@ exports.main = async (event = {}) => {
       try {
         await db.runTransaction(async (transaction) => {
           await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
-            data: {
-              teacherApplication: nextApplication,
-              teacherProfile: nextTeacherProfile,
-              roles: nextRoles
-            }
+            data: buildUserTeacherApplicationPatch(nextApplication)
           })
 
           if (reviewStatus === 'approved') {
@@ -676,14 +674,7 @@ exports.main = async (event = {}) => {
       try {
         await db.runTransaction(async (transaction) => {
           await transaction.collection(USERS_COLLECTION).doc(targetUser._id).update({
-            data: {
-              teacherApplication: _.remove(),
-              teacherProfile: _.remove(),
-              roles: {
-                ...normalizeRoles(targetUser.roles),
-                teacher: false
-              }
-            }
+            data: buildUserTeacherApplicationPatch(_.remove())
           })
 
           if (targetTeacherRecord && targetTeacherDocId) {
@@ -813,15 +804,13 @@ exports.main = async (event = {}) => {
       await db.runTransaction(async (transaction) => {
         if (existingUser) {
           await transaction.collection(USERS_COLLECTION).doc(existingUser._id).update({
-            data: {
-              teacherApplication
-            }
+            data: buildUserTeacherApplicationPatch(teacherApplication)
           })
         } else {
           await transaction.collection(USERS_COLLECTION).add({
             data: {
               _openid: OPENID,
-              teacherApplication
+              ...buildUserTeacherApplicationPatch(teacherApplication)
             }
           })
         }
@@ -856,15 +845,13 @@ exports.main = async (event = {}) => {
       })
     } else if (existingUser) {
       await db.collection(USERS_COLLECTION).doc(existingUser._id).update({
-        data: {
-          teacherApplication
-        }
+        data: buildUserTeacherApplicationPatch(teacherApplication)
       })
     } else {
       await db.collection(USERS_COLLECTION).add({
         data: {
           _openid: OPENID,
-          teacherApplication
+          ...buildUserTeacherApplicationPatch(teacherApplication)
         }
       })
     }
