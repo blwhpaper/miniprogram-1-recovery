@@ -1,19 +1,5 @@
-page {
-  min-height: 100vh;
-  background: #f6f7fb;
-}
-
 .page {
-  min-height: 100vh;
-  padding: 40rpx 32rpx;
-  box-sizing: border-box;
-}
-
-.card {
-  background: #ffffff;
-  border-radius: 24rpx;
-  padding: 48rpx 40rpx;
-  box-shadow: 0 16rpx 40rpx rgba(28, 38, 61, 0.08);
+  padding-top: 40rpx;
 }
 
 .title-row {
@@ -23,49 +9,20 @@ page {
   gap: 16rpx;
 }
 
-.title {
-  font-size: 40rpx;
-  font-weight: 600;
-  color: #111827;
-}
-
 .page-badge {
   flex-shrink: 0;
-  padding: 10rpx 16rpx;
-  border-radius: 999rpx;
-  background: #ecfdf3;
-  color: #027a48;
-  font-size: 22rpx;
-  font-weight: 600;
 }
 
 .hero-block {
   margin-top: 24rpx;
   padding: 28rpx;
   border-radius: 20rpx;
-  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
   border: 1rpx solid #dbe7ff;
-}
-
-.hero-label {
-  font-size: 24rpx;
-  font-weight: 600;
-  color: #1d4ed8;
 }
 
 .hero-status {
   margin-top: 12rpx;
-  font-size: 36rpx;
-  font-weight: 700;
-  line-height: 1.4;
-  color: #111827;
-}
-
-.hero-summary {
-  margin-top: 12rpx;
-  font-size: 28rpx;
-  line-height: 1.7;
-  color: #4b5563;
+  font-size: 40rpx;
 }
 
 .hero-debug {
@@ -98,41 +55,10 @@ page {
   gap: 16rpx;
 }
 
-.summary-block {
-  padding: 24rpx 28rpx;
-  border-radius: 20rpx;
-  background: #f9fafb;
-  color: #1f2937;
-}
-
-.summary-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #111827;
-}
-
-.lesson-summary-title {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #111827;
-}
-
-.summary-tip {
-  font-size: 26rpx;
-  line-height: 1.6;
-  color: #6b7280;
-}
-
 .action-block {
   margin-top: 28rpx;
 }
 
 .secondary-action {
   margin-top: 20rpx;
-}
-
-.tip {
-  font-size: 28rpx;
-  line-height: 1.7;
-  color: #6b7280;
 }

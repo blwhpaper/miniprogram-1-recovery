@@ -1,37 +1,14 @@
-page {
-  min-height: 100vh;
-  background: #f6f7fb;
-}
-
 .dispatch-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 48rpx;
-  box-sizing: border-box;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .dispatch-card {
-  width: 100%;
   max-width: 640rpx;
-  background: #ffffff;
-  border-radius: 24rpx;
   padding: 56rpx 48rpx;
-  box-sizing: border-box;
-  box-shadow: 0 16rpx 40rpx rgba(28, 38, 61, 0.08);
   text-align: center;
-}
-
-.dispatch-title {
-  font-size: 38rpx;
-  font-weight: 600;
-  color: #1f2937;
 }
 
 .dispatch-desc {
   margin-top: 20rpx;
-  font-size: 28rpx;
-  line-height: 1.6;
-  color: #6b7280;
 }

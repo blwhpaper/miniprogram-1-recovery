@@ -1,12 +1,15 @@
-<view class="box">
-  <view class="title">班级管理</view>
+<view class="class-manager-page ui-page ui-page--stack">
+  <view class="ui-page-header">
+    <view class="title ui-title-lg">班级管理</view>
+  </view>
 
   <button bindtap="addClass" type="primary">+ 新建班级</button>
 
-  <view class="item" wx:for="{{classList}}" wx:key="id">
-    <view class="name" bindtap="enterClass" data-id="{{item.id}}">
-      {{item.name}}
+  <view wx:for="{{classList}}" wx:key="id" class="item ui-card">
+    <view class="item-main" bindtap="enterClass" data-id="{{item.id}}">
+      <view class="name ui-title-md">{{item.name}}</view>
+      <view class="ui-text-muted">点击进入班级工作区</view>
     </view>
-    <button size="mini" type="warn" bindtap="deleteClass" data-id="{{item.id}}">删除</button>
+    <button class="ui-btn-danger" size="mini" bindtap="deleteClass" data-id="{{item.id}}">删除</button>
   </view>
 </view>

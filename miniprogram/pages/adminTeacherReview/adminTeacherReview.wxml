@@ -1,16 +1,16 @@
-<view class="container">
-  <view class="card">
-    <view class="title">管理员待审核申请</view>
-    <view class="summary">当前页只用于处理待审核申请，不展示已通过或已驳回的历史审核记录。</view>
+<view class="container ui-page ui-page--stack">
+  <view class="card ui-card ui-section">
+    <view class="title ui-title-lg">管理员待审核申请</view>
+    <view class="summary ui-text-body">当前页只用于处理待审核申请，不展示已通过或已驳回的历史审核记录。</view>
   </view>
 
-  <view class="card state-card state-{{pageState}}">
-    <view class="state-title">{{stateTitle}}</view>
-    <view class="summary">{{stateDescription}}</view>
+  <view class="card state-card state-{{pageState}} ui-card ui-section">
+    <view class="state-title ui-title-md">{{stateTitle}}</view>
+    <view class="summary ui-text-body">{{stateDescription}}</view>
 
-    <view class="field-label">管理员审核口令</view>
+    <view class="field-label ui-form-label">管理员审核口令</view>
     <input
-      class="field-input"
+      class="field-input ui-input"
       placeholder="请输入管理员审核口令"
       value="{{adminReviewKey}}"
       bindinput="inputAdminReviewKey"
@@ -19,47 +19,51 @@
     <button class="load-btn" type="primary" bindtap="loadApplications" loading="{{loading}}">
       读取待审核申请
     </button>
-    <button class="reject-btn" size="mini" bindtap="clearAdminReviewSession">
+    <button class="reject-btn ui-btn-ghost" size="mini" bindtap="clearAdminReviewSession">
       退出管理员审核态
     </button>
   </view>
 
-  <view class="card">
-    <view class="section-title">重置老师测试态</view>
-    <view class="summary">会清理 users 文档中的 teacherApplication，并将 teachers 真源记录置为 inactive，不影响学生基础身份数据。</view>
+  <view class="card ui-card ui-section">
+    <view class="section-title ui-title-md">重置老师测试态</view>
+    <view class="summary ui-text-body">会清理 users 文档中的 teacherApplication，并将 teachers 真源记录置为 inactive，不影响学生基础身份数据。</view>
 
-    <view class="field-label">目标账号 openid</view>
+    <view class="field-label ui-form-label">目标账号 openid</view>
     <input
-      class="field-input"
+      class="field-input ui-input"
       placeholder="请输入需要重置的账号 openid"
       value="{{resetApplicantOpenId}}"
       bindinput="inputResetApplicantOpenId"
     />
 
-    <button class="reset-btn" bindtap="resetTeacherTestState" loading="{{resettingTeacherState}}">
+    <button class="reset-btn ui-btn-danger" bindtap="resetTeacherTestState" loading="{{resettingTeacherState}}">
       重置老师测试态
     </button>
   </view>
 
   <view wx:if="{{pageState === 'ready'}}" class="list-wrap">
-    <view class="card">
-      <view class="section-title">待审核申请列表</view>
-      <view class="summary">申请状态来自 users.teacherApplication；真源状态来自 teachers。</view>
-      <view wx:if="{{teacherSourceDegraded}}" class="summary">teachers 真源异常，当前列表为兼容/降级信息。{{teacherSourceMessage}}</view>
-      <view wx:else class="summary">当前页面已读取 teachers 真源状态。</view>
+    <view class="card ui-card ui-section">
+      <view class="section-title ui-title-md">待审核申请列表</view>
+      <view class="summary ui-text-body">申请状态来自 users.teacherApplication；真源状态来自 teachers。</view>
+      <view wx:if="{{teacherSourceDegraded}}" class="summary ui-text-body">teachers 真源异常，当前列表为兼容/降级信息。{{teacherSourceMessage}}</view>
+      <view wx:else class="summary ui-text-body">当前页面已读取 teachers 真源状态。</view>
     </view>
 
-    <view wx:for="{{applications}}" wx:key="applicantOpenId" class="card">
-      <view class="row-title">{{item.applicantName}}</view>
-      <view class="row-text">账号 openid：{{item.applicantOpenId}}</view>
-      <view class="row-text">联系方式：{{item.contactInfo}}</view>
-      <view class="row-text">备注：{{item.remark}}</view>
-      <view class="row-text">提交时间：{{item.createdAtText}}</view>
-      <view class="row-text">更新时间：{{item.updatedAtText}}</view>
-      <view class="row-text">申请状态：{{item.applicationStatusText}}</view>
-      <view class="row-text">真源状态：{{item.teacherSourceStatusText}}</view>
-      <view wx:if="{{item.teacherId}}" class="row-text">教师标识：{{item.teacherId}}</view>
-      <view wx:if="{{item.teacherSourceWarningText}}" class="row-text">{{item.teacherSourceWarningText}}</view>
+    <view wx:for="{{applications}}" wx:key="applicantOpenId" class="card ui-card ui-section">
+      <view class="row-header">
+        <view class="row-title ui-title-md">{{item.applicantName}}</view>
+        <view class="ui-tag ui-tag--{{item.status || 'inactive'}}">{{item.applicationStatusText}}</view>
+      </view>
+      <view class="row-text ui-text-body">账号 openid：{{item.applicantOpenId}}</view>
+      <view class="row-text ui-text-body">联系方式：{{item.contactInfo}}</view>
+      <view class="row-text ui-text-body">备注：{{item.remark}}</view>
+      <view class="row-text ui-text-body">提交时间：{{item.createdAtText}}</view>
+      <view class="row-text ui-text-body">更新时间：{{item.updatedAtText}}</view>
+      <view class="row-text ui-text-body">真源状态：
+        <text class="row-inline-tag ui-tag ui-tag--{{item.teacherSourceStatus || 'inactive'}}">{{item.teacherSourceStatusText}}</text>
+      </view>
+      <view wx:if="{{item.teacherId}}" class="row-text ui-text-body">教师标识：{{item.teacherId}}</view>
+      <view wx:if="{{item.teacherSourceWarningText}}" class="row-text ui-text-body">{{item.teacherSourceWarningText}}</view>
 
       <view wx:if="{{item.status === 'pending'}}" class="action-row">
         <button
@@ -73,7 +77,7 @@
           通过
         </button>
         <button
-          class="reject-btn"
+          class="reject-btn ui-btn-ghost"
           size="mini"
           data-openid="{{item.applicantOpenId}}"
           data-status="rejected"
@@ -86,7 +90,7 @@
     </view>
   </view>
 
-  <view wx:elif="{{pageState === 'empty'}}" class="card empty-card">
-    <view class="summary">{{emptyText}}</view>
+  <view wx:elif="{{pageState === 'empty'}}" class="card empty-card ui-card ui-empty-state">
+    <view class="summary ui-text-body">{{emptyText}}</view>
   </view>
 </view>

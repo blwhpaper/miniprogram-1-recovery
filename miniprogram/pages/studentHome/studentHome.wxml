@@ -1,53 +1,53 @@
-<view class="page">
-  <view class="card">
+<view class="page ui-page">
+  <view class="card ui-card">
     <view class="title-row">
-      <view class="title">学生主页</view>
-      <view class="page-badge">当前课入口</view>
+      <view class="title ui-title-lg">学生主页</view>
+      <view class="page-badge ui-tag ui-tag--active">当前课入口</view>
     </view>
 
-    <view class="hero-block">
-      <view class="hero-label">{{pageLeadText}}</view>
-      <view class="hero-status">{{statusText}}</view>
-      <view class="hero-summary">{{summaryText}}</view>
+    <view class="hero-block ui-card--info">
+      <view class="hero-label ui-eyebrow">{{pageLeadText}}</view>
+      <view class="hero-status ui-title-hero">{{statusText}}</view>
+      <view class="hero-summary ui-text-body">{{summaryText}}</view>
       <button wx:if="{{showLessonEntryButton}}" class="hero-entry-btn" type="primary" bindtap="enterCurrentLesson">
         {{lessonEntryText}}
       </button>
     </view>
 
-    <view wx:if="{{hasBoundStudentSession}}" class="info-block">
-      <view>当前学生：{{name}}</view>
-      <view>学号：{{studentId}}</view>
+    <view wx:if="{{hasBoundStudentSession}}" class="info-block ui-card ui-card--subtle">
+      <view class="ui-text-body">当前学生：{{name}}</view>
+      <view class="ui-text-body">学号：{{studentId}}</view>
     </view>
 
-    <view wx:if="{{hasBoundStudentSession && showLessonScoreSummary}}" class="summary-block">
-      <view class="summary-title">本课汇总</view>
-      <view>出勤状态：{{currentLessonAttendanceStatusText || '-'}}</view>
-      <view>出勤分：{{currentLessonAttendanceScoreText || '-'}}</view>
-      <view>课堂积分：{{currentLessonScoreText || '-'}}</view>
-      <view wx:if="{{currentLessonScoreBreakdownText}}" class="summary-tip">
+    <view wx:if="{{hasBoundStudentSession && showLessonScoreSummary}}" class="summary-block ui-card ui-card--subtle">
+      <view class="summary-title ui-title-md">本课汇总</view>
+      <view class="ui-text-body">出勤状态：{{currentLessonAttendanceStatusText || '-'}}</view>
+      <view class="ui-text-body">出勤分：{{currentLessonAttendanceScoreText || '-'}}</view>
+      <view class="ui-text-body">课堂积分：{{currentLessonScoreText || '-'}}</view>
+      <view wx:if="{{currentLessonScoreBreakdownText}}" class="summary-tip ui-text-muted">
         积分构成：{{currentLessonScoreBreakdownText}}
       </view>
     </view>
 
-    <view class="lesson-block">
-      <view class="lesson-summary-title">当前课承接</view>
-      <view class="tip">{{summaryText}}</view>
+    <view class="lesson-block ui-card ui-card--subtle">
+      <view class="lesson-summary-title ui-title-md">当前课承接</view>
+      <view class="tip ui-text-muted">{{summaryText}}</view>
     </view>
 
     <view wx:if="{{showQuestionEntryButton}}" class="action-block secondary-action">
-      <button bindtap="enterQuestionEntry">
+      <button class="ui-btn-secondary" bindtap="enterQuestionEntry">
         进入主动提问
       </button>
     </view>
 
     <view wx:if="{{hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result'}}" class="action-block secondary-action">
-      <button bindtap="enterLeaveRequestPage">
+      <button class="ui-btn-secondary" bindtap="enterLeaveRequestPage">
         进入请假申请
       </button>
     </view>
 
     <view wx:if="{{showTeacherHomeEntry}}" class="action-block secondary-action">
-      <button bindtap="enterTeacherHome">
+      <button class="ui-btn-ghost" bindtap="enterTeacherHome">
         返回教师入口
       </button>
     </view>

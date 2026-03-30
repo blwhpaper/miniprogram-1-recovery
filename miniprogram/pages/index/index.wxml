@@ -1,6 +1,6 @@
-<view class="dispatch-page">
-  <view class="dispatch-card">
-    <view class="dispatch-title">正在进入课堂签到</view>
-    <view class="dispatch-desc">请稍候，系统正在为你恢复当前入口。</view>
+<view class="dispatch-page ui-page ui-page--center">
+  <view class="dispatch-card ui-card">
+    <view class="dispatch-title ui-title-lg">正在进入课堂签到</view>
+    <view class="dispatch-desc ui-text-muted">请稍候，系统正在为你恢复当前入口。</view>
   </view>
 </view>

@@ -1,23 +1,26 @@
-<view class="container">
-  <view class="hero-card">
-    <view class="hero-kicker">教师入口</view>
-    <view class="hero-title">{{teacherName}}</view>
-    <view class="hero-status">{{teacherStatusText}}</view>
-    <view class="hero-desc">{{teacherLeadText}}</view>
+<view class="container ui-page ui-page--stack">
+  <view class="hero-card ui-card">
+    <view class="hero-kicker ui-eyebrow">教师入口</view>
+    <view class="hero-title ui-title-hero">{{teacherName}}</view>
+    <view class="hero-status ui-tag ui-tag--{{teacherApplyStatus || 'inactive'}}">{{teacherStatusText}}</view>
+    <view class="hero-desc ui-text-body">{{teacherLeadText}}</view>
   </view>
 
-  <view wx:if="{{hasTeacherSession}}" class="panel">
-    <view class="panel-title">核心功能</view>
+  <view wx:if="{{hasTeacherSession}}" class="panel ui-card ui-section">
+    <view class="panel-title ui-title-md">核心功能</view>
     <button type="primary" bindtap="goToClassManager">进入班级管理</button>
-    <button class="secondary-btn" bindtap="logoutTeacherSession">
+    <button class="secondary-btn ui-btn-secondary" bindtap="logoutTeacherSession">
       退出教师登录（仅本地测试态）
     </button>
   </view>
 
-  <view wx:else class="panel">
-    <view class="panel-title">老师注册申请</view>
-    <view class="panel-text">当前状态：{{teacherApplyStatusText}}</view>
-    <view class="panel-text">{{teacherApplySummaryText}}</view>
+  <view wx:else class="panel ui-card ui-section">
+    <view class="panel-title ui-title-md">老师注册申请</view>
+    <view class="panel-row">
+      <view class="panel-text ui-text-body">当前状态</view>
+      <view class="ui-tag ui-tag--{{teacherApplyStatus || 'inactive'}}">{{teacherApplyStatusText}}</view>
+    </view>
+    <view class="panel-text ui-text-body">{{teacherApplySummaryText}}</view>
     <button wx:if="{{canResumeTeacherSession}}" type="primary" bindtap="resumeTeacherSession">
       重新进入当前账号的教师态
     </button>
@@ -29,11 +32,11 @@
     </button>
   </view>
 
-  <view class="panel panel--muted">
-    <view class="panel-title">当前承接说明</view>
-    <view class="panel-text">当前版本先承接教师首页入口与老师注册申请，后续管理员审核与教师身份开通将在此基础上继续完善。</view>
-    <view class="panel-text">教师标识：{{teacherId || "未开通"}}</view>
-    <button class="weak-entry-btn" size="mini" bindtap="goToAdminTeacherReview">
+  <view class="panel panel--muted ui-card ui-card--subtle ui-section">
+    <view class="panel-title ui-title-md">当前承接说明</view>
+    <view class="panel-text ui-text-muted">当前版本先承接教师首页入口与老师注册申请，后续管理员审核与教师身份开通将在此基础上继续完善。</view>
+    <view class="panel-text ui-text-muted">教师标识：{{teacherId || "未开通"}}</view>
+    <button class="weak-entry-btn ui-btn-ghost" size="mini" bindtap="goToAdminTeacherReview">
       进入管理员审核
     </button>
   </view>

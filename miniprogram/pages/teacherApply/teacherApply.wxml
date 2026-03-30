@@ -1,32 +1,32 @@
-<view class="container">
-  <view class="card">
-    <view class="title">老师注册申请</view>
-    <view class="status">{{applicationStatusText}}</view>
-    <view class="summary">{{applicationSummaryText}}</view>
+<view class="container ui-page ui-page--stack">
+  <view class="card ui-card ui-section">
+    <view class="title ui-title-lg">老师注册申请</view>
+    <view class="status ui-tag ui-tag--{{applicationStatus || 'inactive'}}">{{applicationStatusText}}</view>
+    <view class="summary ui-text-body">{{applicationSummaryText}}</view>
   </view>
 
-  <view class="card">
-    <view class="field-label">姓名</view>
+  <view class="card ui-card ui-section">
+    <view class="field-label ui-form-label">姓名</view>
     <input
-      class="field-input"
+      class="field-input ui-input"
       placeholder="请输入姓名"
       value="{{applicantName}}"
       bindinput="inputApplicantName"
       disabled="{{submitDisabled}}"
     />
 
-    <view class="field-label">联系方式</view>
+    <view class="field-label ui-form-label">联系方式</view>
     <input
-      class="field-input"
+      class="field-input ui-input"
       placeholder="请输入手机号或微信号"
       value="{{contactInfo}}"
       bindinput="inputContactInfo"
       disabled="{{submitDisabled}}"
     />
 
-    <view class="field-label">备注（选填）</view>
+    <view class="field-label ui-form-label">备注（选填）</view>
     <textarea
-      class="field-textarea"
+      class="field-textarea ui-textarea"
       placeholder="可填写任教说明或补充信息"
       value="{{remark}}"
       bindinput="inputRemark"

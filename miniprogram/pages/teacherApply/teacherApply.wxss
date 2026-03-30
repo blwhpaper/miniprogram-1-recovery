@@ -1,67 +1,13 @@
 .container {
-  min-height: 100vh;
-  padding: 32rpx;
-  background: #f6f6f6;
-  box-sizing: border-box;
+  align-items: stretch;
 }
 
-.card {
-  background: #ffffff;
-  border-radius: 24rpx;
-  padding: 28rpx;
-  box-sizing: border-box;
-  margin-bottom: 24rpx;
-}
-
-.title {
-  font-size: 40rpx;
-  font-weight: 600;
-  color: #111827;
-}
-
-.status {
-  margin-top: 16rpx;
-  font-size: 28rpx;
-  color: #2563eb;
-}
-
-.summary {
-  margin-top: 12rpx;
-  font-size: 26rpx;
-  color: #4b5563;
-  line-height: 1.7;
-}
+.status { align-self: flex-start; }
 
 .field-label {
-  font-size: 28rpx;
-  color: #111827;
-  margin-bottom: 12rpx;
-}
-
-.field-input,
-.field-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1rpx solid #d1d5db;
-  border-radius: 16rpx;
-  background: #ffffff;
-  font-size: 28rpx;
-  margin-bottom: 28rpx;
-}
-
-.field-input {
-  height: 88rpx;
-  line-height: 88rpx;
-  padding: 0 24rpx;
-}
-
-.field-textarea {
-  min-height: 180rpx;
-  line-height: 1.6;
-  padding: 20rpx 24rpx;
+  margin-bottom: 0;
 }
 
 .submit-btn {
   margin-top: 12rpx;
-  border-radius: 16rpx;
 }
