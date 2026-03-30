@@ -78,11 +78,11 @@
   </view>
 </view>
 
-<button 
+<button
+  class="logout-btn"
   wx:if="{{hasBoundStudentSession}}"
-  bindtap="logout" 
-  type="warn" 
-  style="margin-top:60rpx;"
+  bindtap="logout"
+  type="warn"
 >
   退出登录
 </button>

@@ -1,20 +1,28 @@
-<view class="container">
-  <view class="title">学生身份绑定</view>
-
-  <view class="input-item">
-    <text>姓名</text>
-    <input placeholder="请输入您的姓名" bindinput="inputName" />
+<view class="register-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-eyebrow">学生绑定</view>
+      <view class="ui-title-lg">学生身份绑定</view>
+      <view class="ui-text-body">填写姓名和学号后，绑定当前账号的学生身份信息。</view>
+    </view>
   </view>
 
-  <view class="input-item">
-    <text>学号</text>
-    <input placeholder="请输入您的学号" bindinput="inputPwd" />
-  </view>
+  <view class="ui-card ui-section ui-form-card">
+    <view class="ui-form-item">
+      <view class="ui-form-label">姓名</view>
+      <input class="ui-input" placeholder="请输入您的姓名" bindinput="inputName" />
+    </view>
 
-  <view class="input-item">
-    <text>确认学号</text>
-    <input placeholder="请再次输入您的学号" bindinput="inputPwd2" />
-  </view>
+    <view class="ui-form-item">
+      <view class="ui-form-label">学号</view>
+      <input class="ui-input" placeholder="请输入您的学号" bindinput="inputPwd" />
+    </view>
 
-  <button class="btn-register" bindtap="doRegister" type="primary">绑定</button>
+    <view class="ui-form-item">
+      <view class="ui-form-label">确认学号</view>
+      <input class="ui-input" placeholder="请再次输入您的学号" bindinput="inputPwd2" />
+    </view>
+
+    <button class="btn-register" bindtap="doRegister" type="primary">绑定</button>
+  </view>
 </view>

@@ -1,47 +1,23 @@
-page {
-  min-height: 100vh;
-  background: #f6f7fb;
+.question-page {
+  align-items: stretch;
 }
 
-.page {
-  min-height: 100vh;
-  padding: 40rpx 32rpx;
-  box-sizing: border-box;
-}
-
-.card {
-  background: #ffffff;
-  border-radius: 24rpx;
-  padding: 48rpx 40rpx;
-  box-shadow: 0 16rpx 40rpx rgba(28, 38, 61, 0.08);
-}
-
-.title {
-  font-size: 40rpx;
-  font-weight: 600;
-  color: #111827;
+.question-card {
+  gap: var(--ui-space-4);
 }
 
 .status {
-  margin-top: 20rpx;
-  font-size: 30rpx;
-  color: #1f2937;
+  margin-top: 0;
 }
 
 .info-block {
-  margin-top: 28rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 16rpx;
+  margin-top: 0;
 }
 
 .tip {
-  margin-top: 24rpx;
-  font-size: 28rpx;
-  line-height: 1.7;
-  color: #6b7280;
+  margin-top: 0;
 }
 
 .submit-btn {
-  margin-top: 32rpx;
+  margin-top: 8rpx;
 }

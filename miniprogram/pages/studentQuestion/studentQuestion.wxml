@@ -1,16 +1,25 @@
-<view class="page">
-  <view class="card">
-    <view class="title">主动提问</view>
-    <view class="status">
+<view class="question-page ui-page ui-page--stack">
+  <view class="question-card ui-card ui-hero-card ui-section">
+    <view class="ui-card-head">
+      <view class="ui-eyebrow">学生互动</view>
+      <view class="ui-title-lg">主动提问</view>
+    </view>
+    <view class="status ui-text-body">
       当前状态：{{pageStatusText}}
     </view>
 
-    <view class="info-block" wx:if="{{name}}">
+    <view class="info-block ui-card ui-card--subtle ui-section" wx:if="{{name}}">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前学生</view>
+      </view>
       <view>当前学生：{{name}}</view>
       <view>学号：{{studentId}}</view>
     </view>
 
-    <view class="info-block">
+    <view class="info-block ui-card ui-card--subtle ui-section">
+      <view class="ui-card-head">
+        <view class="ui-title-md">提问状态</view>
+      </view>
       <view class="tip">本节课主动提问申请：{{questionRequestCount}} / 3</view>
       <view class="tip" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
       <view class="tip" wx:elif="{{!signSuccess}}">
