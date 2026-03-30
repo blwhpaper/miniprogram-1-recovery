@@ -4,20 +4,34 @@ const fs = require("fs");
 const path = require("path");
 
 function requireWxServerSdk() {
-  const localSdkPath = path.join(
-    __dirname,
-    "..",
-    "..",
-    "cloudfunctions",
-    "teacherApply",
-    "node_modules",
-    "wx-server-sdk"
-  );
-  try {
-    return require(localSdkPath);
-  } catch (err) {
-    return require("wx-server-sdk");
+  const candidatePaths = [
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "cloudfunctions",
+      "teacherApply",
+      "node_modules",
+      "wx-server-sdk"
+    ),
+    path.join(
+      __dirname,
+      "..",
+      "..",
+      "cloudfunctions",
+      "createSignCode",
+      "node_modules",
+      "wx-server-sdk"
+    )
+  ];
+
+  for (const candidatePath of candidatePaths) {
+    try {
+      return require(candidatePath);
+    } catch (err) {}
   }
+
+  return require("wx-server-sdk");
 }
 
 function resolveCloudEnv() {
@@ -25,6 +39,24 @@ function resolveCloudEnv() {
   const source = fs.readFileSync(appJsPath, "utf8");
   const matched = source.match(/env:\s*"([^"]+)"/);
   return matched ? String(matched[1] || "").trim() : "";
+}
+
+function resolveCloudCredentials() {
+  const secretId = String(
+    process.env.TENCENTCLOUD_SECRET_ID ||
+    process.env.SecretId ||
+    ""
+  ).trim();
+  const secretKey = String(
+    process.env.TENCENTCLOUD_SECRET_KEY ||
+    process.env.SecretKey ||
+    ""
+  ).trim();
+
+  return {
+    secretId,
+    secretKey
+  };
 }
 
 function normalizeApplication(application = {}, openid = "") {
@@ -153,13 +185,30 @@ async function main() {
   const isApply = args.has("--apply");
   const isDryRun = !isApply || args.has("--dry-run");
   const env = resolveCloudEnv();
+  const { secretId, secretKey } = resolveCloudCredentials();
 
   if (!env) {
     throw new Error("无法从 miniprogram/app.js 解析云环境 ID");
   }
 
+  if (!secretId && !secretKey) {
+    throw new Error("缺少腾讯云凭证环境变量：请设置 TENCENTCLOUD_SECRET_ID / TENCENTCLOUD_SECRET_KEY（或 SecretId / SecretKey）");
+  }
+
+  if (!secretId) {
+    throw new Error("缺少腾讯云凭证环境变量：TENCENTCLOUD_SECRET_ID（或 SecretId）");
+  }
+
+  if (!secretKey) {
+    throw new Error("缺少腾讯云凭证环境变量：TENCENTCLOUD_SECRET_KEY（或 SecretKey）");
+  }
+
   const cloud = requireWxServerSdk();
-  cloud.init({ env });
+  cloud.init({
+    env,
+    secretId,
+    secretKey
+  });
   const db = cloud.database();
 
   const summary = {
