@@ -213,8 +213,10 @@ Page({
 
   async onShow() {
     if (!(await this.ensureTeacherPageAccess())) return;
+    if (this.isInitializing || this.isHydratingLesson) return;
+    const didSwitchLesson = await this.syncLessonsAfterReturn();
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
-    if (!lessonId || this.isInitializing || this.isHydratingLesson) return;
+    if (!lessonId || didSwitchLesson) return;
 
     const attendanceReady = this.attendancePollingLessonId === lessonId && !!this.attendancePollingTimer;
     const lessonEventReady = this.lessonEventPollingLessonId === lessonId && !!this.lessonEventPollingTimer;
@@ -252,6 +254,8 @@ Page({
 
   async onPullDownRefresh() {
     try {
+      const didSwitchLesson = await this.syncLessonsAfterReturn();
+      if (didSwitchLesson) return;
       await this.refreshAttendance();
       await this.loadLessonEvents({ silent: true });
     } finally {
@@ -3056,6 +3060,39 @@ Page({
       this.setData({ lessonsLoading: false });
       this.refreshExportDisabledState();
     }
+  },
+
+  async syncLessonsAfterReturn() {
+    const classId = String(this.data.classId || "").trim();
+    if (!classId) return false;
+
+    const lessons = await this.loadLessons();
+    if (!Array.isArray(lessons) || lessons.length === 0) {
+      const currentLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+      if (currentLessonId) {
+        await this.switchLesson("");
+        return true;
+      }
+      return false;
+    }
+
+    const currentLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    const cachedLatestLessonId = String(wx.getStorageSync(`LATEST_LESSON_${classId}`) || "").trim();
+    const lessonIds = new Set(lessons.map((item) => String(item?._id || "").trim()).filter(Boolean));
+
+    let nextLessonId = "";
+    if (cachedLatestLessonId && cachedLatestLessonId !== currentLessonId && lessonIds.has(cachedLatestLessonId)) {
+      nextLessonId = cachedLatestLessonId;
+    } else if (!currentLessonId || !lessonIds.has(currentLessonId)) {
+      nextLessonId = this.resolveInitialLessonId(lessons);
+    }
+
+    if (!nextLessonId || nextLessonId === currentLessonId) {
+      return false;
+    }
+
+    await this.switchLesson(nextLessonId);
+    return true;
   },
 
   resolveInitialLessonId(lessons = []) {
