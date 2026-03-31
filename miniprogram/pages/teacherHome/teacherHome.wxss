@@ -1,13 +1,9 @@
-.container {
-  align-items: stretch;
-}
-
 .hero-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: var(--ui-space-2);
 }
 
 .hero-head-main {
@@ -15,34 +11,15 @@
   min-width: 0;
 }
 
-.hero-kicker {
-  margin-bottom: 0;
-}
-
 .hero-status {
   align-self: flex-start;
 }
 
-.panel--muted {
-  border-color: #d9e4f4;
-}
-
 .panel-text {
-  margin-bottom: 0;
-}
-
-.panel-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16rpx;
-}
-
-.panel-row--muted {
-  align-items: flex-start;
+  margin-top: var(--ui-space-1);
 }
 
 .weak-entry-btn {
-  font-size: 24rpx;
+  width: 100% !important;
+  margin-top: var(--ui-space-2) !important;
 }

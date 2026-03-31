@@ -1,5 +1,5 @@
 <view class="page ui-page">
-  <view class="card hero-card ui-card ui-hero-card ui-section">
+  <view class="card hero-card ui-card ui-hero-card ui-hero-card--primary ui-section">
     <view class="title-row">
       <view class="title-wrap ui-card-head">
         <view class="ui-eyebrow">课堂签到</view>

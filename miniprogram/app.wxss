@@ -151,6 +151,44 @@ button[size="mini"] {
   padding: 36rpx 32rpx;
   border-radius: var(--ui-radius-lg);
   gap: var(--ui-space-4);
+  position: relative;
+  overflow: hidden;
+}
+
+.ui-hero-card--primary {
+  background: linear-gradient(135deg, var(--ui-color-primary-soft) 0%, #ffffff 100%);
+}
+
+.ui-hero-card--primary::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 240rpx;
+  height: 240rpx;
+  background: var(--ui-color-primary);
+  opacity: 0.04;
+  filter: blur(40rpx);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.ui-hero-card--teacher {
+  background: linear-gradient(135deg, #f0f4ff 0%, #ffffff 100%);
+}
+
+.ui-hero-card--teacher::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 240rpx;
+  height: 240rpx;
+  background: #1e40af;
+  opacity: 0.04;
+  filter: blur(40rpx);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 .ui-status-card {

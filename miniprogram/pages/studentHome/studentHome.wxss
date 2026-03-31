@@ -24,24 +24,6 @@
 
 .hero-block {
   margin-top: var(--ui-space-2);
-  /* 增加微弱渐变增强质感 */
-  background: linear-gradient(135deg, var(--ui-color-primary-soft) 0%, #ffffff 100%);
-  position: relative;
-  overflow: hidden;
-}
-
-/* 装饰性光晕效果（可选，提升样板页完成度） */
-.hero-block::after {
-  content: "";
-  position: absolute;
-  top: -20%;
-  right: -10%;
-  width: 200rpx;
-  height: 200rpx;
-  background: var(--ui-color-primary);
-  opacity: 0.03;
-  filter: blur(40rpx);
-  border-radius: 50%;
 }
 
 .hero-header {
