@@ -1,13 +1,19 @@
-<view class="container ui-page ui-page--stack">
-  <view class="card ui-card ui-hero-card ui-section">
+<view class="teacher-apply-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section hero-card">
     <view class="ui-card-head ui-card-head--row">
       <view class="hero-head-main ui-card-head">
         <view class="ui-eyebrow">教师申请</view>
-        <view class="title ui-title-lg">老师注册申请</view>
+        <view class="ui-title-lg">老师注册申请</view>
+        <view class="ui-text-body">当前页统一承接老师注册信息填写、申请状态回显和提交流程。</view>
       </view>
-      <view class="status ui-tag ui-tag--{{applicationStatus || 'inactive'}}">{{applicationStatusText}}</view>
+      <view class="hero-status ui-tag ui-tag--{{applicationStatus || 'inactive'}}">{{applicationStatusText}}</view>
     </view>
-    <view class="summary ui-text-body">{{applicationSummaryText}}</view>
+    <view class="hero-summary ui-info-list">
+      <view class="ui-info-item">
+        <view class="ui-info-label">当前进度</view>
+        <view class="ui-info-value">{{applicationSummaryText}}</view>
+      </view>
+    </view>
   </view>
 
   <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
@@ -24,61 +30,94 @@
   </view>
 
   <block wx:else>
-    <view class="notice-card ui-card ui-notice-card ui-section">
+    <view class="ui-card ui-card--subtle ui-section status-card">
       <view class="ui-card-head">
-        <view class="ui-title-md">申请说明</view>
-        <view class="ui-text-helper">表单提交后进入审核流程，当前页只负责展示申请状态与提交入口。</view>
+        <view class="ui-title-md">当前申请状态</view>
+        <view class="ui-text-helper">状态、可提交性和当前表单内容统一在这里说明。</view>
+      </view>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">申请状态</view>
+          <view class="ui-info-value">
+            <text class="inline-tag ui-tag ui-tag--{{applicationStatus || 'inactive'}}">{{applicationStatusText}}</text>
+          </view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">提交入口</view>
+          <view class="ui-info-value">{{submitDisabled ? "当前暂不可再次提交" : hasTeacherSession ? "教师身份已开通" : "可提交老师申请"}}</view>
+        </view>
       </view>
       <view class="ui-text-muted">{{applicationSummaryText}}</view>
     </view>
 
-    <view class="card ui-card ui-section ui-form-card">
+    <view class="ui-card ui-notice-card ui-section notice-card">
+      <view class="ui-card-head">
+        <view class="ui-title-md">申请说明</view>
+        <view class="ui-text-helper">本轮只统一视觉样式，不改动原有申请、回显和审核流转逻辑。</view>
+      </view>
+      <view class="ui-text-muted">表单提交后进入审核流程，请填写最小联系信息，避免审核时无法联系。</view>
+    </view>
+
+    <view class="ui-card ui-section ui-form-card form-card">
       <view class="ui-card-head">
         <view class="ui-title-md">填写申请信息</view>
         <view class="ui-text-helper">请填写基础联系信息，避免审核时无法联系。</view>
       </view>
-      <view class="ui-form-item">
-        <view class="field-label ui-form-label">姓名</view>
-        <input
-          class="field-input ui-input"
-          placeholder="请输入姓名"
-          value="{{applicantName}}"
-          bindinput="inputApplicantName"
-          disabled="{{submitDisabled}}"
-        />
+      <view class="form-fields ui-section">
+        <view class="ui-form-item">
+          <view class="ui-form-label">姓名</view>
+          <input
+            class="ui-input"
+            placeholder="请输入姓名"
+            value="{{applicantName}}"
+            bindinput="inputApplicantName"
+            disabled="{{submitDisabled}}"
+          />
+        </view>
+
+        <view class="ui-form-item">
+          <view class="ui-form-label">联系方式</view>
+          <input
+            class="ui-input"
+            placeholder="请输入手机号"
+            value="{{contactInfo}}"
+            bindinput="inputContactInfo"
+            disabled="{{submitDisabled}}"
+          />
+          <view class="ui-text-helper">当前校验规则保持不变，仍按手机号格式提交。</view>
+        </view>
+
+        <view class="ui-form-item">
+          <view class="ui-form-label">备注（选填）</view>
+          <textarea
+            class="ui-textarea"
+            placeholder="可填写任教说明或补充信息"
+            value="{{remark}}"
+            bindinput="inputRemark"
+            maxlength="100"
+            disabled="{{submitDisabled}}"
+          />
+        </view>
       </view>
 
-      <view class="ui-form-item">
-        <view class="field-label ui-form-label">联系方式</view>
-        <input
-          class="field-input ui-input"
-          placeholder="请输入手机号或微信号"
-          value="{{contactInfo}}"
-          bindinput="inputContactInfo"
-          disabled="{{submitDisabled}}"
-        />
+      <view class="ui-card ui-card--subtle ui-section form-footnote">
+        <view class="ui-info-list">
+          <view class="ui-info-item">
+            <view class="ui-info-label">提交后状态</view>
+            <view class="ui-info-value">进入待审核，页面会继续显示当前申请记录。</view>
+          </view>
+        </view>
       </view>
 
-      <view class="ui-form-item">
-        <view class="field-label ui-form-label">备注（选填）</view>
-        <textarea
-          class="field-textarea ui-textarea"
-          placeholder="可填写任教说明或补充信息"
-          value="{{remark}}"
-          bindinput="inputRemark"
-          maxlength="100"
-          disabled="{{submitDisabled}}"
-        />
+      <view class="ui-button-group">
+        <button
+          type="primary"
+          bindtap="submitTeacherApply"
+          disabled="{{submitDisabled || hasTeacherSession}}"
+        >
+          {{submitDisabled ? "已提交，等待审核" : hasTeacherSession ? "当前已是教师" : "提交老师申请"}}
+        </button>
       </view>
-
-      <button
-        class="submit-btn"
-        type="primary"
-        bindtap="submitTeacherApply"
-        disabled="{{submitDisabled || hasTeacherSession}}"
-      >
-        {{submitDisabled ? "已提交，等待审核" : hasTeacherSession ? "当前已是教师" : "提交老师申请"}}
-      </button>
     </view>
   </block>
 </view>

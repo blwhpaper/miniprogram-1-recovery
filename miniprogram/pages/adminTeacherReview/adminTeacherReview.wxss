@@ -1,37 +1,51 @@
-.container {
+.admin-review-page {
   align-items: stretch;
 }
 
+.hero-card {
+  gap: var(--ui-space-4);
+}
+
+.hero-head-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.hero-status {
+  align-self: flex-start;
+  max-width: 240rpx;
+}
+
 .state-card {
-  border: 1rpx solid #e5e7eb;
+  border: 1rpx solid rgba(37, 99, 235, 0.08);
+  box-shadow: var(--ui-shadow-card);
 }
 
 .state-loading {
-  background: #eff6ff;
-  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  border-color: #cfe0ff;
 }
 
 .state-unauthorized {
-  background: #fef2f2;
+  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
   border-color: #fecaca;
 }
 
 .state-passwordRequired,
 .state-empty {
-  background: #fffbeb;
+  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
   border-color: #fde68a;
 }
 
 .state-ready {
-  background: #ecfdf5;
+  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
   border-color: #a7f3d0;
 }
 
-.summary,
-.row-text { margin-top: 0; }
-
-.field-label {
-  margin-top: 0;
+.access-panel,
+.reset-panel,
+.list-summary-card {
+  border: 1rpx solid rgba(37, 99, 235, 0.08);
 }
 
 .row-header {
@@ -48,19 +62,12 @@
 }
 
 .review-item {
-  gap: 20rpx;
+  border: 1rpx solid rgba(37, 99, 235, 0.08);
+  gap: var(--ui-space-4);
 }
 
 .action-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 20rpx;
   margin-top: 4rpx;
-}
-
-.action-row button {
-  flex: 1 1 220rpx;
-  min-width: 0;
 }
 
 .row-inline-tag {
@@ -72,6 +79,14 @@
   color: #b45309;
 }
 
+.review-list {
+  gap: var(--ui-space-4);
+}
+
+.reset-card {
+  border: 1rpx solid rgba(37, 99, 235, 0.08);
+}
+
 .empty-card {
-  text-align: center;
+  border: 1rpx dashed rgba(37, 99, 235, 0.2);
 }

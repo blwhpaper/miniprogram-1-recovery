@@ -1,19 +1,46 @@
-.container {
+.teacher-apply-page {
   align-items: stretch;
+}
+
+.hero-card {
+  gap: var(--ui-space-4);
 }
 
 .hero-head-main {
   flex: 1;
+  min-width: 0;
 }
 
-.status {
+.hero-status {
   align-self: flex-start;
 }
 
-.field-label {
-  margin-bottom: 0;
+.hero-summary {
+  margin-top: 4rpx;
 }
 
-.submit-btn {
+.status-card,
+.notice-card,
+.form-card {
+  border: 1rpx solid rgba(37, 99, 235, 0.08);
+}
+
+.inline-tag {
+  vertical-align: middle;
+}
+
+.form-fields {
+  gap: var(--ui-space-4);
+}
+
+.form-footnote {
+  border-style: dashed;
+}
+
+.ui-textarea {
+  min-height: 220rpx;
+}
+
+.ui-button-group {
   margin-top: 4rpx;
 }
