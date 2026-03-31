@@ -55,6 +55,13 @@ page {
 
 button {
   background: initial;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  vertical-align: middle;
+  text-align: center;
+  line-height: 1.4;
   transition: all 0.2s ease;
 }
 
@@ -73,7 +80,7 @@ button::after{
 
 button[type="primary"] {
   height: var(--ui-button-height);
-  line-height: var(--ui-button-height);
+  line-height: 1.4;
   border-radius: 22rpx;
   background: var(--ui-color-primary);
   box-shadow: var(--ui-shadow-soft);
@@ -88,7 +95,7 @@ button[type="primary"][disabled] {
 button[size="mini"] {
   min-width: 0;
   height: 64rpx;
-  line-height: 64rpx;
+  line-height: 1.35;
   padding: 0 20rpx;
   font-size: var(--ui-font-sm);
   border-radius: 14rpx;
@@ -302,7 +309,14 @@ button[size="mini"] {
 
 .ui-input {
   height: var(--ui-button-height);
-  line-height: var(--ui-button-height);
+  padding: 0 24rpx;
+  line-height: 1.4;
+  box-sizing: border-box;
+  vertical-align: middle;
+  text-align: left;
+}
+
+input.ui-input {
   padding: 0 24rpx;
 }
 
@@ -316,7 +330,7 @@ button.ui-btn-secondary,
 button.ui-btn-ghost,
 button.ui-btn-danger {
   height: var(--ui-button-height);
-  line-height: var(--ui-button-height);
+  line-height: 1.4;
   border-radius: 22rpx;
   font-size: var(--ui-font-base);
   font-weight: 600;
@@ -327,7 +341,7 @@ button[size="mini"].ui-btn-ghost,
 button[size="mini"].ui-btn-danger,
 button[size="mini"][type="primary"] {
   height: 64rpx;
-  line-height: 64rpx;
+  line-height: 1.35;
   padding: 0 20rpx;
   font-size: var(--ui-font-sm);
   border-radius: 14rpx;
@@ -378,6 +392,7 @@ button.ui-btn-danger {
 .ui-button-group {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: var(--ui-space-3);
 }
 
@@ -396,7 +411,8 @@ button.ui-btn-danger {
   font-size: var(--ui-font-xs);
   font-weight: 600;
   box-sizing: border-box;
-  line-height: 1.5;
+  vertical-align: middle;
+  line-height: 1.4;
   text-align: center;
   word-break: break-word;
 }
@@ -496,6 +512,7 @@ button.ui-btn-danger {
 .ui-state-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: stretch;
   justify-content: center;
   gap: var(--ui-space-3);
   margin-top: var(--ui-space-2);
@@ -540,6 +557,7 @@ button.ui-btn-danger {
 
 .ui-chip-list {
   display: flex;
+  align-items: stretch;
   gap: var(--ui-space-3);
   padding-bottom: 4rpx;
 }
@@ -552,6 +570,9 @@ button.ui-btn-danger {
   background: var(--ui-color-card-subtle);
   border: 1rpx solid transparent;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .ui-chip-card--active {
@@ -604,5 +625,6 @@ button.ui-btn-danger {
 .ui-record-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: stretch;
   gap: var(--ui-space-3);
 }
