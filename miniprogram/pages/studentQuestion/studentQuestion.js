@@ -145,6 +145,14 @@ Page({
     return uiState;
   },
 
+  shouldVibrateOnApprovedTransition(previousQuestionStatusType = "", nextQuestionStatusType = "") {
+    return (
+      this.hasHydratedQuestionStatus &&
+      previousQuestionStatusType !== "approved" &&
+      nextQuestionStatusType === "approved"
+    );
+  },
+
   shouldKeepQuestionPolling(state = {}) {
     const questionRequestCount = Number(
       state.questionRequestCount !== undefined ? state.questionRequestCount : this.data.questionRequestCount
@@ -438,10 +446,10 @@ Page({
     Object.assign(nextState, this.buildQuestionUiState(nextState));
     const previousQuestionStatusType = String(this.data.latestQuestionStatusType || "").trim();
     const nextQuestionStatusType = String(nextState.latestQuestionStatusType || "").trim();
-    const shouldVibrateOnApproved =
-      this.hasHydratedQuestionStatus &&
-      previousQuestionStatusType !== "approved" &&
-      nextQuestionStatusType === "approved";
+    const shouldVibrateOnApproved = this.shouldVibrateOnApprovedTransition(
+      previousQuestionStatusType,
+      nextQuestionStatusType
+    );
     const changedState = this.syncPageState(nextState);
     console.log("[studentQuestion] setData", {
       changedKeys: Object.keys(changedState),
