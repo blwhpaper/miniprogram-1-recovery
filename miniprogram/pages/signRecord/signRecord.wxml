@@ -2,16 +2,14 @@
   <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section sign-record-hero">
     <view class="ui-card-head ui-page-head">
       <view class="hero-main ui-card-head ui-page-head-main">
-        <view class="ui-eyebrow">教师业务页</view>
         <view class="ui-title-lg">签到记录</view>
-        <view class="ui-text-body">用于查看课次切换、请假审批和学生签到明细，保持数据页层级清晰。</view>
       </view>
-      <view class="hero-badge ui-tag ui-tag--active ui-page-head-badge">记录页</view>
+      <view class="hero-badge ui-tag ui-tag--active ui-page-head-badge">记录</view>
     </view>
 
     <view wx:if="{{currentStats}}" class="hero-stats ui-stat-grid">
       <view class="hero-stat-card ui-stat-card">
-        <view class="hero-stat-label ui-stat-label">到课情况</view>
+        <view class="hero-stat-label ui-stat-label">出勤</view>
         <view class="hero-stat-value ui-stat-value">出勤 {{currentStats.signedCount}} / {{currentStats.rosterCount}}</view>
       </view>
       <view class="hero-stat-card ui-stat-card">
@@ -19,31 +17,28 @@
         <view class="hero-stat-value ui-stat-value">{{currentStats.unsignedCount}}</view>
       </view>
     </view>
-    <view wx:else class="ui-text-body">当前页用于查看签到状态、处理请假申请和导出课堂记录。</view>
 
     <view class="ui-record-actions export-actions">
-      <button class="ui-btn-secondary export-btn {{statsExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" hover-class="ui-btn-active" bindtap="onTapExportLessonStats">导出全部课次统计</button>
-      <button class="ui-btn-ghost export-btn {{detailExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" hover-class="ui-btn-active" bindtap="onTapExportLessonDetail">导出本次课明细</button>
+      <button class="ui-btn-secondary export-btn {{statsExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" hover-class="ui-btn-active" bindtap="onTapExportLessonStats">导出统计</button>
+      <button class="ui-btn-ghost export-btn {{detailExportDisabled ? 'export-btn--disabled' : ''}}" size="mini" hover-class="ui-btn-active" bindtap="onTapExportLessonDetail">导出明细</button>
     </view>
   </view>
 
   <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
-    <view class="ui-state-title">签到记录加载中</view>
-    <view class="ui-state-desc">正在同步花名册、历史课次与签到记录。</view>
+    <view class="ui-state-title">加载中</view>
   </view>
 
   <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
-    <view class="ui-state-title">签到记录读取失败</view>
+    <view class="ui-state-title">加载失败</view>
     <view class="ui-state-desc">{{pageErrorText}}</view>
     <view class="ui-state-actions">
-      <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryPageLoad">重新加载</button>
+      <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryPageLoad">重试</button>
     </view>
   </view>
 
   <view class="ui-card ui-section ui-panel-card lesson-switch-card">
     <view class="ui-card-head">
       <view class="ui-title-md">历史课次</view>
-      <view class="ui-text-helper">切换课次后，下方会同步刷新请假申请与签到记录。</view>
     </view>
 
     <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll ui-scroll-x" scroll-x="true" show-scrollbar="false">
@@ -64,14 +59,12 @@
 
     <view wx:else class="ui-empty-state">
       <view class="ui-empty-title">暂无历史课次</view>
-      <view class="ui-empty-desc">开始上课后，这里会显示可切换的课次记录。</view>
     </view>
   </view>
 
   <view wx:if="{{pendingLeaveRequests.length > 0}}" class="ui-card ui-section ui-panel-card ui-panel-card--warning pending-card">
     <view class="ui-card-head">
       <view class="ui-title-md">待处理请假申请</view>
-      <view class="ui-text-helper">仅当前选中的进行中课次允许处理请假申请。</view>
     </view>
 
     <view class="ui-record-list">
@@ -86,11 +79,11 @@
 
         <view class="ui-info-list">
           <view class="ui-info-item">
-            <view class="ui-info-label">处理态</view>
+            <view class="ui-info-label">状态</view>
             <view class="ui-info-value">{{item.leaveRequestStatusLabel}}</view>
           </view>
           <view wx:if="{{item.leaveApplicantStudentName}}" class="ui-info-item">
-            <view class="ui-info-label">代提交</view>
+            <view class="ui-info-label">提交人</view>
             <view class="ui-info-value">{{item.leaveApplicantStudentName}}</view>
           </view>
         </view>
@@ -124,9 +117,8 @@
   </view>
 
   <view class="ui-card ui-section ui-panel-card student-list-card">
-    <view class="ui-card-head">
-      <view class="ui-title-md">学生签到状态</view>
-      <view class="ui-text-helper">支持查看状态、手动设为请假或旷课，并展示本课评分结果。</view>
+      <view class="ui-card-head">
+      <view class="ui-title-md">学生状态</view>
     </view>
 
     <view wx:if="{{list.length > 0}}" class="ui-record-list">
@@ -139,7 +131,7 @@
           <view class="ui-tag ui-tag--{{item.status || 'unsigned'}}">{{item.statusLabel || (item.status === 'signed' ? '已签到' : '未签到')}}</view>
         </view>
 
-        <view wx:if="{{item.hasPendingLeaveRequest && item.status !== 'leave_agree'}}" class="ui-text-muted">请假申请：待处理{{item.pendingLeaveApplicantName ? '（代提交：' + item.pendingLeaveApplicantName + '）' : ''}}</view>
+        <view wx:if="{{item.hasPendingLeaveRequest && item.status !== 'leave_agree'}}" class="ui-text-muted">请假待处理{{item.pendingLeaveApplicantName ? '（' + item.pendingLeaveApplicantName + '）' : ''}}</view>
 
         <view class="ui-record-actions">
           <button
@@ -174,11 +166,11 @@
 
         <view wx:if="{{item.lessonScoreText || item.lessonScoreBreakdownText || item.answerScoreText || item.questionScoreText || item.testScoreText}}" class="ui-info-list">
           <view wx:if="{{item.lessonScoreText}}" class="ui-info-item">
-            <view class="ui-info-label">单次课最终分</view>
+            <view class="ui-info-label">总分</view>
             <view class="ui-info-value">{{item.lessonScoreText}}</view>
           </view>
           <view wx:if="{{item.lessonScoreBreakdownText}}" class="ui-info-item">
-            <view class="ui-info-label">评分项</view>
+            <view class="ui-info-label">构成</view>
             <view class="ui-info-value">{{item.lessonScoreBreakdownText}}</view>
           </view>
           <view wx:if="{{item.answerScoreText}}" class="ui-info-item">
@@ -199,7 +191,6 @@
 
     <view wx:else class="ui-empty-state">
       <view class="ui-empty-title">暂无学生</view>
-      <view class="ui-empty-desc">当前班级还没有可展示的学生名单。</view>
     </view>
   </view>
 </view>

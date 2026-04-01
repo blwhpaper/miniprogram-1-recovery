@@ -9,7 +9,7 @@ Page({
     remark: "",
     applicationStatus: "",
     applicationStatusText: "未申请",
-    applicationSummaryText: "请填写最小资料并提交老师注册申请。",
+    applicationSummaryText: "填写后提交。",
     submitDisabled: false,
     hasTeacherSession: false
   },
@@ -71,7 +71,7 @@ Page({
           remark: String(application?.remark || ""),
           applicationStatus: "approved",
           applicationStatusText: "已开通",
-          applicationSummaryText: "当前账号已具备教师身份，无需重复提交申请。",
+          applicationSummaryText: "当前账号已开通。",
           submitDisabled: true
         });
         return;
@@ -84,14 +84,14 @@ Page({
         applicationStatus: status,
         applicationStatusText: this.getApplicationStatusText(status),
         applicationSummaryText: isPending
-          ? "已提交，等待审核"
+          ? "已提交"
           : hasTeacherSyncGap
-            ? "当前申请已通过，教师身份正在同步中，请稍后刷新或联系管理员。"
+            ? "已通过，待同步"
           : status === "approved"
-            ? "当前申请已通过，后续可接入教师身份开通。"
+            ? "已通过"
             : status === "rejected"
-              ? "当前申请未通过，可修改后重新提交。"
-              : "请填写最小资料并提交老师注册申请。",
+              ? "未通过，可重提"
+              : "填写后提交。",
         submitDisabled: isPending || hasTeacherSyncGap
       });
     } catch (err) {
@@ -100,7 +100,7 @@ Page({
       }
       console.error("[teacherApply] load application state failed", err);
       this.setData({
-        pageErrorText: "申请状态读取失败，请稍后重试。"
+        pageErrorText: "申请状态读取失败"
       });
       wx.showToast({
         title: "申请状态读取失败",
@@ -176,7 +176,7 @@ Page({
     }
 
     wx.showLoading({
-      title: "提交中...",
+      title: "提交中",
       mask: true
     });
 
@@ -203,7 +203,7 @@ Page({
 
       const alreadySubmitted = !!res.result?.alreadySubmitted;
       wx.showToast({
-        title: alreadySubmitted ? "已提交，等待审核" : "提交成功",
+        title: alreadySubmitted ? "已提交" : "提交成功",
         icon: "success"
       });
 
@@ -212,7 +212,7 @@ Page({
       wx.hideLoading();
       console.error("[teacherApply] submit teacher apply failed", err);
       wx.showToast({
-        title: "提交失败，请稍后重试",
+        title: "提交失败",
         icon: "none"
       });
     }

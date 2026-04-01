@@ -2,38 +2,29 @@
   <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section hero-card">
     <view class="ui-card-head ui-page-head">
       <view class="hero-head-main ui-card-head ui-page-head-main">
-        <view class="ui-eyebrow">教师申请</view>
-        <view class="ui-title-lg">老师注册申请</view>
-        <view class="ui-text-body">当前页统一承接老师注册信息填写、申请状态回显和提交流程。</view>
+        <view class="ui-title-lg">教师申请</view>
       </view>
       <view class="hero-status ui-tag ui-tag--{{applicationStatus || 'inactive'}} ui-page-head-badge">{{applicationStatusText}}</view>
     </view>
-    <view class="hero-summary ui-info-list">
-      <view class="ui-info-item">
-        <view class="ui-info-label">当前进度</view>
-        <view class="ui-info-value">{{applicationSummaryText}}</view>
-      </view>
-    </view>
+    <view class="ui-text-muted">{{applicationSummaryText}}</view>
   </view>
 
   <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
-    <view class="ui-state-title">申请状态同步中</view>
-    <view class="ui-state-desc">正在读取当前申请记录与教师身份状态。</view>
+    <view class="ui-state-title">加载中</view>
   </view>
 
   <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
-    <view class="ui-state-title">申请状态读取失败</view>
+    <view class="ui-state-title">加载失败</view>
     <view class="ui-state-desc">{{pageErrorText}}</view>
     <view class="ui-state-actions">
-      <button class="ui-btn-ghost" size="mini" bindtap="retryLoadApplicationState">重新读取</button>
+      <button class="ui-btn-ghost" size="mini" bindtap="retryLoadApplicationState">重试</button>
     </view>
   </view>
 
   <block wx:else>
     <view class="ui-card ui-card--subtle ui-section ui-panel-card status-card">
       <view class="ui-card-head">
-        <view class="ui-title-md">当前申请状态</view>
-        <view class="ui-text-helper">状态、可提交性和当前表单内容统一在这里说明。</view>
+        <view class="ui-title-md">状态</view>
       </view>
       <view class="ui-info-list">
         <view class="ui-info-item">
@@ -43,8 +34,8 @@
           </view>
         </view>
         <view class="ui-info-item">
-          <view class="ui-info-label">提交入口</view>
-          <view class="ui-info-value">{{submitDisabled ? "当前暂不可再次提交" : hasTeacherSession ? "教师身份已开通" : "可提交老师申请"}}</view>
+          <view class="ui-info-label">提交</view>
+          <view class="ui-info-value">{{submitDisabled ? "暂不可提交" : hasTeacherSession ? "已开通" : "可提交"}}</view>
         </view>
       </view>
       <view class="ui-text-muted">{{applicationSummaryText}}</view>
@@ -52,16 +43,14 @@
 
     <view class="ui-card ui-notice-card ui-section ui-panel-card notice-card">
       <view class="ui-card-head">
-        <view class="ui-title-md">申请说明</view>
-        <view class="ui-text-helper">本轮只统一视觉样式，不改动原有申请、回显和审核流转逻辑。</view>
+        <view class="ui-title-md">说明</view>
       </view>
-      <view class="ui-text-muted">表单提交后进入审核流程，请填写最小联系信息，避免审核时无法联系。</view>
+      <view class="ui-text-muted">提交后待审核</view>
     </view>
 
     <view class="ui-card ui-section ui-form-card ui-panel-card form-card">
       <view class="ui-card-head">
-        <view class="ui-title-md">填写申请信息</view>
-        <view class="ui-text-helper">请填写基础联系信息，避免审核时无法联系。</view>
+        <view class="ui-title-md">信息</view>
       </view>
       <view class="form-fields ui-section">
         <view class="ui-form-item">
@@ -84,7 +73,6 @@
             bindinput="inputContactInfo"
             disabled="{{submitDisabled}}"
           />
-          <view class="ui-text-helper">当前校验规则保持不变，仍按手机号格式提交。</view>
         </view>
 
         <view class="ui-form-item">
@@ -100,22 +88,13 @@
         </view>
       </view>
 
-      <view class="ui-card ui-card--subtle ui-section form-footnote">
-        <view class="ui-info-list">
-          <view class="ui-info-item">
-            <view class="ui-info-label">提交后状态</view>
-            <view class="ui-info-value">进入待审核，页面会继续显示当前申请记录。</view>
-          </view>
-        </view>
-      </view>
-
       <view class="ui-button-group">
         <button
           type="primary"
           bindtap="submitTeacherApply"
           disabled="{{submitDisabled || hasTeacherSession}}"
         >
-          {{submitDisabled ? "已提交，等待审核" : hasTeacherSession ? "当前已是教师" : "提交老师申请"}}
+          {{submitDisabled ? "已提交" : hasTeacherSession ? "已开通" : "提交申请"}}
         </button>
       </view>
     </view>

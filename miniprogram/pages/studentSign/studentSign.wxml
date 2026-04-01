@@ -1,27 +1,23 @@
 <view class="student-sign-page ui-page ui-page--stack">
   <view class="ui-card ui-hero-card ui-hero-card--primary ui-section hero-card">
     <view class="ui-card-head">
-      <view class="ui-eyebrow">学生课堂</view>
-      <view class="ui-title-lg">当前课堂入口</view>
-      <view class="ui-text-body">统一承接签到、请假结果与课堂互动入口，不改动原有业务链路。</view>
+      <view class="ui-title-lg">当前课堂</view>
     </view>
   </view>
 
   <view wx:if="{{shouldGoRegister}}" class="ui-card ui-section ui-panel-card ui-panel-card--warning register-box">
     <view class="ui-card-head">
-      <view class="ui-title-md">当前状态：待绑定</view>
-      <view class="ui-text-helper">绑定后才可继续当前签到入口。</view>
+      <view class="ui-title-md">待绑定</view>
     </view>
     <view class="ui-feedback ui-feedback--warning">{{registerTipText}}</view>
     <button class="register-btn" type="primary" bindtap="goRegister">
-      去绑定当前签到
+      去绑定
     </button>
   </view>
 
   <view wx:if="{{isLeaveResultView && hasBoundStudentSession && !shouldGoRegister}}" class="ui-card ui-section ui-panel-card leave-box">
     <view class="ui-card-head">
       <view class="ui-title-md">本课请假结果</view>
-      <view class="ui-text-helper">展示当前账号最近一次请假处理结果。</view>
     </view>
     <view class="leave-result-card ui-card ui-card--subtle ui-section">
       <view class="ui-info-list">
@@ -51,14 +47,13 @@
   <view wx:if="{{!isLeaveResultView && hasBoundStudentSession && !signSuccess && !shouldGoRegister}}">
     <view class="ui-card ui-section ui-panel-card leave-box">
       <view class="ui-card-head">
-        <view class="ui-title-md">当前状态：{{attendanceStatusText}}</view>
-        <view class="ui-text-helper">签到前会先校验当前课堂的出勤处理状态。</view>
+        <view class="ui-title-md">{{attendanceStatusText}}</view>
       </view>
       <view class="ui-feedback ui-feedback--{{attendanceStatus === 'leave_agree' ? 'success' : attendanceStatus === 'absent' ? 'danger' : attendanceStatus === 'leave_wait' ? 'warning' : 'info'}}">
-        <text wx:if="{{attendanceStatus === 'leave_agree'}}">本节课已被老师标记为请假，当前无需签到。</text>
-        <text wx:elif="{{attendanceStatus === 'absent'}}">本节课已被老师标记为旷课，当前不可签到。</text>
-        <text wx:elif="{{attendanceStatus === 'leave_wait'}}">当前请假状态待审批，暂不可继续签到。</text>
-        <text wx:else>请确认当前学生身份无误后完成本次签到。</text>
+        <text wx:if="{{attendanceStatus === 'leave_agree'}}">无需签到</text>
+        <text wx:elif="{{attendanceStatus === 'absent'}}">不可签到</text>
+        <text wx:elif="{{attendanceStatus === 'leave_wait'}}">待审批</text>
+        <text wx:else>可签到</text>
       </view>
     </view>
     <view class="ui-card ui-card--subtle ui-section input">
@@ -82,25 +77,22 @@
   <view wx:if="{{!isLeaveResultView && canInteract}}">
     <view class="ui-card ui-section ui-panel-card leave-box">
       <view class="ui-card-head">
-        <view class="ui-title-md">当前状态：已签到，可参与课堂互动</view>
-        <view class="ui-text-helper">当前课堂互动入口会按老师发布内容动态展示。</view>
+        <view class="ui-title-md">已签到</view>
       </view>
       <view class="ui-feedback ui-feedback--success">
-        <text wx:if="{{currentSingleChoiceTest}}">当前可用入口：单选题作答</text>
-        <text wx:else>当前课堂互动入口会在老师发布后显示在下方。</text>
+        <text wx:if="{{currentSingleChoiceTest}}">可答题</text>
+        <text wx:else>等待互动</text>
       </view>
     </view>
     <view class="ui-state-block ui-success-state success-card">
       <view class="ui-state-title">签到成功</view>
-      <view class="ui-state-desc">当前账号已完成本节课签到，可继续进入后续互动或请假相关入口。</view>
     </view>
 
     <view class="ui-card ui-section ui-panel-card leave-box">
       <view class="ui-card-head">
         <view class="ui-title-md">请假申请</view>
-        <view class="ui-text-helper">请假申请已拆分到独立页面，可从这里继续进入。</view>
       </view>
-      <button type="primary" bindtap="goLeaveRequestPage">进入请假申请页</button>
+      <button type="primary" bindtap="goLeaveRequestPage">请假申请</button>
     </view>
 
     <view wx:if="{{currentSingleChoiceTest}}" class="ui-card ui-section ui-panel-card leave-box">
@@ -128,7 +120,7 @@
         bindtap="submitSingleChoiceAnswer"
         type="primary"
       >
-        提交单选题答案
+        提交答案
       </button>
     </view>
   </view>
@@ -137,6 +129,6 @@
     wx:if="{{hasBoundStudentSession}}"
     bindtap="logout"
   >
-    退出登录
+    退出
   </button>
 </view>

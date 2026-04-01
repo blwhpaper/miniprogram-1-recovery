@@ -8,7 +8,7 @@ Page({
     qrcode: "",
     pageLoading: false,
     pageErrorText: "",
-    currentLessonStatusText: "当前暂无进行中的课堂",
+    currentLessonStatusText: "暂无当前课",
     showEndLessonButton: false,
     debugAppEnv: "",
     debugCreateLessonEnv: "",
@@ -159,7 +159,7 @@ Page({
       this.setData({
         lessonId: normalizedLessonId,
         qrcode: cachedQrCode,
-        currentLessonStatusText: "当前课进行中",
+        currentLessonStatusText: "进行中",
         showEndLessonButton: true
       })
       return true
@@ -167,7 +167,7 @@ Page({
 
     this.setData({
       lessonId: normalizedLessonId,
-      currentLessonStatusText: "当前课进行中",
+      currentLessonStatusText: "进行中",
       showEndLessonButton: true
     })
     await this.buildQrCodeForLesson(normalizedLessonId)
@@ -225,7 +225,7 @@ Page({
       this.setData({
         lessonId: "",
         qrcode: "",
-        currentLessonStatusText: "当前暂无进行中的课堂",
+        currentLessonStatusText: "暂无当前课",
         showEndLessonButton: false
       })
       if (!silent) {
@@ -317,7 +317,7 @@ Page({
             lessonId: activeLessonId,
             qrcode: cachedQrCode,
             pageErrorText: "",
-            currentLessonStatusText: "当前课进行中",
+            currentLessonStatusText: "进行中",
             showEndLessonButton: true
           })
           this.scheduleLessonLifecycle(lesson)
@@ -327,7 +327,7 @@ Page({
         this.setData({
           lessonId: activeLessonId,
           pageErrorText: "",
-          currentLessonStatusText: "当前课进行中",
+          currentLessonStatusText: "进行中",
           showEndLessonButton: true
         })
         await this.buildQrCodeForLesson(activeLessonId)
@@ -358,7 +358,7 @@ Page({
           lessonId: "",
           qrcode: "",
           pageErrorText: "",
-          currentLessonStatusText: "当前暂无进行中的课堂",
+          currentLessonStatusText: "暂无当前课",
           showEndLessonButton: false
         })
         return
@@ -366,7 +366,7 @@ Page({
     } catch (err) {
       console.error("[classHome] restoreCurrentLessonQr failed", err)
       this.setData({
-        pageErrorText: "当前课堂状态读取失败，请稍后重试。"
+        pageErrorText: "课堂状态读取失败"
       })
     } finally {
       this.restoringCurrentLessonQr = false
@@ -439,7 +439,7 @@ Page({
       // 第二步：使用 lessonId 生成二维码（云端鉴权并绑定参数）
       await this.buildQrCodeForLesson(lessonId)
       this.setData({
-        currentLessonStatusText: "当前课进行中",
+        currentLessonStatusText: "进行中",
         showEndLessonButton: true
       })
       this.scheduleLessonLifecycle({

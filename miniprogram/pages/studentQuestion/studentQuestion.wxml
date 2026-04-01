@@ -1,11 +1,10 @@
 <view class="question-page ui-page ui-page--stack">
   <view class="question-card ui-card ui-hero-card ui-hero-card--primary ui-section">
     <view class="ui-card-head">
-      <view class="ui-eyebrow">学生互动</view>
       <view class="ui-title-lg">主动提问</view>
     </view>
     <view class="status ui-feedback ui-feedback--{{canSubmitQuestionRequest ? 'info' : 'disabled'}}">
-      当前状态：{{pageStatusText}}
+      {{pageStatusText}}
     </view>
 
     <view class="info-block ui-card ui-card--subtle ui-section ui-panel-card" wx:if="{{name}}">
@@ -28,15 +27,11 @@
       <view class="ui-card-head">
         <view class="ui-title-md">提问状态</view>
       </view>
-      <view class="ui-feedback ui-feedback--info">本节课主动提问申请：{{questionRequestCount}} / 3</view>
+      <view class="ui-feedback ui-feedback--info">本课已提问 {{questionRequestCount}} / 3</view>
       <view class="tip ui-feedback ui-feedback--{{latestQuestionStatusText ? 'matched' : !signSuccess ? 'warning' : canSubmitQuestionRequest ? 'success' : 'idle'}}" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
       <view class="tip ui-feedback ui-feedback--warning" wx:elif="{{!signSuccess}}">
-        请先进入当前课堂完成签到，再返回这里提交提问申请。
+        先签到
       </view>
-    </view>
-
-    <view class="tip ui-feedback ui-feedback--success" wx:if="{{canSubmitQuestionRequest && questionRequestCount === 0}}">
-      我是阿拉丁神灯，点点我，会有惊喜哦！
     </view>
 
     <button
@@ -46,7 +41,7 @@
       bindtap="submitQuestionRequest"
       disabled="{{!canSubmitQuestionRequest}}"
     >
-      提交主动提问申请
+      提交申请
     </button>
   </view>
 </view>

@@ -9,15 +9,15 @@ Page({
     studentId: "",
     currentUser: null,
     shouldGoRegister: false,
-    registerTipText: "当前还没有可用学生身份，请先绑定后再提交请假申请",
-    pageHintText: "正在加载当前课次与请假信息，请稍候。",
+    registerTipText: "先绑定学生身份",
+    pageHintText: "加载中",
     hasBoundStudentSession: false,
     attendanceStatus: "unsigned",
     attendanceStatusText: "未签到",
     signSuccess: false,
     leaveRequestTargetName: "",
     leaveRequestTargetStatus: "empty",
-    leaveRequestTargetStatusText: "先填写需请假的本班学生姓名",
+    leaveRequestTargetStatusText: "先填姓名",
     leaveRequestMatchedStudentId: "",
     leaveRequestMatchedStudentName: "",
     leaveRequestImageTempPath: "",
@@ -207,7 +207,7 @@ Page({
     if (!requestedStudentNameInput) {
       this.setData({
         leaveRequestTargetStatus: "empty",
-        leaveRequestTargetStatusText: "先填写需请假的本班学生姓名",
+        leaveRequestTargetStatusText: "先填姓名",
         leaveRequestMatchedStudentId: "",
         leaveRequestMatchedStudentName: "",
         canSubmitLeaveRequest: this.canSubmitLeaveRequest({
@@ -222,7 +222,7 @@ Page({
     if (classRoster.length === 0) {
       this.setData({
         leaveRequestTargetStatus: "idle",
-        leaveRequestTargetStatusText: "班级名单加载中，请稍后",
+        leaveRequestTargetStatusText: "名单加载中",
         leaveRequestMatchedStudentId: "",
         leaveRequestMatchedStudentName: "",
         canSubmitLeaveRequest: this.canSubmitLeaveRequest({
@@ -242,7 +242,7 @@ Page({
     if (matchedStudents.length === 0) {
       this.setData({
         leaveRequestTargetStatus: "not_found",
-        leaveRequestTargetStatusText: "未匹配到该学生，请确认姓名是否与班级名单一致",
+        leaveRequestTargetStatusText: "未匹配到该学生",
         leaveRequestMatchedStudentId: "",
         leaveRequestMatchedStudentName: "",
         canSubmitLeaveRequest: this.canSubmitLeaveRequest({
@@ -257,7 +257,7 @@ Page({
     if (matchedStudents.length > 1) {
       this.setData({
         leaveRequestTargetStatus: "duplicate",
-        leaveRequestTargetStatusText: "班级中有同名学生，当前无法直接代提交，请联系老师处理",
+        leaveRequestTargetStatusText: "同名学生过多",
         leaveRequestMatchedStudentId: "",
         leaveRequestMatchedStudentName: "",
         canSubmitLeaveRequest: this.canSubmitLeaveRequest({
@@ -276,7 +276,7 @@ Page({
     if (!requestedStudentId || !requestedStudentName) {
       this.setData({
         leaveRequestTargetStatus: "invalid",
-        leaveRequestTargetStatusText: "匹配到的学生信息不完整，请联系老师处理",
+        leaveRequestTargetStatusText: "学生信息不完整",
         leaveRequestMatchedStudentId: "",
         leaveRequestMatchedStudentName: "",
         canSubmitLeaveRequest: this.canSubmitLeaveRequest({
@@ -291,7 +291,7 @@ Page({
     if (requestedStudentId === applicantStudentId) {
       this.setData({
         leaveRequestTargetStatus: "self",
-        leaveRequestTargetStatusText: "当前入口只支持代他人提交，不能给自己提交",
+        leaveRequestTargetStatusText: "不能给自己提交",
         leaveRequestMatchedStudentId: requestedStudentId,
         leaveRequestMatchedStudentName: requestedStudentName,
         canSubmitLeaveRequest: this.canSubmitLeaveRequest({
@@ -305,7 +305,7 @@ Page({
 
     this.setData({
       leaveRequestTargetStatus: "matched",
-      leaveRequestTargetStatusText: `已匹配到学生：${requestedStudentName}`,
+      leaveRequestTargetStatusText: `已匹配：${requestedStudentName}`,
       leaveRequestMatchedStudentId: requestedStudentId,
       leaveRequestMatchedStudentName: requestedStudentName,
       canSubmitLeaveRequest: this.canSubmitLeaveRequest({
@@ -367,8 +367,8 @@ Page({
       const payload = matched.payload || {}
       const status = String(payload.status || "").trim() || "pending"
       const nextTitle = displayMode === "current"
-        ? "本次代提交已成功记录"
-        : "历史最近一次代提交记录"
+        ? "已提交"
+        : "最近记录"
       this.setData({
         leaveRequestLastSubmittedEventId: String(matched._id || "").trim(),
         leaveRequestLastSubmittedName: String(payload.requestedStudentName || matched.studentName || "").trim(),
@@ -599,7 +599,7 @@ Page({
       this.setData({
         leaveRequestTargetName: "",
         leaveRequestTargetStatus: "empty",
-        leaveRequestTargetStatusText: "先填写需请假的本班学生姓名",
+        leaveRequestTargetStatusText: "先填姓名",
         leaveRequestMatchedStudentId: "",
         leaveRequestMatchedStudentName: "",
         leaveRequestImageTempPath: "",
@@ -610,7 +610,7 @@ Page({
         leaveRequestLastSubmittedStatus: "pending",
         leaveRequestLastSubmittedStatusText: this.getLeaveRequestStatusLabel("pending"),
         leaveRequestLastSubmittedTimeText: this.formatSimpleDateTime(new Date()),
-        leaveRequestLastSubmittedTitle: "本次代提交已成功记录",
+        leaveRequestLastSubmittedTitle: "已提交",
         leaveRequestSubmitting: false
       })
       wx.showToast({
@@ -679,16 +679,16 @@ Page({
         currentUser,
         shouldGoRegister,
         registerTipText: shouldGoRegister
-          ? "当前还没有可用学生身份，请先绑定后再提交请假申请"
+          ? "先绑定后提交"
           : "",
         pageHintText: finalLessonId
-          ? "请按页面提示完成请假申请。"
-          : "当前没有可用课次，请返回后重新进入。",
+          ? "可提交请假"
+          : "暂无课次",
         hasBoundStudentSession: !shouldGoRegister && !!currentUser && hasName && hasStudentId
       })
 
       if (!finalLessonId) {
-        wx.showToast({ title: "当前没有可用课次，请返回后重新进入", icon: "none" })
+        wx.showToast({ title: "暂无课次", icon: "none" })
         return
       }
 
@@ -712,8 +712,8 @@ Page({
     this.setData({
       lessonId,
       pageHintText: lessonId
-        ? "正在加载当前课次与请假信息，请稍候。"
-        : "正在检查当前课次，请稍候。"
+        ? "加载中"
+        : "检查中"
     })
     this.initPageState(lessonId)
   },

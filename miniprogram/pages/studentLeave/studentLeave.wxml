@@ -1,58 +1,113 @@
-<view class="box">
-  <view class="title">请假申请</view>
-  <view class="page-hint">{{pageHintText}}</view>
-
-  <view wx:if="{{shouldGoRegister}}" class="register-box">
-    <view class="register-tip">{{registerTipText}}</view>
-    <button class="register-btn" type="primary" bindtap="goRegister">
-      去绑定当前签到
-    </button>
-  </view>
-
-  <view wx:if="{{!shouldGoRegister}}" class="leave-box">
-    <text class="tip">当前状态：{{attendanceStatusText}}</text>
-    <view wx:if="{{attendanceStatus === 'leave_agree'}}">本节课已被老师标记为请假，当前无需再提交申请。</view>
-    <view wx:elif="{{attendanceStatus === 'absent'}}">本节课已被老师标记为旷课，当前不可提交请假。</view>
-    <view wx:elif="{{attendanceStatus === 'leave_wait'}}">当前请假状态待审批，暂不可继续提交新申请。</view>
-    <view wx:elif="{{!signSuccess}}">请先完成本次签到，再为本班其他学生提交请假申请。</view>
-    <view wx:else>当前可为本班其他学生提交请假申请。</view>
-  </view>
-
-  <view wx:if="{{!shouldGoRegister}}" class="leave-box">
-    <text class="tip">请假申请</text>
-    <view>当前入口用于帮本班其他学生提交请假。</view>
-    <view class="leave-step">1. 填写请假人姓名</view>
-    <input
-      class="leave-name-input"
-      placeholder="请输入请假人姓名"
-      value="{{leaveRequestTargetName}}"
-      bindinput="onInputLeaveRequestTargetName"
-    />
-    <view class="leave-feedback leave-feedback--{{leaveRequestTargetStatus}}">
-      {{leaveRequestTargetStatusText}}
-    </view>
-    <view class="leave-step">2. 上传假条图片</view>
-    <button bindtap="chooseLeaveRequestImage">上传假条图片</button>
-    <view class="leave-feedback {{leaveRequestImageTempPath ? 'leave-feedback--matched' : 'leave-feedback--empty'}}">
-      {{leaveRequestImageTempPath ? '假条图片已选择，可继续提交' : '请上传本次请假的假条图片'}}
-    </view>
-    <image wx:if="{{leaveRequestImageTempPath}}" class="leave-img" src="{{leaveRequestImageTempPath}}" mode="aspectFill" />
-    <view class="leave-step">3. 确认并提交</view>
-    <view class="leave-summary" wx:if="{{leaveRequestMatchedStudentName || leaveRequestImageTempPath}}">
-      <view>提交对象：{{leaveRequestMatchedStudentName || '待选择'}}</view>
-      <view>假条材料：{{leaveRequestImageTempPath ? '已上传' : '未上传'}}</view>
-    </view>
-    <button type="primary" bindtap="submitLeaveRequest" disabled="{{!canSubmitLeaveRequest || leaveRequestSubmitting}}" loading="{{leaveRequestSubmitting}}">
-      提交请假申请
-    </button>
-    <view class="leave-feedback {{canSubmitLeaveRequest ? 'leave-feedback--matched' : 'leave-feedback--empty'}}">
-      {{canSubmitLeaveRequest ? '信息已齐，可以提交' : '请先完成姓名匹配和假条上传'}}
-    </view>
-    <view wx:if="{{leaveRequestLastSubmittedName}}" class="leave-result">
-      <view class="leave-result__title">{{leaveRequestLastSubmittedTitle || '最近一次代提交记录'}}</view>
-      <view>提交对象：{{leaveRequestLastSubmittedName}}</view>
-      <view>当前记录：{{leaveRequestLastSubmittedStatusText}}</view>
-      <view wx:if="{{leaveRequestLastSubmittedTimeText}}">提交时间：{{leaveRequestLastSubmittedTimeText}}</view>
+<view class="student-leave-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-hero-card--primary ui-section hero-card">
+    <view class="ui-card-head">
+      <view class="ui-title-lg">请假申请</view>
+      <view class="ui-text-body">{{pageHintText}}</view>
     </view>
   </view>
+
+  <view wx:if="{{shouldGoRegister}}" class="ui-card ui-section ui-surface--warning register-card">
+    <view class="ui-card-head">
+      <view class="ui-title-md">先绑定</view>
+    </view>
+    <view class="ui-feedback ui-feedback--warning">{{registerTipText}}</view>
+    <view class="ui-button-group">
+      <button type="primary" bindtap="goRegister">去绑定</button>
+    </view>
+  </view>
+
+  <block wx:else>
+    <view class="ui-card ui-card--subtle ui-section status-card">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前状态</view>
+      </view>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">出勤状态</view>
+          <view class="ui-info-value">{{attendanceStatusText}}</view>
+        </view>
+      </view>
+      <view class="ui-feedback ui-feedback--{{attendanceStatus === 'leave_agree' ? 'success' : attendanceStatus === 'absent' ? 'danger' : attendanceStatus === 'leave_wait' ? 'warning' : !signSuccess ? 'danger' : 'info'}}">
+        <text wx:if="{{attendanceStatus === 'leave_agree'}}">无需提交</text>
+        <text wx:elif="{{attendanceStatus === 'absent'}}">不可提交</text>
+        <text wx:elif="{{attendanceStatus === 'leave_wait'}}">待审批</text>
+        <text wx:elif="{{!signSuccess}}">先签到</text>
+        <text wx:else>可提交</text>
+      </view>
+    </view>
+
+    <view class="ui-card ui-section ui-form-card leave-form-card">
+      <view class="ui-card-head">
+        <view class="ui-title-md">代提交</view>
+      </view>
+
+      <view class="ui-form-item">
+        <view class="ui-form-label">请假人</view>
+        <input
+          class="ui-input"
+          placeholder="请输入请假人姓名"
+          value="{{leaveRequestTargetName}}"
+          bindinput="onInputLeaveRequestTargetName"
+        />
+        <view class="ui-feedback ui-feedback--{{leaveRequestTargetStatus || 'idle'}}">
+          {{leaveRequestTargetStatusText}}
+        </view>
+      </view>
+
+      <view class="ui-form-item">
+        <view class="ui-form-label">假条</view>
+        <view class="ui-button-group ui-button-group--compact">
+          <button class="ui-btn-secondary" bindtap="chooseLeaveRequestImage">上传假条</button>
+        </view>
+        <view class="ui-feedback ui-feedback--{{leaveRequestImageTempPath ? 'matched' : 'idle'}}">
+          {{leaveRequestImageTempPath ? '已上传' : '未上传'}}
+        </view>
+        <image wx:if="{{leaveRequestImageTempPath}}" class="leave-img" src="{{leaveRequestImageTempPath}}" mode="aspectFill" />
+      </view>
+
+      <view class="ui-form-item">
+        <view class="ui-form-label">提交</view>
+        <view class="ui-card ui-card--subtle ui-section summary-card" wx:if="{{leaveRequestMatchedStudentName || leaveRequestImageTempPath}}">
+          <view class="ui-info-list">
+            <view class="ui-info-item">
+              <view class="ui-info-label">提交对象</view>
+              <view class="ui-info-value">{{leaveRequestMatchedStudentName || '-'}}</view>
+            </view>
+            <view class="ui-info-item">
+              <view class="ui-info-label">假条材料</view>
+              <view class="ui-info-value">{{leaveRequestImageTempPath ? '已上传' : '未上传'}}</view>
+            </view>
+          </view>
+        </view>
+        <view class="ui-button-group">
+          <button type="primary" bindtap="submitLeaveRequest" disabled="{{!canSubmitLeaveRequest || leaveRequestSubmitting}}" loading="{{leaveRequestSubmitting}}">
+            提交请假申请
+          </button>
+        </view>
+        <view class="ui-feedback ui-feedback--{{leaveRequestSubmitting ? 'submitting' : canSubmitLeaveRequest ? 'matched' : 'idle'}}">
+          {{leaveRequestSubmitting ? '提交中' : canSubmitLeaveRequest ? '可提交' : '信息不完整'}}
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{leaveRequestLastSubmittedName}}" class="ui-card ui-notice-card ui-section result-card">
+      <view class="ui-card-head">
+        <view class="ui-title-md">{{leaveRequestLastSubmittedTitle || '最近记录'}}</view>
+      </view>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">提交对象</view>
+          <view class="ui-info-value">{{leaveRequestLastSubmittedName}}</view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">当前记录</view>
+          <view class="ui-info-value">{{leaveRequestLastSubmittedStatusText}}</view>
+        </view>
+        <view wx:if="{{leaveRequestLastSubmittedTimeText}}" class="ui-info-item">
+          <view class="ui-info-label">提交时间</view>
+          <view class="ui-info-value">{{leaveRequestLastSubmittedTimeText}}</view>
+        </view>
+      </view>
+    </view>
+  </block>
 </view>

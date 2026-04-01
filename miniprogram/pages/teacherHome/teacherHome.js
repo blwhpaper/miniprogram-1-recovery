@@ -80,8 +80,8 @@ Page({
         teacherApplyButtonDisabled: false,
         teacherId: localTeacherId,
         teacherName: this.getTeacherDisplayName(localTeacherId),
-        teacherStatusText: "教师身份已就绪",
-        teacherLeadText: "这里是教师主页，将统一承接教师端入口与后续教师业务。",
+        teacherStatusText: "已开通",
+        teacherLeadText: "",
         teacherApplyStatus: "",
         teacherApplyStatusText: "",
         teacherApplySummaryText: "",
@@ -97,11 +97,11 @@ Page({
         teacherApplyButtonDisabled: false,
         teacherId: "",
         teacherName: "老师入口",
-        teacherStatusText: "教师身份未开通",
-        teacherLeadText: "如果你需要进入教师端，请先提交老师注册申请。",
+        teacherStatusText: "未开通",
+        teacherLeadText: "",
         teacherApplyStatus: "",
         teacherApplyStatusText: "未申请",
-        teacherApplySummaryText: "当前还没有老师注册申请记录。",
+        teacherApplySummaryText: "暂无申请记录。",
         canSubmitTeacherApply: true
       });
     }
@@ -151,32 +151,32 @@ Page({
         teacherId: approvedTeacherId || "",
         teacherName: approvedTeacherId ? this.getTeacherDisplayName(approvedTeacherId) : "老师入口",
         teacherStatusText: hasLoggedOutTeacher && isApprovedTeacher
-          ? "教师态已退出"
+          ? "已退出"
           : isApprovedTeacher
-            ? "教师身份已开通"
+            ? "已开通"
             : hasTeacherSyncGap
-              ? "教师身份待同步"
-            : "教师身份未开通",
+              ? "待同步"
+            : "未开通",
         teacherLeadText: hasLoggedOutTeacher && isApprovedTeacher
-          ? "你已退出当前本地教师登录态，如需继续使用教师端，请手动重新进入教师态。"
+          ? ""
           : isApprovedTeacher
-          ? "当前申请已审核通过，可进入教师业务承接页。"
+          ? ""
           : hasTeacherSyncGap
-            ? "当前申请已通过，正在等待教师身份同步，请稍后刷新或联系管理员。"
-          : "如果你需要进入教师端，请先提交老师注册申请。",
+            ? ""
+          : "",
         teacherApplyStatus: effectiveApplyStatus,
         teacherApplyStatusText: this.getTeacherApplyStatusText(effectiveApplyStatus),
         teacherApplySummaryText: hasLoggedOutTeacher && isApprovedTeacher
-          ? "当前教师身份已开通，但你已退出本地教师态，可手动重新进入。"
+          ? "可恢复教师态。"
           : isPending
-          ? "已提交，等待审核"
+          ? "已提交"
           : hasTeacherSyncGap
-            ? "当前申请已通过，教师身份正在同步中，请稍后刷新或联系管理员。"
+            ? "已通过，待同步"
           : status === "approved"
-            ? "当前申请已通过，可进入教师业务承接页。"
+            ? "已通过"
             : status === "rejected"
-              ? "当前申请未通过，可重新填写后再次提交。"
-              : "当前还没有老师注册申请记录。",
+              ? "未通过，可重提"
+              : "暂无申请记录。",
         canSubmitTeacherApply: showTeacherApplyButton && !teacherApplyButtonDisabled
       });
     } catch (err) {
@@ -185,8 +185,8 @@ Page({
       }
       console.error("[teacherHome] load teacher apply status failed", err);
       this.setData({
-        pageErrorText: "教师状态读取失败，请稍后重试。",
-        teacherApplySummaryText: "当前暂时无法读取申请状态，请稍后重试。"
+        pageErrorText: "教师状态读取失败",
+        teacherApplySummaryText: "申请状态读取失败"
       });
     } finally {
       if (loadToken !== this.stateLoadToken) {

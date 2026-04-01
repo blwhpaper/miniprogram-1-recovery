@@ -2,25 +2,16 @@
   <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section class-manager-hero">
     <view class="ui-card-head ui-page-head">
       <view class="hero-main ui-card-head ui-page-head-main">
-        <view class="ui-eyebrow">教师工作台</view>
         <view class="title ui-title-lg">班级管理</view>
-        <view class="ui-text-body">从这里进入班级工作区，统一承接课堂、签到、互动和记录管理入口。</view>
       </view>
       <view class="hero-badge ui-tag ui-tag--active ui-page-head-badge">班级 {{classList.length}}</view>
     </view>
-    <view class="hero-summary ui-info-list">
-      <view class="ui-info-item">
-        <view class="ui-info-label">当前工作区</view>
-        <view class="ui-info-value">教师主业务入口</view>
-      </view>
-    </view>
-    <button bindtap="addClass" hover-class="ui-btn-active" type="primary">+ 新建班级</button>
+    <button bindtap="addClass" hover-class="ui-btn-active" type="primary">新建班级</button>
   </view>
 
   <view wx:if="{{classList.length > 0}}" class="ui-card ui-section ui-panel-card class-list-card">
     <view class="ui-card-head">
       <view class="ui-title-md">我的班级</view>
-      <view class="ui-text-helper">点击班级卡片进入工作区，删除操作保持危险级按钮样式。</view>
     </view>
 
     <view class="class-list ui-record-list">
@@ -29,10 +20,8 @@
           <view class="class-entry-head">
             <view class="class-entry-copy">
               <view class="name ui-title-md">{{item.name}}</view>
-              <view class="ui-text-muted">班级入口已就绪，可继续进入课堂控制、签到记录和互动页。</view>
             </view>
             <view class="class-entry-actions">
-              <view class="ui-tag ui-tag--active">进入工作区</view>
               <button class="delete-btn ui-btn-ghost" size="mini" bindtap="deleteClass" hover-class="ui-btn-active" data-id="{{item.id}}">删除</button>
             </view>
           </view>
@@ -42,8 +31,7 @@
   </view>
 
   <view wx:else class="ui-card ui-empty-state ui-panel-card--empty class-empty-card">
-    <view class="ui-empty-title">当前还没有班级</view>
-    <view class="ui-empty-desc">先创建一个班级，再进入课堂开启签到、互动和记录管理。</view>
+    <view class="ui-empty-title">暂无班级</view>
     <view class="ui-state-actions">
       <button type="primary" size="mini" bindtap="addClass" hover-class="ui-btn-active">新建班级</button>
     </view>

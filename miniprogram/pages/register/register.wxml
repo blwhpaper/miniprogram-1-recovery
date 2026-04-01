@@ -1,9 +1,7 @@
 <view class="register-page ui-page ui-page--stack">
   <view class="ui-card ui-hero-card ui-hero-card--primary ui-section">
     <view class="ui-card-head">
-      <view class="ui-eyebrow">学生绑定</view>
-      <view class="ui-title-lg">学生身份绑定</view>
-      <view class="ui-text-body">填写姓名和学号后，绑定当前账号的学生身份信息。</view>
+      <view class="ui-title-lg">绑定学生</view>
     </view>
   </view>
 

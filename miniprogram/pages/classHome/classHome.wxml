@@ -2,43 +2,39 @@
   <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section class-home-hero">
     <view class="ui-card-head ui-page-head">
       <view class="ui-card-head class-home-head ui-page-head-main">
-        <view class="ui-eyebrow">教师业务页</view>
         <view class="ui-title-lg">当前课堂</view>
-        <view class="ui-text-body">当前页作为课堂控制中心，统一承接签到二维码与核心课堂操作。</view>
       </view>
       <view wx:if="{{showEndLessonButton}}" class="ui-tag ui-tag--active">进行中</view>
       <view wx:else class="ui-tag ui-tag--inactive">未开始</view>
     </view>
     <view class="ui-info-list hero-info-list">
       <view class="ui-info-item">
-        <view class="ui-info-label">班级标识</view>
+        <view class="ui-info-label">班级</view>
         <view class="ui-info-value">{{classId || '-'}}</view>
       </view>
       <view class="ui-info-item">
-        <view class="ui-info-label">当前课次</view>
+        <view class="ui-info-label">课次</view>
         <view class="ui-info-value">{{lessonId || '-'}}</view>
       </view>
     </view>
     <view class="hero-note ui-text-muted">{{currentLessonStatusText}}</view>
-    <button bindtap="createSignCode" hover-class="ui-btn-active" type="primary">生成签到码</button>
+    <button bindtap="createSignCode" hover-class="ui-btn-active" type="primary">开始签到</button>
   </view>
 
   <view class="ui-card ui-section ui-panel-card qr-card">
     <view class="ui-card-head">
       <view class="ui-title-md">签到二维码</view>
-      <view class="ui-text-helper">开启签到后，学生扫码会进入学生主页并承接当前课。</view>
     </view>
 
     <view wx:if="{{pageLoading && !qrcode}}" class="ui-state-block ui-loading-state qr-empty">
-      <view class="ui-state-title">当前课堂同步中</view>
-      <view class="ui-state-desc">正在恢复当前课状态与签到二维码。</view>
+      <view class="ui-state-title">加载中</view>
     </view>
 
     <view wx:elif="{{pageErrorText && !qrcode}}" class="ui-state-block ui-error-state qr-empty">
-      <view class="ui-state-title">当前课堂读取失败</view>
+      <view class="ui-state-title">加载失败</view>
       <view class="ui-state-desc">{{pageErrorText}}</view>
       <view class="ui-state-actions">
-        <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryRestoreCurrentLesson">重新读取</button>
+        <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryRestoreCurrentLesson">重试</button>
       </view>
     </view>
 
@@ -51,19 +47,17 @@
     </view>
 
     <view wx:else class="ui-empty-state qr-empty">
-      <view class="ui-empty-title">二维码将显示在这里</view>
-      <view class="ui-empty-desc">开始当前课后，学生扫码会自动承接到学生主页。</view>
+      <view class="ui-empty-title">暂无二维码</view>
     </view>
   </view>
 
   <view class="ui-card ui-notice-card ui-section ui-panel-card action-card">
     <view class="ui-card-head">
-      <view class="ui-title-md">课堂操作</view>
-      <view class="ui-text-helper">课堂相关入口集中放在这里，主次操作保持统一视觉层级。</view>
+      <view class="ui-title-md">操作</view>
     </view>
     <view class="action-grid">
-      <button class="ui-btn-secondary" bindtap="goToStudentList" hover-class="ui-btn-active">学生名单管理</button>
-      <button class="ui-btn-secondary" bindtap="goToClassInteraction" hover-class="ui-btn-active">进入课堂互动</button>
+      <button class="ui-btn-secondary" bindtap="goToStudentList" hover-class="ui-btn-active">学生名单</button>
+      <button class="ui-btn-secondary" bindtap="goToClassInteraction" hover-class="ui-btn-active">课堂互动</button>
       <button wx:if="{{showEndLessonButton}}" class="ui-btn-danger action-grid-btn--danger" bindtap="confirmEndCurrentLesson" hover-class="ui-btn-active">下课</button>
     </view>
   </view>

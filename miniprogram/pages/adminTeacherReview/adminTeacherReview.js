@@ -12,10 +12,10 @@ Page({
     teacherSourceMessage: "",
     resettingTeacherState: false,
     reviewingOpenId: "",
-    emptyText: "暂无待审核申请",
+    emptyText: "暂无申请",
     pageState: "passwordRequired",
-    stateTitle: "需要管理员审核口令",
-    stateDescription: "请输入管理员审核口令后读取待审核申请。"
+    stateTitle: "输入审核口令",
+    stateDescription: "输入后读取申请。"
   },
 
   onLoad() {
@@ -34,24 +34,24 @@ Page({
   getPageStateMeta(pageState) {
     const map = {
       loading: {
-        stateTitle: "正在加载待审核申请",
-        stateDescription: "正在校验当前审核权限并读取待审核申请。"
+        stateTitle: "加载中",
+        stateDescription: "正在读取申请。"
       },
       unauthorized: {
-        stateTitle: "当前无权限",
-        stateDescription: "当前账号或口令未通过管理员校验，无法查看待审核申请。"
+        stateTitle: "无权限",
+        stateDescription: "无法查看申请。"
       },
       passwordRequired: {
-        stateTitle: "需要管理员审核口令",
-        stateDescription: "请输入管理员审核口令后读取待审核申请。"
+        stateTitle: "输入审核口令",
+        stateDescription: "输入后读取申请。"
       },
       empty: {
-        stateTitle: "暂无待审核申请",
-        stateDescription: "当前已通过管理员校验，但暂时没有待审核申请。历史审核记录不在本页展示。"
+        stateTitle: "暂无申请",
+        stateDescription: "没有待审核申请。"
       },
       ready: {
-        stateTitle: "可处理待审核申请",
-        stateDescription: "当前页仅展示待审核申请，可执行通过或驳回，不展示历史审核记录。"
+        stateTitle: "待审核",
+        stateDescription: "可通过或驳回。"
       }
     };
 
@@ -76,7 +76,7 @@ Page({
       teacherSourceReason: "",
       teacherSourceMessage: "",
       reviewingOpenId: "",
-      emptyText: "暂无待审核申请"
+      emptyText: "暂无申请"
     });
   },
 
@@ -181,7 +181,7 @@ Page({
     this.setPageState(reviewableApplications.length ? "ready" : "empty", {
       applications: reviewableApplications,
       loading: false,
-      emptyText: "暂无待审核申请"
+      emptyText: "暂无申请"
     });
   },
 

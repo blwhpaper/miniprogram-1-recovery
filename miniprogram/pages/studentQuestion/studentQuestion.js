@@ -9,7 +9,7 @@ Page({
     studentId: "",
     currentUser: null,
     signSuccess: false,
-    pageStatusText: "未签到，暂不可提问",
+    pageStatusText: "未签到",
     questionRequestCount: 0,
     hasPendingQuestionRequest: false,
     latestQuestionStatusText: "",
@@ -169,7 +169,7 @@ Page({
 
     if (!lessonId || !studentKey || !studentId) {
       const nextState = {
-        pageStatusText: signSuccess ? "已签到，可提交提问申请" : "未签到，暂不可提问",
+        pageStatusText: signSuccess ? "可提问" : "未签到",
         questionRequestCount: 0,
         hasPendingQuestionRequest: false,
         latestQuestionStatusText: "",
@@ -292,7 +292,7 @@ Page({
       });
 
       const nextState = {
-        pageStatusText: signSuccess ? "已签到，可提交提问申请" : "未签到，暂不可提问",
+        pageStatusText: signSuccess ? "可提问" : "未签到",
         questionRequestCount: requestIds.size,
         hasPendingQuestionRequest,
         latestQuestionStatusText,
@@ -300,13 +300,13 @@ Page({
         canSubmitQuestionRequest
       };
       if (latestQuestionStatusType === "pending") {
-        nextState.pageStatusText = "已提交申请，等待老师允许";
+        nextState.pageStatusText = "已提交";
       } else if (latestQuestionStatusType === "approved") {
-        nextState.pageStatusText = "已允许提问，等待老师评分";
+        nextState.pageStatusText = "待评分";
       } else if (latestQuestionStatusType === "exhausted" || isQuestionQuotaExhausted) {
-        nextState.pageStatusText = "本节课提问次数已用完";
+        nextState.pageStatusText = "次数已用完";
       } else if (!canSubmitQuestionRequest) {
-        nextState.pageStatusText = signSuccess ? "已签到，暂不可继续提问" : "未签到，暂不可提问";
+        nextState.pageStatusText = signSuccess ? "暂不可提问" : "未签到";
       }
       if (apply) {
         const changedState = this.syncPageState(nextState);

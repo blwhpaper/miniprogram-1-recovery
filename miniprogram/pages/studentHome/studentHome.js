@@ -29,9 +29,9 @@ Page({
     currentLessonScoreText: "",
     currentLessonScoreBreakdownText: "",
     showLessonScoreSummary: false,
-    pageLeadText: "当前课入口",
-    statusText: "当前课状态同步中",
-    summaryText: "正在刷新当前课与入口状态，请稍候。",
+    pageLeadText: "当前课",
+    statusText: "加载中",
+    summaryText: "正在刷新",
     debugEntryLessonId: "",
     debugPendingLessonId: "",
     debugResolvedLessonId: "",
@@ -790,8 +790,8 @@ Page({
     const currentLeaveRequestStatusText = String(currentLeaveRequestResult?.requestStatusText || "").trim();
     const currentLeaveRequestTargetName = String(currentLeaveRequestResult?.requestedStudentName || "").trim();
 
-    let statusText = "当前暂无进行中的课堂";
-    let summaryText = "当前没有可继续进入的课堂，老师发起后会直接显示在这里。";
+    let statusText = "暂无当前课";
+    let summaryText = "等待老师开课";
     let pageLeadText = "当前课入口";
     let lessonEntryText = "";
     let lessonEntryMode = "lesson";
@@ -807,60 +807,60 @@ Page({
       );
 
       if (shouldShowLeaveResultEntry) {
-        pageLeadText = "当前课状态";
+        pageLeadText = "当前状态";
         const leaveResultText = currentLessonAttendanceStatus === "leave_agree"
           ? "已请假"
           : currentLeaveRequestStatusText;
         const targetStudentName = currentLeaveRequestTargetName || "该学生";
-        statusText = `当前课次状态：${leaveResultText || "未签到"}`;
+        statusText = leaveResultText || "未签到";
         summaryText = currentLessonAttendanceStatus === "leave_agree"
-          ? `你代${targetStudentName}提交的请假申请已通过，可从这里查看结果。`
+          ? `${targetStudentName}已请假`
           : currentLeaveRequestStatus === "pending"
-            ? `你代${targetStudentName}提交的请假申请仍在等待老师处理，可从这里查看当前结果。`
-            : `你代${targetStudentName}提交的请假申请已关闭，可从这里查看处理结果。`;
-        lessonEntryText = "查看本课请假结果";
+            ? `${targetStudentName}待审批`
+            : `${targetStudentName}已关闭`;
+        lessonEntryText = "查看结果";
         lessonEntryMode = "leave_result";
         showLessonEntryButton = true;
       } else if (currentLessonAttendanceStatus === "absent") {
-        pageLeadText = "当前课状态";
-        statusText = "当前课次状态：旷课";
-        summaryText = "本节课已被老师标记为旷课，当前不可签到或参与互动。";
-        lessonEntryText = "继续进入当前课堂";
+        pageLeadText = "当前状态";
+        statusText = "旷课";
+        summaryText = "不可进入";
+        lessonEntryText = "进入当前课";
         showLessonEntryButton = true;
       } else if (currentLessonAttendanceStatus === "leave_wait") {
-        pageLeadText = "当前课状态";
-        statusText = "当前课次状态：待审批";
-        summaryText = "当前请假状态待审批，暂不可继续签到或互动。";
-        lessonEntryText = "继续进入当前课堂";
+        pageLeadText = "当前状态";
+        statusText = "待审批";
+        summaryText = "暂不可进入";
+        lessonEntryText = "进入当前课";
         showLessonEntryButton = true;
       } else {
         pageLeadText = hasSignedCurrentLesson
-          ? "当前课状态"
-          : "当前课状态";
+          ? "当前状态"
+          : "当前状态";
         statusText = hasSignedCurrentLesson
-          ? "当前课次状态：已签到，可继续进入"
-          : "当前课次状态：可进入当前课";
+          ? "已签到"
+          : "待签到";
         summaryText = hasSignedCurrentLesson
-          ? "你已完成签到，可继续进入当前课堂或发起主动提问。"
-          : "你可以进入本节课，完成签到后再参与课堂互动。";
-        lessonEntryText = "继续进入当前课堂";
+          ? "可继续进入"
+          : "可进入当前课";
+        lessonEntryText = "进入当前课";
         showLessonEntryButton = true;
         showQuestionEntryButton = hasSignedCurrentLesson;
       }
     } else if (!hasBoundStudentSession && resolvedLessonId) {
       pageLeadText = "当前课入口";
-      statusText = "当前课次状态：可进入当前课";
-      summaryText = "进入后可继续完成学生身份绑定和本次签到。";
-      lessonEntryText = "继续进入当前课堂";
+      statusText = "可进入";
+      summaryText = "进入后可签到";
+      lessonEntryText = "进入当前课";
       showLessonEntryButton = true;
     } else if (hasBoundStudentSession) {
       pageLeadText = "当前课入口";
-      statusText = "当前暂无进行中的课堂";
-      summaryText = "当前没有可继续进入的课堂，老师发起后会直接显示在这里。";
+      statusText = "暂无当前课";
+      summaryText = "等待老师开课";
     } else {
       pageLeadText = "当前课入口";
-      statusText = "当前暂无进行中的课堂";
-      summaryText = "当前没有可继续进入的课堂，请等待老师发起或重新扫码进入。";
+      statusText = "暂无当前课";
+      summaryText = "请重新扫码";
     }
 
     if (activeLoadToken && activeLoadToken !== this.stateLoadToken) {
@@ -928,8 +928,8 @@ Page({
       pageLoading: true,
       pageErrorText: "",
       pageLeadText: "当前课入口",
-      statusText: "当前课状态同步中",
-      summaryText: "正在刷新当前课与入口状态，请稍候。",
+      statusText: "加载中",
+      summaryText: "正在刷新",
       lessonEntryText: "",
       lessonEntryMode: "lesson",
       showLessonEntryButton: false,

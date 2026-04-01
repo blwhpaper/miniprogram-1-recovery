@@ -10,16 +10,15 @@
     <view class="hero-desc ui-text-body">{{teacherLeadText}}</view>
   </view>
 
-  <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
-    <view class="ui-state-title">状态同步中</view>
-    <view class="ui-state-desc">正在刷新教师申请状态与教师身份入口。</view>
+    <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
+    <view class="ui-state-title">加载中</view>
   </view>
 
   <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
-    <view class="ui-state-title">当前状态读取失败</view>
+    <view class="ui-state-title">加载失败</view>
     <view class="ui-state-desc">{{pageErrorText}}</view>
     <view class="ui-state-actions">
-      <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryLoadTeacherHomeState">重新读取</button>
+      <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryLoadTeacherHomeState">重试</button>
     </view>
   </view>
 
@@ -27,20 +26,18 @@
     <view wx:if="{{hasTeacherSession}}" class="panel ui-card ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="panel-title ui-title-md">教师工作区</view>
-        <view class="ui-text-helper">主入口已就绪，辅助操作弱化展示</view>
       </view>
       <view class="ui-button-group">
-        <button type="primary" hover-class="ui-btn-active" bindtap="goToClassManager">进入班级管理</button>
+        <button type="primary" hover-class="ui-btn-active" bindtap="goToClassManager">班级管理</button>
         <button class="secondary-btn ui-btn-secondary" hover-class="ui-btn-active" bindtap="logoutTeacherSession">
-          退出教师登录（仅本地测试态）
+          退出教师态
         </button>
       </view>
     </view>
 
     <view wx:else class="panel ui-card ui-section ui-panel-card">
       <view class="ui-card-head">
-        <view class="panel-title ui-title-md">老师注册申请</view>
-        <view class="ui-text-helper">申请态、待审核和教师态切换都在这里承接</view>
+        <view class="panel-title ui-title-md">教师申请</view>
       </view>
       <view class="ui-info-list">
         <view class="ui-info-item">
@@ -53,10 +50,10 @@
       <view class="panel-text ui-text-body">{{teacherApplySummaryText}}</view>
       <view class="ui-button-group">
         <button wx:if="{{canResumeTeacherSession}}" type="primary" hover-class="ui-btn-active" bindtap="resumeTeacherSession">
-          重新进入当前账号的教师态
+          恢复教师态
         </button>
         <button wx:if="{{canEnterTeacherWorkspace}}" type="primary" hover-class="ui-btn-active" bindtap="enterApprovedTeacherWorkspace">
-          进入班级管理
+          班级管理
         </button>
         <button wx:if="{{showTeacherApplyButton}}" type="primary" hover-class="ui-btn-active" bindtap="goToTeacherApply" disabled="{{teacherApplyButtonDisabled}}">
           {{teacherApplyButtonText}}
@@ -66,10 +63,8 @@
 
     <view class="panel panel--muted ui-card ui-notice-card ui-section ui-panel-card">
       <view class="ui-card-head">
-        <view class="panel-title ui-title-md">当前承接说明</view>
-        <view class="ui-text-helper">说明卡统一承接状态说明和弱入口</view>
+        <view class="panel-title ui-title-md">管理</view>
       </view>
-      <view class="panel-text ui-text-muted">当前版本先承接教师首页入口与老师注册申请，后续管理员审核与教师身份开通将在此基础上继续完善。</view>
       <view class="ui-info-list">
         <view class="ui-info-item">
           <view class="ui-info-label">教师标识</view>
@@ -79,7 +74,7 @@
         </view>
       </view>
       <button class="weak-entry-btn ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="goToAdminTeacherReview">
-        进入管理员审核
+        管理员审核
       </button>
     </view>
   </block>

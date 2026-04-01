@@ -2,35 +2,31 @@
   <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section interaction-hero">
     <view class="ui-card-head ui-page-head">
       <view class="hero-main ui-card-head ui-page-head-main">
-        <view class="ui-eyebrow">教师业务页</view>
         <view class="ui-title-lg">课堂互动</view>
-        <view class="ui-text-body">统一承接即时互动、待处理申请和历史互动记录，保证课堂互动入口可快速扫读。</view>
       </view>
-      <view class="hero-badge ui-tag ui-tag--active ui-page-head-badge">互动页</view>
+      <view class="hero-badge ui-tag ui-tag--active ui-page-head-badge">互动</view>
     </view>
     <view class="ui-record-actions">
-      <button type="primary" size="mini" hover-class="ui-btn-active" bindtap="goToRandomRollcall">进入随机点名</button>
-      <button class="ui-btn-secondary" size="mini" hover-class="ui-btn-active" bindtap="onTapPublishTestExample">发布测试样例</button>
+      <button type="primary" size="mini" hover-class="ui-btn-active" bindtap="goToRandomRollcall">随机点名</button>
+      <button class="ui-btn-secondary" size="mini" hover-class="ui-btn-active" bindtap="onTapPublishTestExample">发测试</button>
     </view>
   </view>
 
   <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
-    <view class="ui-state-title">课堂互动加载中</view>
-    <view class="ui-state-desc">正在同步课次、名单、互动状态和互动记录。</view>
+    <view class="ui-state-title">加载中</view>
   </view>
 
   <view wx:elif="{{pageErrorText}}" class="ui-state-block ui-error-state">
-    <view class="ui-state-title">课堂互动读取失败</view>
+    <view class="ui-state-title">加载失败</view>
     <view class="ui-state-desc">{{pageErrorText}}</view>
     <view class="ui-state-actions">
-      <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryPageLoad">重新加载</button>
+      <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryPageLoad">重试</button>
     </view>
   </view>
 
   <view class="ui-card ui-section ui-panel-card lesson-switch-card">
     <view class="ui-card-head">
       <view class="ui-title-md">历史课次</view>
-      <view class="ui-text-helper">切换课次后，互动申请、测试结果和互动记录会同步切换。</view>
     </view>
     <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll ui-scroll-x" scroll-x="true" show-scrollbar="false">
       <view class="ui-chip-list">
@@ -49,14 +45,12 @@
     </scroll-view>
     <view wx:else class="ui-empty-state">
       <view class="ui-empty-title">暂无历史课次</view>
-      <view class="ui-empty-desc">开始上课后，这里会显示可切换的课堂互动课次。</view>
     </view>
   </view>
 
   <view class="ui-card ui-section ui-panel-card interaction-state-card">
     <view class="ui-card-head">
       <view class="ui-title-md">当前互动状态</view>
-      <view class="ui-text-helper">待处理申请、当前提问和当前测试统一在这里查看。</view>
     </view>
 
     <view wx:if="{{pendingQuestionRequests.length > 0}}" class="ui-record-list">
@@ -78,7 +72,7 @@
             data-student-id="{{item.studentId}}"
             data-student-name="{{item.studentName}}"
           >
-            允许提问
+            允许
           </button>
         </view>
       </view>
@@ -106,7 +100,7 @@
 
     <view wx:if="{{currentPublishedTest}}" class="ui-record-card ui-record-card--muted test-record-card">
       <view class="ui-card-head">
-        <view class="ui-title-md">当前单选题</view>
+        <view class="ui-title-md">当前测试</view>
         <view class="ui-text-body">{{currentPublishedTest.testContent}}</view>
       </view>
       <view class="ui-info-list">
@@ -119,7 +113,7 @@
           <view class="ui-info-value">{{currentPublishedTest.testOptionsText}}</view>
         </view>
         <view class="ui-info-item">
-          <view class="ui-info-label">正确答案</view>
+          <view class="ui-info-label">答案</view>
           <view class="ui-info-value">{{currentPublishedTest.testCorrectAnswer || '-'}}</view>
         </view>
       </view>
@@ -127,7 +121,7 @@
 
     <view wx:if="{{currentPublishedTest}}" class="ui-card ui-card--subtle ui-section test-record-section">
       <view class="ui-card-head">
-        <view class="ui-title-md">当前题作答结果</view>
+        <view class="ui-title-md">作答结果</view>
       </view>
       <view wx:if="{{currentTestRecords.length > 0}}" class="ui-record-list">
         <view class="ui-record-card" wx:for="{{currentTestRecords}}" wx:key="_id">
@@ -148,8 +142,7 @@
         </view>
       </view>
       <view wx:else class="ui-empty-state">
-        <view class="ui-empty-title">当前题暂无学生作答</view>
-        <view class="ui-empty-desc">学生作答后，会在这里实时显示结果。</view>
+        <view class="ui-empty-title">暂无作答</view>
       </view>
     </view>
   </view>
@@ -157,12 +150,10 @@
   <view class="ui-card ui-section ui-panel-card history-card">
     <view class="ui-card-head">
       <view class="ui-title-md">本节互动记录</view>
-      <view class="ui-text-helper">包括提问、测试和互动评分记录。</view>
     </view>
 
     <view wx:if="{{lessonEventsLoading}}" class="ui-state-block ui-loading-state">
-      <view class="ui-state-title">互动记录加载中</view>
-      <view class="ui-state-desc">正在同步本节课的提问、测试与评分记录。</view>
+      <view class="ui-state-title">加载中</view>
     </view>
 
     <view wx:elif="{{lessonEvents.length > 0}}" class="ui-record-list">
@@ -175,15 +166,14 @@
           <view class="test-score" wx:if="{{item.score}}">+{{item.score}}</view>
         </view>
         <view wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testSummary}}" class="ui-text-muted">{{item.testSummary}}</view>
-        <view wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testContent}}" class="ui-text-muted">内容：{{item.testContent}}</view>
-        <view wx:if="{{item.type === 'test_record' && item.testAnswer}}" class="ui-text-muted">答案：{{item.testAnswer}}</view>
+        <view wx:if="{{(item.type === 'test_record' || item.type === 'test_publish') && item.testContent}}" class="ui-text-muted">题目：{{item.testContent}}</view>
+        <view wx:if="{{item.type === 'test_record' && item.testAnswer}}" class="ui-text-muted">作答：{{item.testAnswer}}</view>
         <view class="ui-text-helper">{{item.displayTime}}</view>
       </view>
     </view>
 
     <view wx:else class="ui-empty-state">
-      <view class="ui-empty-title">本节暂无互动记录</view>
-      <view class="ui-empty-desc">提问、测试或评分产生后，会在这里显示。</view>
+      <view class="ui-empty-title">暂无记录</view>
     </view>
   </view>
 </view>
