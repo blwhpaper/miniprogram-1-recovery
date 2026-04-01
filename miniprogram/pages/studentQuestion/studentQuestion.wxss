@@ -17,7 +17,7 @@
 }
 
 .lamp-stage {
-  padding: 12rpx 0 4rpx;
+  padding: 20rpx 0 8rpx;
 }
 
 .lamp-stage__crest {
@@ -30,8 +30,8 @@
 
 .lamp-symbol {
   position: relative;
-  width: 260rpx;
-  height: 220rpx;
+  width: 280rpx;
+  height: 228rpx;
 }
 
 .lamp-symbol__flame {
@@ -115,8 +115,30 @@
   color: var(--ui-color-text-muted);
 }
 
+.question-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+  text-align: center;
+}
+
+.question-state__title {
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--ui-color-text);
+}
+
+.question-state__desc {
+  font-size: var(--ui-font-sm);
+  line-height: 1.8;
+  color: var(--ui-color-text-muted);
+}
+
 .question-status {
   margin-top: 0;
+  text-align: center;
 }
 
 .info-block {
@@ -125,8 +147,30 @@
 
 .tip {
   margin-top: 0;
+  text-align: center;
 }
 
 .submit-btn {
   margin: 0;
+  border-radius: 999rpx !important;
+  font-size: 32rpx;
+}
+
+.question-hero .status {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.question-hero .ui-feedback--success {
+  background: rgba(236, 253, 245, 0.18);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.question-hero .ui-feedback--disabled,
+.question-hero .ui-feedback--warning {
+  background: rgba(15, 23, 42, 0.16);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.16);
 }

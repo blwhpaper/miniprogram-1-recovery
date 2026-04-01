@@ -3,18 +3,18 @@
     <view class="ui-hero-section__content">
       <view class="ui-hero-section__head">
         <view class="ui-card-head ui-page-head-main">
-          <view class="ui-hero-section__desc">学生端提问请求页</view>
+          <view class="ui-hero-section__desc">学生发起提问信号，等待老师处理</view>
           <view class="ui-hero-section__title">主动提问</view>
         </view>
-        <view class="ui-hero-pill">神灯</view>
+        <view class="ui-hero-pill">{{heroStatusTag}}</view>
       </view>
-      <view class="status ui-feedback ui-feedback--{{canSubmitQuestionRequest ? 'info' : 'disabled'}}">
-        {{pageStatusText}}
+      <view class="status ui-feedback ui-feedback--{{heroStatusType}}">
+        {{heroStatusText}}
       </view>
     </view>
   </view>
 
-  <view class="question-card ui-card ui-section ui-panel-card">
+  <view class="question-card ui-card ui-section ui-panel-card ui-panel-card--focus">
     <view class="lamp-stage ui-empty-panel">
       <view class="lamp-stage__crest"></view>
       <view class="lamp-symbol">
@@ -29,11 +29,17 @@
       <view class="lamp-stage__desc">智慧提问，开启精彩课堂</view>
     </view>
 
-    <view class="question-status ui-feedback ui-feedback--info">本课已提问 {{questionRequestCount}} / 3</view>
+    <view class="question-state">
+      <view class="question-state__title">{{requestStageTitle}}</view>
+      <view class="question-state__desc">{{requestStageDesc}}</view>
+    </view>
 
-    <view class="tip ui-feedback ui-feedback--{{latestQuestionStatusText ? 'matched' : !signSuccess ? 'warning' : canSubmitQuestionRequest ? 'success' : 'idle'}}" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
-    <view class="tip ui-feedback ui-feedback--warning" wx:elif="{{!signSuccess}}">
-      先签到后再发起提问
+    <view class="question-status ui-feedback ui-feedback--{{requestSummaryType}}">
+      {{requestSummaryText}}
+    </view>
+
+    <view class="tip ui-feedback ui-feedback--{{requestNoticeType}}">
+      {{requestNoticeText}}
     </view>
   </view>
 
@@ -55,7 +61,7 @@
 
   <view class="ui-bottom-bar">
     <view class="ui-bottom-bar__content">
-      <view class="ui-bottom-bar__hint">{{pageStatusText}}</view>
+      <view class="ui-bottom-bar__hint">{{bottomHintText}}</view>
       <view class="ui-bottom-bar__actions">
         <button
           class="submit-btn"
@@ -64,7 +70,7 @@
           bindtap="submitQuestionRequest"
           disabled="{{!canSubmitQuestionRequest}}"
         >
-          发起提问
+          {{actionButtonText}}
         </button>
       </view>
     </view>

@@ -23,6 +23,7 @@ Page({
     interactionScoreOptions: [60, 80, 95],
     pendingQuestionRequests: [],
     currentQuestionRequest: null,
+    questionRequestHistory: [],
     currentPublishedTest: null,
     currentTestRecords: [],
     signCount: 0,
@@ -401,17 +402,49 @@ Page({
         _id: String(item._id || ""),
         studentId: String(item.studentId || ""),
         studentName: String(item.studentName || ""),
-        requestId: this.getQuestionRequestId(item)
+        requestId: this.getQuestionRequestId(item),
+        displayTime: String(item.displayTime || "")
       })),
       currentQuestionRequest: currentQuestionRequest
         ? {
           _id: String(currentQuestionRequest._id || ""),
           studentId: String(currentQuestionRequest.studentId || ""),
           studentName: String(currentQuestionRequest.studentName || ""),
-          requestId: this.getQuestionRequestId(currentQuestionRequest)
+          requestId: this.getQuestionRequestId(currentQuestionRequest),
+          displayTime: String(currentQuestionRequest.displayTime || "")
         }
         : null
     });
+  },
+
+  getStudentAvatarMeta(studentId = "", studentName = "") {
+    const normalizedStudentId = String(studentId || "").trim();
+    const normalizedStudentName = String(studentName || "").trim();
+    const roster = Array.isArray(this.data.baseRosterList) ? this.data.baseRosterList : [];
+    const matchedStudent = roster.find((item) => {
+      const itemStudentId = String(item.studentId || item.id || "").trim();
+      const itemName = String(item.name || item.studentName || "").trim();
+      return (
+        (normalizedStudentId && itemStudentId === normalizedStudentId) ||
+        (normalizedStudentName && itemName === normalizedStudentName)
+      );
+    }) || {};
+    const avatarUrl = String(matchedStudent.img || "").trim();
+    const avatarText = normalizedStudentName ? normalizedStudentName.slice(0, 1) : "问";
+
+    return {
+      avatarUrl,
+      avatarText
+    };
+  },
+
+  decorateQuestionRequestItem(item = {}, status = "") {
+    const avatarMeta = this.getStudentAvatarMeta(item.studentId, item.studentName);
+    return {
+      ...item,
+      ...avatarMeta,
+      statusTagText: status === "approved" ? "进行中" : "待处理"
+    };
   },
 
   getAttendanceListSignature(list = []) {
@@ -723,12 +756,18 @@ Page({
     const pendingQuestionRequests = requestEvents.filter((item) => {
       const requestId = this.getQuestionRequestId(item);
       return requestId && !approvedRequestIds.has(requestId) && !scoredRequestIds.has(requestId);
-    });
+    }).map((item) => this.decorateQuestionRequestItem(item, "pending"));
 
-    const currentQuestionRequest = approvedEvents.find((item) => {
+    const currentQuestionRequestSource = approvedEvents.find((item) => {
       const requestId = this.getQuestionRequestId(item);
       return requestId && !scoredRequestIds.has(requestId);
     }) || null;
+    const currentQuestionRequest = currentQuestionRequestSource
+      ? this.decorateQuestionRequestItem(currentQuestionRequestSource, "approved")
+      : null;
+    const questionRequestHistory = lessonEvents
+      .filter((item) => item.type === "question_request" || item.type === "question_approved" || item.type === "question_score")
+      .slice(0, 10);
 
     const nextSignature = this.getQuestionStateSignature(pendingQuestionRequests, currentQuestionRequest);
     const currentSignature = this.getQuestionStateSignature(
@@ -739,8 +778,16 @@ Page({
     if (nextSignature !== currentSignature) {
       this.setData({
         pendingQuestionRequests,
-        currentQuestionRequest
+        currentQuestionRequest,
+        questionRequestHistory
       });
+      return;
+    }
+
+    const nextHistorySignature = this.getLessonEventsSignature(questionRequestHistory);
+    const currentHistorySignature = this.getLessonEventsSignature(this.data.questionRequestHistory);
+    if (nextHistorySignature !== currentHistorySignature) {
+      this.setData({ questionRequestHistory });
     }
   },
 
@@ -839,6 +886,7 @@ Page({
       lessonEvents: [],
       pendingQuestionRequests: [],
       currentQuestionRequest: null,
+      questionRequestHistory: [],
       currentPublishedTest: null,
       currentTestRecords: []
     });
@@ -1116,6 +1164,13 @@ Page({
     await this.loadLessonEvents();
     wx.showToast({
       title: "已允许学生提问",
+      icon: "none"
+    });
+  },
+
+  onTapDeferQuestionRequest() {
+    wx.showToast({
+      title: "请求已保留，稍后可继续处理",
       icon: "none"
     });
   },

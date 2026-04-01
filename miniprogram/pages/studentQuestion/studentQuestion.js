@@ -14,10 +14,22 @@ Page({
     hasPendingQuestionRequest: false,
     latestQuestionStatusText: "",
     latestQuestionStatusType: "",
-    canSubmitQuestionRequest: false
+    canSubmitQuestionRequest: false,
+    heroStatusTag: "未发起",
+    heroStatusType: "disabled",
+    heroStatusText: "当前还未发起提问请求",
+    requestStageTitle: "准备发起提问",
+    requestStageDesc: "点击下方按钮后，老师会在教师端收到你的提问申请。",
+    requestSummaryText: "本课已发起提问 0 / 3 次",
+    requestSummaryType: "info",
+    requestNoticeText: "请先完成签到，再发起提问。",
+    requestNoticeType: "warning",
+    actionButtonText: "发起提问",
+    bottomHintText: "当前还未发起提问请求"
   },
 
   questionPollingTimer: null,
+  hasHydratedQuestionStatus: false,
 
   getWishScoreStatusText(score = 0) {
     const numericScore = Number(score || 0);
@@ -54,6 +66,83 @@ Page({
     }
 
     return changedState;
+  },
+
+  buildQuestionUiState(baseState = {}) {
+    const signSuccess = Boolean(baseState.signSuccess);
+    const latestQuestionStatusType = String(baseState.latestQuestionStatusType || "").trim();
+    const latestQuestionStatusText = String(baseState.latestQuestionStatusText || "").trim();
+    const questionRequestCount = Number(baseState.questionRequestCount || 0);
+    const canSubmitQuestionRequest = Boolean(baseState.canSubmitQuestionRequest);
+
+    const uiState = {
+      heroStatusTag: "未发起",
+      heroStatusType: "disabled",
+      heroStatusText: signSuccess ? "当前还未发起提问请求" : "请先签到后再发起提问",
+      requestStageTitle: signSuccess ? "准备发起提问" : "签到后可发起提问",
+      requestStageDesc: signSuccess
+        ? "点击下方按钮后，老师会在教师端收到你的提问申请。"
+        : "当前课堂尚未签到成功，完成签到后即可向老师发起提问信号。",
+      requestSummaryText: `本课已发起提问 ${questionRequestCount} / 3 次`,
+      requestSummaryType: questionRequestCount > 0 ? "info" : "idle",
+      requestNoticeText: signSuccess ? "点击下方按钮即可发起提问。" : "请先完成签到，再发起提问。",
+      requestNoticeType: signSuccess ? "info" : "warning",
+      actionButtonText: "发起提问",
+      bottomHintText: signSuccess ? "发起后请留意老师处理结果" : "请先完成签到"
+    };
+
+    if (latestQuestionStatusType === "pending") {
+      uiState.heroStatusTag = "等待中";
+      uiState.heroStatusType = "info";
+      uiState.heroStatusText = "请求已发送，等待老师处理";
+      uiState.requestStageTitle = "请求已发送";
+      uiState.requestStageDesc = "老师正在查看你的提问申请，请准备口头提问内容。";
+      uiState.requestNoticeText = "请求已发送，等待老师处理。";
+      uiState.requestNoticeType = "info";
+      uiState.actionButtonText = "请求已发送";
+      uiState.bottomHintText = "老师处理后，页面会自动更新";
+      return uiState;
+    }
+
+    if (latestQuestionStatusType === "approved") {
+      uiState.heroStatusTag = "已允许";
+      uiState.heroStatusType = "success";
+      uiState.heroStatusText = "老师已允许，请开始口头提问";
+      uiState.requestStageTitle = "老师已允许";
+      uiState.requestStageDesc = "请立即开始口头提问，保持表达简洁清晰。";
+      uiState.requestNoticeText = "老师已允许，请开始口头提问。";
+      uiState.requestNoticeType = "success";
+      uiState.actionButtonText = "老师已允许";
+      uiState.bottomHintText = "当前已进入口头提问阶段";
+      return uiState;
+    }
+
+    if (latestQuestionStatusType === "scored") {
+      uiState.heroStatusTag = "已完成";
+      uiState.heroStatusType = "success";
+      uiState.heroStatusText = "本次提问已完成";
+      uiState.requestStageTitle = "本次提问已完成";
+      uiState.requestStageDesc = latestQuestionStatusText || "本次提问流程已结束。";
+      uiState.requestNoticeText = latestQuestionStatusText || "本次提问流程已结束。";
+      uiState.requestNoticeType = "success";
+      uiState.actionButtonText = canSubmitQuestionRequest ? "再次发起提问" : "发起提问";
+      uiState.bottomHintText = canSubmitQuestionRequest ? "如需再次提问，可重新发起申请" : "本次提问流程已结束";
+      return uiState;
+    }
+
+    if (latestQuestionStatusType === "exhausted" || (!canSubmitQuestionRequest && signSuccess && questionRequestCount >= 3)) {
+      uiState.heroStatusTag = "已用完";
+      uiState.heroStatusType = "disabled";
+      uiState.heroStatusText = "本课提问次数已用完";
+      uiState.requestStageTitle = "本课提问次数已用完";
+      uiState.requestStageDesc = "本节课最多可发起 3 次提问，请等待下次课堂。";
+      uiState.requestNoticeText = latestQuestionStatusText || "本节课提问次数已用完。";
+      uiState.requestNoticeType = "warning";
+      uiState.bottomHintText = "本节课暂不可继续发起提问";
+      return uiState;
+    }
+
+    return uiState;
   },
 
   shouldKeepQuestionPolling(state = {}) {
@@ -308,6 +397,7 @@ Page({
       } else if (!canSubmitQuestionRequest) {
         nextState.pageStatusText = signSuccess ? "暂不可提问" : "未签到";
       }
+      Object.assign(nextState, this.buildQuestionUiState(nextState));
       if (apply) {
         const changedState = this.syncPageState(nextState);
         console.log("[studentQuestion] setData", {
@@ -345,11 +435,22 @@ Page({
       ...signState,
       ...questionState
     };
+    Object.assign(nextState, this.buildQuestionUiState(nextState));
+    const previousQuestionStatusType = String(this.data.latestQuestionStatusType || "").trim();
+    const nextQuestionStatusType = String(nextState.latestQuestionStatusType || "").trim();
+    const shouldVibrateOnApproved =
+      this.hasHydratedQuestionStatus &&
+      previousQuestionStatusType !== "approved" &&
+      nextQuestionStatusType === "approved";
     const changedState = this.syncPageState(nextState);
     console.log("[studentQuestion] setData", {
       changedKeys: Object.keys(changedState),
       ...nextState
     });
+    if (shouldVibrateOnApproved) {
+      wx.vibrateShort({ type: "light" });
+    }
+    this.hasHydratedQuestionStatus = true;
     this.syncQuestionPolling(nextState);
   },
 
