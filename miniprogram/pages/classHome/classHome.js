@@ -1,4 +1,3 @@
-const db = wx.cloud.database()
 const { ensureApprovedTeacherSession } = require("../../utils/teacherSession")
 
 Page({
@@ -95,6 +94,12 @@ Page({
     const rawValue = value && typeof value.toDate === "function" ? value.toDate() : value
     const date = rawValue instanceof Date ? rawValue : new Date(rawValue)
     return date instanceof Date && !Number.isNaN(date.getTime()) ? date.getTime() : 0
+  },
+
+  getElapsedMinutesFromLesson(lesson = null) {
+    const startTimestamp = this.getLessonTimestamp(lesson?.startTime || lesson?.createdAt)
+    if (!startTimestamp) return 0
+    return Math.floor((Date.now() - startTimestamp) / (60 * 1000))
   },
 
   clearLessonLifecycleTimers() {
@@ -219,12 +224,51 @@ Page({
     if (!classId || !normalizedLessonId) return false
 
     try {
-      await db.collection("lessons").doc(normalizedLessonId).update({
+      console.log("[classHome] endCurrentLesson start", {
+        classId,
+        incomingLessonId: String(lessonId || "").trim(),
+        dataLessonId: String(this.data.lessonId || "").trim(),
+        normalizedLessonId,
+        silent
+      })
+      const endLessonRes = await wx.cloud.callFunction({
+        name: "endLesson",
         data: {
-          status: "ended",
-          endTime: db.serverDate()
+          classId,
+          lessonId: normalizedLessonId
         }
       })
+      const endLessonResult = endLessonRes?.result || {}
+      console.log("[classHome] endCurrentLesson update result", {
+        classId,
+        lessonId: normalizedLessonId,
+        errMsg: endLessonResult && endLessonResult.errMsg,
+        rawUpdateRes: endLessonResult,
+        rawUpdateResJson: JSON.stringify(endLessonResult),
+        matched: endLessonResult && endLessonResult.matched,
+        updated: endLessonResult && endLessonResult.updated,
+        modified: endLessonResult && endLessonResult.modified,
+        stats: endLessonResult && endLessonResult.stats,
+        statsMatched: endLessonResult && endLessonResult.stats && endLessonResult.stats.matched,
+        statsUpdated: endLessonResult && endLessonResult.stats && endLessonResult.stats.updated,
+        statsModified: endLessonResult && endLessonResult.stats && endLessonResult.stats.modified
+      })
+      if (!endLessonResult.success) {
+        throw new Error(String(endLessonResult.errMsg || "").trim() || "下课失败")
+      }
+      const updatedCount = Number(endLessonResult.updated || 0)
+      const alreadyEnded = endLessonResult.alreadyEnded === true
+      console.log("[classHome] endCurrentLesson cloud result", {
+        classId,
+        lessonId: normalizedLessonId,
+        endLessonResult
+      })
+      if (!alreadyEnded && updatedCount < 1) {
+        if (!silent) {
+          wx.showToast({ title: "下课未生效，请重试", icon: "none" })
+        }
+        return false
+      }
       wx.removeStorageSync(`LATEST_LESSON_${classId}`)
       this.clearCachedQrCode(classId, normalizedLessonId)
       this.clearLessonLifecycleTimers()
@@ -232,7 +276,8 @@ Page({
         lessonId: "",
         qrcode: "",
         currentLessonStatusText: "暂无当前课",
-        showEndLessonButton: false
+        showEndLessonButton: false,
+        debugQrScene: ""
       })
       if (!silent) {
         wx.showToast({ title: "当前课已结束", icon: "success" })
@@ -258,6 +303,14 @@ Page({
     const now = Date.now()
     const promptDelay = startTimestamp + (100 * 60 * 1000) - now
     const autoEndDelay = startTimestamp + (115 * 60 * 1000) - now
+    console.log("[classHome] scheduleLessonLifecycle", {
+      lessonId,
+      startTime: lesson?.startTime || lesson?.createdAt || null,
+      startTimestamp,
+      elapsedMinutes: this.getElapsedMinutesFromLesson(lesson),
+      promptDelay,
+      autoEndDelay
+    })
 
     this.currentLifecycleLessonId = lessonId
 
@@ -281,6 +334,12 @@ Page({
   promptEndLessonIfNeeded(lessonId = "") {
     const normalizedLessonId = String(lessonId || "").trim()
     if (!normalizedLessonId || normalizedLessonId !== String(this.data.lessonId || "").trim()) return
+    const currentLessonId = String(this.data.lessonId || "").trim()
+    console.log("[classHome] promptEndLessonIfNeeded", {
+      incomingLessonId: normalizedLessonId,
+      currentLessonId,
+      lifecycleLessonId: String(this.currentLifecycleLessonId || "").trim()
+    })
 
     wx.showModal({
       title: "提示下课",
@@ -289,6 +348,10 @@ Page({
       cancelText: "暂不下课",
       success: (res) => {
         if (res.confirm) {
+          console.log("[classHome] promptEndLessonIfNeeded confirm", {
+            confirmedLessonId: normalizedLessonId,
+            currentLessonId: String(this.data.lessonId || "").trim()
+          })
           this.endCurrentLesson({ lessonId: normalizedLessonId })
         }
       }
@@ -311,6 +374,16 @@ Page({
       const resolveResult = await this.resolveCurrentLessonByCloud({
         classId,
         lessonId: cachedLessonId
+      })
+      console.log("[classHome] restoreCurrentLessonQr resolved", {
+        classId,
+        cachedLessonId,
+        ok: !!resolveResult.ok,
+        reason: String(resolveResult.reason || "").trim(),
+        resolvedLessonId: String(resolveResult.lesson?._id || "").trim(),
+        resolvedLessonStatus: String(resolveResult.lesson?.status || "").trim(),
+        resolvedLessonStartTime: resolveResult.lesson?.startTime || null,
+        autoEndedLessonIds: resolveResult.autoEndedLessonIds || []
       })
 
       if (resolveResult.ok && resolveResult.lesson) {
@@ -403,6 +476,15 @@ Page({
       })
       const currentLessonResult = await this.resolveCurrentLessonByCloud({ classId })
       const existedActiveLesson = currentLessonResult.ok ? currentLessonResult.lesson : null
+      console.log("[classHome] createSignCode current lesson result", {
+        classId,
+        ok: !!currentLessonResult.ok,
+        reason: String(currentLessonResult.reason || "").trim(),
+        existedActiveLessonId: String(existedActiveLesson?._id || "").trim(),
+        existedActiveLessonStatus: String(existedActiveLesson?.status || "").trim(),
+        existedActiveLessonStartTime: existedActiveLesson?.startTime || null,
+        autoEndedLessonIds: currentLessonResult.autoEndedLessonIds || []
+      })
       if (existedActiveLesson) {
         wx.setStorageSync(`LATEST_LESSON_${classId}`, String(existedActiveLesson._id || "").trim())
         await this.restoreCurrentLessonQr()
@@ -447,6 +529,12 @@ Page({
       this.setData({
         currentLessonStatusText: "进行中",
         showEndLessonButton: true
+      })
+      console.log("[classHome] createSignCode final state", {
+        classId,
+        createdLessonId: lessonId,
+        dataLessonId: String(this.data.lessonId || "").trim(),
+        debugQrScene: String(this.data.debugQrScene || "").trim()
       })
       this.scheduleLessonLifecycle({
         _id: lessonId,

@@ -1199,6 +1199,19 @@ Page({
     }
   },
 
+  getStoredLatestLessonId() {
+    const classId = String(this.data.classId || "").trim();
+    if (!classId) return "";
+    return String(wx.getStorageSync(`LATEST_LESSON_${classId}`) || "").trim();
+  },
+
+  findExistingLessonId(lessons = [], lessonId = "") {
+    const targetLessonId = String(lessonId || "").trim();
+    if (!targetLessonId) return "";
+    const matchedLesson = (lessons || []).find((item) => String(item?._id || "").trim() === targetLessonId);
+    return matchedLesson ? targetLessonId : "";
+  },
+
   async syncLessonsAfterReturn() {
     const classId = String(this.data.classId || "").trim();
     if (!classId) return false;
@@ -1233,6 +1246,26 @@ Page({
   },
 
   resolveInitialLessonId(lessons = []) {
+    const incomingLessonId = this.findExistingLessonId(
+      lessons,
+      String(this.data.selectedLessonId || this.data.lessonId || "").trim()
+    );
+    if (incomingLessonId) {
+      return incomingLessonId;
+    }
+
+    const cachedLatestLessonId = this.findExistingLessonId(lessons, this.getStoredLatestLessonId());
+    if (cachedLatestLessonId) {
+      return cachedLatestLessonId;
+    }
+
+    const activeLessonId = String(
+      (lessons || []).find((item) => String(item?.status || "").trim() === "active")?._id || ""
+    ).trim();
+    if (activeLessonId) {
+      return activeLessonId;
+    }
+
     if (lessons.length > 0) {
       return String(lessons[0]?._id || "").trim();
     }
