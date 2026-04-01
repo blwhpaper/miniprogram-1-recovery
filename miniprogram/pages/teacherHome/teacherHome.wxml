@@ -1,11 +1,11 @@
 <view class="container ui-page ui-page--stack">
   <view class="hero-card ui-card ui-hero-card ui-hero-card--teacher ui-section">
-    <view class="hero-head">
-      <view class="hero-head-main ui-card-head">
+    <view class="hero-head ui-page-head">
+      <view class="hero-head-main ui-card-head ui-page-head-main">
         <view class="hero-kicker ui-eyebrow">课堂签到</view>
         <view class="hero-title ui-title-lg">{{teacherName}}</view>
       </view>
-      <view class="hero-status ui-tag ui-tag--{{teacherApplyStatus || 'inactive'}}">{{teacherStatusText}}</view>
+      <view class="hero-status ui-tag ui-tag--{{teacherApplyStatus || 'inactive'}} ui-page-head-badge">{{teacherStatusText}}</view>
     </view>
     <view class="hero-desc ui-text-body">{{teacherLeadText}}</view>
   </view>
@@ -24,7 +24,7 @@
   </view>
 
   <block wx:else>
-    <view wx:if="{{hasTeacherSession}}" class="panel ui-card ui-section">
+    <view wx:if="{{hasTeacherSession}}" class="panel ui-card ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="panel-title ui-title-md">教师工作区</view>
         <view class="ui-text-helper">主入口已就绪，辅助操作弱化展示</view>
@@ -37,7 +37,7 @@
       </view>
     </view>
 
-    <view wx:else class="panel ui-card ui-section">
+    <view wx:else class="panel ui-card ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="panel-title ui-title-md">老师注册申请</view>
         <view class="ui-text-helper">申请态、待审核和教师态切换都在这里承接</view>
@@ -64,7 +64,7 @@
       </view>
     </view>
 
-    <view class="panel panel--muted ui-card ui-notice-card ui-section">
+    <view class="panel panel--muted ui-card ui-notice-card ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="panel-title ui-title-md">当前承接说明</view>
         <view class="ui-text-helper">说明卡统一承接状态说明和弱入口</view>

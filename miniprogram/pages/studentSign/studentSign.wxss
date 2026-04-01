@@ -1,119 +1,38 @@
-.box {
-  min-height: 100vh;
-  padding: 40rpx 32rpx;
-  box-sizing: border-box;
-  background: #f4f7fb;
+.student-sign-page {
+  align-items: stretch;
 }
 
-.title {
-  font-size: 40rpx;
-  font-weight: 700;
-  line-height: 1.4;
-  color: #111827;
+.hero-card {
+  gap: var(--ui-space-4);
 }
 
 .input,
 .leave-box,
 .register-box {
-  margin-top: 24rpx;
+  margin-top: 0;
 }
 
-.input,
-.leave-box,
-.leave-result-card,
 .register-box {
-  padding: 28rpx 24rpx;
-  border-radius: 20rpx;
-  box-sizing: border-box;
+  gap: var(--ui-space-4);
 }
 
-.input,
-.leave-box,
 .leave-result-card {
-  background: #ffffff;
-  box-shadow: 0 10rpx 24rpx rgba(31, 41, 55, 0.06);
-}
-
-.title,
-.tip,
-.success {
-  word-break: break-word;
-}
-
-.tip {
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #111827;
-}
-
-.success {
-  margin-top: 24rpx;
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #16a34a;
-}
-
-.register-box {
-  background: #fff7e6;
-  border: 2rpx solid #ffd591;
-}
-
-.register-tip {
-  color: #ad4e00;
-  font-size: 28rpx;
-  line-height: 1.6;
-  margin-bottom: 20rpx;
+  margin-top: 0;
 }
 
 .register-btn {
-  background: #fa8c16;
-  color: #fff;
-  border-radius: 12rpx;
-  font-size: 30rpx;
+  margin: 0;
 }
 
-.leave-feedback {
-  margin: 16rpx 0 20rpx;
-  padding: 18rpx 20rpx;
-  border-radius: 12rpx;
-  font-size: 26rpx;
-  line-height: 1.6;
-  background: #fafafa;
-  color: #595959;
-}
-
-.leave-feedback--empty,
-.leave-feedback--idle {
-  background: #fafafa;
-  color: #595959;
-}
-
-.leave-feedback--matched {
-  background: #f6ffed;
-  color: #237804;
-}
-
-.leave-feedback--not_found,
-.leave-feedback--duplicate,
-.leave-feedback--self,
-.leave-feedback--invalid {
-  background: #fff2f0;
-  color: #cf1322;
-}
-
-.leave-result-card {
-  margin-top: 20rpx;
-  color: #262626;
-  font-size: 26rpx;
-  line-height: 1.8;
-}
-
-.leave-result__title {
-  margin-bottom: 8rpx;
-  font-size: 28rpx;
-  font-weight: 600;
+.success-card {
+  margin-top: 0;
 }
 
 .logout-btn {
-  margin-top: 40rpx;
+  margin-top: 0;
+}
+
+.answer-btn {
+  width: 100%;
+  margin-top: 16rpx;
 }

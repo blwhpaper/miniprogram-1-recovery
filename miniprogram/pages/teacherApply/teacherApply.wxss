@@ -6,23 +6,8 @@
   gap: var(--ui-space-4);
 }
 
-.hero-head-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.hero-status {
-  align-self: flex-start;
-}
-
 .hero-summary {
   margin-top: 4rpx;
-}
-
-.status-card,
-.notice-card,
-.form-card {
-  border: 1rpx solid rgba(37, 99, 235, 0.08);
 }
 
 .inline-tag {

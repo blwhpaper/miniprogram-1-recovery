@@ -1,16 +1,16 @@
 <view class="admin-review-page ui-page ui-page--stack">
   <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section hero-card">
-    <view class="ui-card-head ui-card-head--row">
-      <view class="hero-head-main ui-card-head">
+    <view class="ui-card-head ui-page-head">
+      <view class="hero-head-main ui-card-head ui-page-head-main">
         <view class="ui-eyebrow">管理员审核</view>
         <view class="ui-title-lg">管理员待审核申请</view>
         <view class="ui-text-body">当前页只处理待审核申请、管理员口令校验和老师测试态重置，不展示历史审核记录。</view>
       </view>
-      <view class="hero-status ui-tag ui-tag--{{pageState === 'ready' ? 'active' : pageState === 'loading' ? 'pending' : pageState === 'unauthorized' ? 'danger' : 'inactive'}}">{{stateTitle}}</view>
+      <view class="hero-status ui-tag ui-tag--{{pageState === 'ready' ? 'active' : pageState === 'loading' ? 'pending' : pageState === 'unauthorized' ? 'danger' : 'inactive'}} ui-page-head-badge">{{stateTitle}}</view>
     </view>
   </view>
 
-  <view class="ui-card state-card state-{{pageState}} ui-section">
+  <view class="ui-card state-card ui-panel-card state-{{pageState}} ui-section">
     <view class="ui-card-head">
       <view class="ui-title-md">{{stateTitle}}</view>
       <view class="ui-text-body">{{stateDescription}}</view>
@@ -143,7 +143,7 @@
     </view>
   </view>
 
-  <view wx:elif="{{pageState === 'empty'}}" class="ui-card ui-empty-state empty-card">
+  <view wx:elif="{{pageState === 'empty'}}" class="ui-card ui-empty-state ui-panel-card--empty empty-card">
     <view class="ui-empty-title">当前没有待审核申请</view>
     <view class="ui-empty-desc">{{emptyText}}</view>
     <view class="ui-state-actions">

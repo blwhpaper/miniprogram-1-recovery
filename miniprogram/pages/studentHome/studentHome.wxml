@@ -1,14 +1,14 @@
 <view class="page ui-page">
   <view class="card hero-card ui-card ui-hero-card ui-hero-card--primary ui-section">
-    <view class="title-row">
-      <view class="title-wrap ui-card-head">
+    <view class="title-row ui-page-head">
+      <view class="title-wrap ui-card-head ui-page-head-main">
         <view class="ui-eyebrow">课堂签到</view>
         <view class="title ui-title-lg">学生主页</view>
       </view>
-      <view class="page-badge ui-tag ui-tag--active">当前课入口</view>
+      <view class="page-badge ui-tag ui-tag--active ui-page-head-badge">当前课入口</view>
     </view>
 
-    <view class="hero-block ui-card--info ui-section">
+    <view class="hero-block ui-card ui-card--info ui-section">
       <view class="hero-header">
         <view class="hero-label ui-eyebrow">{{pageLeadText}}</view>
         <view class="hero-status ui-title-hero">{{statusText}}</view>
@@ -34,7 +34,7 @@
   </view>
 
   <block wx:else>
-    <view wx:if="{{hasBoundStudentSession}}" class="info-block ui-card ui-card--subtle ui-section">
+    <view wx:if="{{hasBoundStudentSession}}" class="info-block ui-card ui-card--subtle ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="ui-title-md">学生信息</view>
         <view class="ui-text-helper">当前绑定的身份信息</view>
@@ -51,7 +51,7 @@
       </view>
     </view>
 
-    <view wx:if="{{hasBoundStudentSession && showLessonScoreSummary}}" class="summary-block ui-card ui-card--subtle ui-section">
+    <view wx:if="{{hasBoundStudentSession && showLessonScoreSummary}}" class="summary-block ui-card ui-card--subtle ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="summary-title ui-title-md">本课汇总</view>
         <view class="ui-text-helper">当前课课堂承接与积分状态</view>
@@ -75,7 +75,7 @@
       </view>
     </view>
 
-    <view class="lesson-block ui-card ui-notice-card ui-section">
+    <view class="lesson-block ui-card ui-notice-card ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="lesson-summary-title ui-title-md">当前课承接</view>
         <view class="ui-text-helper">用于说明当前入口将如何承接到课堂操作</view>
@@ -83,7 +83,7 @@
       <view class="tip ui-text-muted">{{summaryText}}</view>
     </view>
 
-    <view wx:if="{{showQuestionEntryButton || (hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result') || showTeacherHomeEntry}}" class="action-card ui-card ui-section">
+    <view wx:if="{{showQuestionEntryButton || (hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result') || showTeacherHomeEntry}}" class="action-card ui-card ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="ui-title-md">快捷操作</view>
         <view class="ui-text-helper">常用入口集中展示</view>

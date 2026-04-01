@@ -1,12 +1,12 @@
 <view class="teacher-apply-page ui-page ui-page--stack">
   <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section hero-card">
-    <view class="ui-card-head ui-card-head--row">
-      <view class="hero-head-main ui-card-head">
+    <view class="ui-card-head ui-page-head">
+      <view class="hero-head-main ui-card-head ui-page-head-main">
         <view class="ui-eyebrow">教师申请</view>
         <view class="ui-title-lg">老师注册申请</view>
         <view class="ui-text-body">当前页统一承接老师注册信息填写、申请状态回显和提交流程。</view>
       </view>
-      <view class="hero-status ui-tag ui-tag--{{applicationStatus || 'inactive'}}">{{applicationStatusText}}</view>
+      <view class="hero-status ui-tag ui-tag--{{applicationStatus || 'inactive'}} ui-page-head-badge">{{applicationStatusText}}</view>
     </view>
     <view class="hero-summary ui-info-list">
       <view class="ui-info-item">
@@ -30,7 +30,7 @@
   </view>
 
   <block wx:else>
-    <view class="ui-card ui-card--subtle ui-section status-card">
+    <view class="ui-card ui-card--subtle ui-section ui-panel-card status-card">
       <view class="ui-card-head">
         <view class="ui-title-md">当前申请状态</view>
         <view class="ui-text-helper">状态、可提交性和当前表单内容统一在这里说明。</view>
@@ -50,7 +50,7 @@
       <view class="ui-text-muted">{{applicationSummaryText}}</view>
     </view>
 
-    <view class="ui-card ui-notice-card ui-section notice-card">
+    <view class="ui-card ui-notice-card ui-section ui-panel-card notice-card">
       <view class="ui-card-head">
         <view class="ui-title-md">申请说明</view>
         <view class="ui-text-helper">本轮只统一视觉样式，不改动原有申请、回显和审核流转逻辑。</view>
@@ -58,7 +58,7 @@
       <view class="ui-text-muted">表单提交后进入审核流程，请填写最小联系信息，避免审核时无法联系。</view>
     </view>
 
-    <view class="ui-card ui-section ui-form-card form-card">
+    <view class="ui-card ui-section ui-form-card ui-panel-card form-card">
       <view class="ui-card-head">
         <view class="ui-title-md">填写申请信息</view>
         <view class="ui-text-helper">请填写基础联系信息，避免审核时无法联系。</view>

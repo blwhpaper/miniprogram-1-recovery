@@ -2,10 +2,6 @@
   align-items: stretch;
 }
 
-.lesson-scroll {
-  white-space: nowrap;
-}
-
 .test-record-section {
   margin-top: 4rpx;
 }

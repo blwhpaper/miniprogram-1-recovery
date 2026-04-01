@@ -1,13 +1,16 @@
 <view class="interaction-page ui-page ui-page--stack">
-  <view class="ui-card ui-hero-card ui-section">
-    <view class="ui-card-head">
-      <view class="ui-eyebrow">教师业务页</view>
-      <view class="ui-title-lg">课堂互动</view>
-      <view class="ui-text-body">统一承接提问、测试和互动记录，主次操作入口保持清晰。</view>
+  <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section interaction-hero">
+    <view class="ui-card-head ui-page-head">
+      <view class="hero-main ui-card-head ui-page-head-main">
+        <view class="ui-eyebrow">教师业务页</view>
+        <view class="ui-title-lg">课堂互动</view>
+        <view class="ui-text-body">统一承接即时互动、待处理申请和历史互动记录，保证课堂互动入口可快速扫读。</view>
+      </view>
+      <view class="hero-badge ui-tag ui-tag--active ui-page-head-badge">互动页</view>
     </view>
     <view class="ui-record-actions">
-      <button type="primary" size="mini" bindtap="goToRandomRollcall">进入随机点名</button>
-      <button class="ui-btn-secondary" size="mini" bindtap="onTapPublishTestExample">发布测试样例</button>
+      <button type="primary" size="mini" hover-class="ui-btn-active" bindtap="goToRandomRollcall">进入随机点名</button>
+      <button class="ui-btn-secondary" size="mini" hover-class="ui-btn-active" bindtap="onTapPublishTestExample">发布测试样例</button>
     </view>
   </view>
 
@@ -20,22 +23,23 @@
     <view class="ui-state-title">课堂互动读取失败</view>
     <view class="ui-state-desc">{{pageErrorText}}</view>
     <view class="ui-state-actions">
-      <button class="ui-btn-ghost" size="mini" bindtap="retryPageLoad">重新加载</button>
+      <button class="ui-btn-ghost" size="mini" hover-class="ui-btn-active" bindtap="retryPageLoad">重新加载</button>
     </view>
   </view>
 
-  <view class="ui-card ui-section">
+  <view class="ui-card ui-section ui-panel-card lesson-switch-card">
     <view class="ui-card-head">
       <view class="ui-title-md">历史课次</view>
       <view class="ui-text-helper">切换课次后，互动申请、测试结果和互动记录会同步切换。</view>
     </view>
-    <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll" scroll-x="true" show-scrollbar="false">
+    <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll ui-scroll-x" scroll-x="true" show-scrollbar="false">
       <view class="ui-chip-list">
         <view
           wx:for="{{lessons}}"
           wx:key="_id"
           class="ui-chip-card {{selectedLessonId === item._id ? 'ui-chip-card--active' : ''}}"
           bindtap="onSelectLesson"
+          hover-class="ui-btn-active"
           data-lesson-id="{{item._id}}"
         >
           <text class="ui-chip-title">课次 {{lessons.length - index}}</text>
@@ -49,14 +53,14 @@
     </view>
   </view>
 
-  <view class="ui-card ui-section">
+  <view class="ui-card ui-section ui-panel-card interaction-state-card">
     <view class="ui-card-head">
       <view class="ui-title-md">当前互动状态</view>
       <view class="ui-text-helper">待处理申请、当前提问和当前测试统一在这里查看。</view>
     </view>
 
     <view wx:if="{{pendingQuestionRequests.length > 0}}" class="ui-record-list">
-      <view class="ui-record-card" wx:for="{{pendingQuestionRequests}}" wx:key="_id">
+      <view class="ui-record-card ui-record-card--warning pending-record-card" wx:for="{{pendingQuestionRequests}}" wx:key="_id">
         <view class="ui-record-head">
           <view class="ui-card-head">
             <view class="ui-title-md">{{item.studentName}}</view>
@@ -69,6 +73,7 @@
             type="primary"
             size="mini"
             bindtap="onTapApproveQuestionRequest"
+            hover-class="ui-btn-active"
             data-request-id="{{item._id}}"
             data-student-id="{{item.studentId}}"
             data-student-name="{{item.studentName}}"
@@ -79,7 +84,7 @@
       </view>
     </view>
 
-    <view wx:if="{{currentQuestionRequest}}" class="ui-record-card">
+    <view wx:if="{{currentQuestionRequest}}" class="ui-record-card ui-record-card--info active-record-card">
       <view class="ui-card-head">
         <view class="ui-title-md">当前提问</view>
         <view class="ui-text-body">{{currentQuestionRequest.studentName}}（{{currentQuestionRequest.studentId || '-'}}）</view>
@@ -91,6 +96,7 @@
           type="primary"
           size="mini"
           bindtap="onTapScoreQuestion"
+          hover-class="ui-btn-active"
           data-score="{{item}}"
         >
           提问{{item}}分
@@ -98,7 +104,7 @@
       </view>
     </view>
 
-    <view wx:if="{{currentPublishedTest}}" class="ui-record-card">
+    <view wx:if="{{currentPublishedTest}}" class="ui-record-card ui-record-card--muted test-record-card">
       <view class="ui-card-head">
         <view class="ui-title-md">当前单选题</view>
         <view class="ui-text-body">{{currentPublishedTest.testContent}}</view>
@@ -148,7 +154,7 @@
     </view>
   </view>
 
-  <view class="ui-card ui-section">
+  <view class="ui-card ui-section ui-panel-card history-card">
     <view class="ui-card-head">
       <view class="ui-title-md">本节互动记录</view>
       <view class="ui-text-helper">包括提问、测试和互动评分记录。</view>
@@ -160,7 +166,7 @@
     </view>
 
     <view wx:elif="{{lessonEvents.length > 0}}" class="ui-record-list">
-      <view class="ui-record-card" wx:for="{{lessonEvents}}" wx:key="_id">
+      <view class="ui-record-card ui-record-card--muted history-record-card" wx:for="{{lessonEvents}}" wx:key="_id">
         <view class="ui-record-head">
           <view class="ui-card-head">
             <view class="ui-title-md">{{item.studentName || (item.type === 'test_publish' ? '全班测试' : '未命名学生')}}</view>

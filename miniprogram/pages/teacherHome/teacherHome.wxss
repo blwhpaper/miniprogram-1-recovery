@@ -1,20 +1,3 @@
-.hero-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--ui-space-2);
-}
-
-.hero-head-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.hero-status {
-  align-self: flex-start;
-}
-
 .panel-text {
   margin-top: var(--ui-space-1);
 }

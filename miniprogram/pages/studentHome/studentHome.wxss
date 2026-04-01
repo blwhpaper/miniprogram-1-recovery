@@ -4,24 +4,6 @@
   padding-top: calc(var(--ui-space-5) + env(safe-area-inset-top));
 }
 
-.title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--ui-space-3);
-}
-
-.title-wrap {
-  flex: 1;
-  min-width: 0;
-}
-
-.page-badge {
-  flex-shrink: 0;
-  align-self: flex-start;
-}
-
 .hero-block {
   margin-top: var(--ui-space-2);
 }

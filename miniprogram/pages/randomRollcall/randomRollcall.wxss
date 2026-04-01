@@ -1,39 +1,36 @@
 .primary-action {
-  margin:0;
+  margin: 0;
+  min-height: 108rpx;
+  font-size: 32rpx;
 }
+
 .primary-action--disabled {
   opacity: 1;
 }
 
 .score-panel {
   margin-top: 6rpx;
-  padding: 20rpx 22rpx;
-  border-radius: 20rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
   background: #fff8ed;
   border: 1rpx solid #ffe0b3;
 }
+
 .score-panel-title {
-  font-size: 24rpx;
+  font-size: 26rpx;
   font-weight: 600;
   color: #9a6700;
 }
+
 .score-btn {
   margin: 0;
-  flex: 1 1 140rpx;
-  min-width: 140rpx;
-  background: #fff;
-  color: #9a6700;
-  border: 1rpx solid #ffd089;
-  border-radius: 999rpx;
+  flex: 1 1 180rpx;
+  min-width: 180rpx;
   line-height: 1.6;
 }
 
 .rollcall-page {
   align-items: stretch;
-}
-
-.lesson-scroll {
-  white-space: nowrap;
 }
 
 .event-score {

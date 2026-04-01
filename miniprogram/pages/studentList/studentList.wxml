@@ -1,5 +1,5 @@
 <view class="student-list-page ui-page ui-page--stack">
-  <view class="ui-card ui-hero-card ui-section">
+  <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section">
     <view class="ui-card-head">
       <view class="ui-eyebrow">教师业务页</view>
       <view class="ui-title-lg">学生名单管理</view>
@@ -13,15 +13,15 @@
     </view>
   </view>
 
-  <view class="ui-card ui-section">
+  <view class="ui-card ui-section ui-panel-card">
     <view class="ui-card-head">
       <view class="ui-title-md">名单操作</view>
       <view class="ui-text-helper">先上传最新名单，再进入后续课堂管理页。</view>
     </view>
     <view class="ui-button-group">
-      <button bindtap="uploadCSV" class="upload-btn ui-btn-secondary">上传学生名单</button>
-      <button bindtap="goSignRecord" type="primary">进入签到情况管理</button>
-      <button bindtap="goClassInteraction" class="ui-btn-secondary">进入课堂互动</button>
+      <button bindtap="uploadCSV" hover-class="ui-btn-active" class="upload-btn ui-btn-secondary">上传学生名单</button>
+      <button bindtap="goSignRecord" hover-class="ui-btn-active" type="primary">进入签到情况管理</button>
+      <button bindtap="goClassInteraction" hover-class="ui-btn-active" class="ui-btn-secondary">进入课堂互动</button>
     </view>
   </view>
 </view>

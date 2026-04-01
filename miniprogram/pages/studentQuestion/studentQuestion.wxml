@@ -1,39 +1,48 @@
 <view class="question-page ui-page ui-page--stack">
-  <view class="question-card ui-card ui-hero-card ui-section">
+  <view class="question-card ui-card ui-hero-card ui-hero-card--primary ui-section">
     <view class="ui-card-head">
       <view class="ui-eyebrow">学生互动</view>
       <view class="ui-title-lg">主动提问</view>
     </view>
-    <view class="status ui-text-body">
+    <view class="status ui-feedback ui-feedback--{{canSubmitQuestionRequest ? 'info' : 'disabled'}}">
       当前状态：{{pageStatusText}}
     </view>
 
-    <view class="info-block ui-card ui-card--subtle ui-section" wx:if="{{name}}">
+    <view class="info-block ui-card ui-card--subtle ui-section ui-panel-card" wx:if="{{name}}">
       <view class="ui-card-head">
         <view class="ui-title-md">当前学生</view>
       </view>
-      <view>当前学生：{{name}}</view>
-      <view>学号：{{studentId}}</view>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">当前学生</view>
+          <view class="ui-info-value">{{name}}</view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">学号</view>
+          <view class="ui-info-value">{{studentId}}</view>
+        </view>
+      </view>
     </view>
 
-    <view class="info-block ui-card ui-card--subtle ui-section">
+    <view class="info-block ui-card ui-card--subtle ui-section ui-panel-card">
       <view class="ui-card-head">
         <view class="ui-title-md">提问状态</view>
       </view>
-      <view class="tip">本节课主动提问申请：{{questionRequestCount}} / 3</view>
-      <view class="tip" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
-      <view class="tip" wx:elif="{{!signSuccess}}">
+      <view class="ui-feedback ui-feedback--info">本节课主动提问申请：{{questionRequestCount}} / 3</view>
+      <view class="tip ui-feedback ui-feedback--{{latestQuestionStatusText ? 'matched' : !signSuccess ? 'warning' : canSubmitQuestionRequest ? 'success' : 'idle'}}" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
+      <view class="tip ui-feedback ui-feedback--warning" wx:elif="{{!signSuccess}}">
         请先进入当前课堂完成签到，再返回这里提交提问申请。
       </view>
     </view>
 
-    <view class="tip" wx:if="{{canSubmitQuestionRequest && questionRequestCount === 0}}">
+    <view class="tip ui-feedback ui-feedback--success" wx:if="{{canSubmitQuestionRequest && questionRequestCount === 0}}">
       我是阿拉丁神灯，点点我，会有惊喜哦！
     </view>
 
     <button
       class="submit-btn"
       type="primary"
+      hover-class="ui-btn-active"
       bindtap="submitQuestionRequest"
       disabled="{{!canSubmitQuestionRequest}}"
     >

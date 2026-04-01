@@ -2,24 +2,43 @@
   align-items: stretch;
 }
 
-.class-home-head {
-  flex: 1;
+.hero-info-list {
+  margin-top: 4rpx;
+}
+
+.hero-note {
+  margin-top: 0;
+}
+
+.action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.action-grid button {
+  flex: 1 1 280rpx;
+}
+
+.action-grid-btn--danger {
+  flex-basis: 100%;
 }
 
 .qr-wrap {
   display: flex;
   justify-content: center;
-  padding: 12rpx 0;
+  padding: 20rpx 0 12rpx;
 }
 
 .qr-image {
-  width: 400rpx;
-  height: 400rpx;
+  width: 440rpx;
+  height: 440rpx;
   max-width: 100%;
-  max-height: 400rpx;
-  padding: 20rpx;
-  border-radius: 28rpx;
+  max-height: 440rpx;
+  padding: 28rpx;
+  border-radius: 32rpx;
   background: #ffffff;
+  box-shadow: 0 16rpx 36rpx rgba(37, 99, 235, 0.1);
   box-sizing: border-box;
 }
 

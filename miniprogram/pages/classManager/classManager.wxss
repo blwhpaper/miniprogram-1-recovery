@@ -2,6 +2,10 @@
   align-items: stretch;
 }
 
+.hero-summary {
+  margin-top: 4rpx;
+}
+
 .item {
   display: flex;
   justify-content: space-between;
@@ -16,4 +20,41 @@
   display: flex;
   flex-direction: column;
   gap: 10rpx;
+}
+
+.class-entry-main {
+  padding: 8rpx 0;
+}
+
+.class-entry-head {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.class-entry-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.class-entry-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20rpx;
+}
+
+.delete-btn {
+  width: auto !important;
+  min-width: 120rpx !important;
+  min-height: 64rpx !important;
+  padding: 12rpx 24rpx !important;
+  border-color: #fecaca !important;
+  color: #dc2626 !important;
+  background: #fff5f5 !important;
 }

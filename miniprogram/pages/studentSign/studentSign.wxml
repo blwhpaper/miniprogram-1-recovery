@@ -1,62 +1,118 @@
-<view class="box">
-  <view class="title">学生课堂</view>
+<view class="student-sign-page ui-page ui-page--stack">
+  <view class="ui-card ui-hero-card ui-hero-card--primary ui-section hero-card">
+    <view class="ui-card-head">
+      <view class="ui-eyebrow">学生课堂</view>
+      <view class="ui-title-lg">当前课堂入口</view>
+      <view class="ui-text-body">统一承接签到、请假结果与课堂互动入口，不改动原有业务链路。</view>
+    </view>
+  </view>
 
-  <view wx:if="{{shouldGoRegister}}" class="register-box">
-    <view class="register-tip">当前状态：待绑定</view>
-    <view class="register-tip">{{registerTipText}}</view>
+  <view wx:if="{{shouldGoRegister}}" class="ui-card ui-section ui-panel-card ui-panel-card--warning register-box">
+    <view class="ui-card-head">
+      <view class="ui-title-md">当前状态：待绑定</view>
+      <view class="ui-text-helper">绑定后才可继续当前签到入口。</view>
+    </view>
+    <view class="ui-feedback ui-feedback--warning">{{registerTipText}}</view>
     <button class="register-btn" type="primary" bindtap="goRegister">
       去绑定当前签到
     </button>
   </view>
 
-  <view wx:if="{{isLeaveResultView && hasBoundStudentSession && !shouldGoRegister}}" class="leave-box">
-    <text class="tip">本课请假结果</text>
-    <view class="leave-result-card">
-      <view>代提交人：{{name}}</view>
-      <view wx:if="{{ownLeaveResultTargetName}}">请假对象：{{ownLeaveResultTargetName}}</view>
-      <view>处理结果：{{ownLeaveResultStatusText || '-'}}</view>
-      <view wx:if="{{ownLeaveResultTimeText}}">结果时间：{{ownLeaveResultTimeText}}</view>
+  <view wx:if="{{isLeaveResultView && hasBoundStudentSession && !shouldGoRegister}}" class="ui-card ui-section ui-panel-card leave-box">
+    <view class="ui-card-head">
+      <view class="ui-title-md">本课请假结果</view>
+      <view class="ui-text-helper">展示当前账号最近一次请假处理结果。</view>
     </view>
-    <view class="leave-feedback {{ownLeaveResultStatusText === '已请假' ? 'leave-feedback--matched' : ownLeaveResultStatusText === '待审批' ? 'leave-feedback--idle' : 'leave-feedback--not_found'}}">
+    <view class="leave-result-card ui-card ui-card--subtle ui-section">
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">代提交人</view>
+          <view class="ui-info-value">{{name}}</view>
+        </view>
+        <view wx:if="{{ownLeaveResultTargetName}}" class="ui-info-item">
+          <view class="ui-info-label">请假对象</view>
+          <view class="ui-info-value">{{ownLeaveResultTargetName}}</view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">处理结果</view>
+          <view class="ui-info-value">{{ownLeaveResultStatusText || '-'}}</view>
+        </view>
+        <view wx:if="{{ownLeaveResultTimeText}}" class="ui-info-item">
+          <view class="ui-info-label">结果时间</view>
+          <view class="ui-info-value">{{ownLeaveResultTimeText}}</view>
+        </view>
+      </view>
+    </view>
+    <view class="ui-feedback {{ownLeaveResultStatusText === '已请假' ? 'ui-feedback--matched' : ownLeaveResultStatusText === '待审批' ? 'ui-feedback--idle' : 'ui-feedback--not_found'}}">
       {{ownLeaveResultTipText}}
     </view>
   </view>
 
   <view wx:if="{{!isLeaveResultView && hasBoundStudentSession && !signSuccess && !shouldGoRegister}}">
-    <view class="leave-box">
-      <text class="tip">当前状态：{{attendanceStatusText}}</text>
-      <view wx:if="{{attendanceStatus === 'leave_agree'}}">本节课已被老师标记为请假，当前无需签到。</view>
-      <view wx:elif="{{attendanceStatus === 'absent'}}">本节课已被老师标记为旷课，当前不可签到。</view>
-      <view wx:elif="{{attendanceStatus === 'leave_wait'}}">当前请假状态待审批，暂不可继续签到。</view>
-      <view wx:else>请确认当前学生身份无误后完成本次签到。</view>
+    <view class="ui-card ui-section ui-panel-card leave-box">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前状态：{{attendanceStatusText}}</view>
+        <view class="ui-text-helper">签到前会先校验当前课堂的出勤处理状态。</view>
+      </view>
+      <view class="ui-feedback ui-feedback--{{attendanceStatus === 'leave_agree' ? 'success' : attendanceStatus === 'absent' ? 'danger' : attendanceStatus === 'leave_wait' ? 'warning' : 'info'}}">
+        <text wx:if="{{attendanceStatus === 'leave_agree'}}">本节课已被老师标记为请假，当前无需签到。</text>
+        <text wx:elif="{{attendanceStatus === 'absent'}}">本节课已被老师标记为旷课，当前不可签到。</text>
+        <text wx:elif="{{attendanceStatus === 'leave_wait'}}">当前请假状态待审批，暂不可继续签到。</text>
+        <text wx:else>请确认当前学生身份无误后完成本次签到。</text>
+      </view>
     </view>
-    <view class="input">
-      <view>当前学生：{{name}}</view>
-      <view>学号：{{studentId}}</view>
+    <view class="ui-card ui-card--subtle ui-section input">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前学生</view>
+      </view>
+      <view class="ui-info-list">
+        <view class="ui-info-item">
+          <view class="ui-info-label">学生姓名</view>
+          <view class="ui-info-value">{{name}}</view>
+        </view>
+        <view class="ui-info-item">
+          <view class="ui-info-label">学号</view>
+          <view class="ui-info-value">{{studentId}}</view>
+        </view>
+      </view>
     </view>
     <button wx:if="{{attendanceStatus !== 'leave_agree' && attendanceStatus !== 'absent' && attendanceStatus !== 'leave_wait'}}" type="primary" bindtap="submitSign">确认签到</button>
   </view>
 
   <view wx:if="{{!isLeaveResultView && canInteract}}">
-    <view class="leave-box">
-      <text class="tip">当前状态：已签到，可参与课堂互动</text>
-      <view wx:if="{{currentSingleChoiceTest}}">当前可用入口：单选题作答</view>
-      <view wx:else>当前课堂互动入口会在老师发布后显示在下方。</view>
+    <view class="ui-card ui-section ui-panel-card leave-box">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前状态：已签到，可参与课堂互动</view>
+        <view class="ui-text-helper">当前课堂互动入口会按老师发布内容动态展示。</view>
+      </view>
+      <view class="ui-feedback ui-feedback--success">
+        <text wx:if="{{currentSingleChoiceTest}}">当前可用入口：单选题作答</text>
+        <text wx:else>当前课堂互动入口会在老师发布后显示在下方。</text>
+      </view>
     </view>
-    <view class="success">✅ 签到成功</view>
+    <view class="ui-state-block ui-success-state success-card">
+      <view class="ui-state-title">签到成功</view>
+      <view class="ui-state-desc">当前账号已完成本节课签到，可继续进入后续互动或请假相关入口。</view>
+    </view>
 
-    <view class="leave-box">
-      <text class="tip">请假申请</text>
-      <view>请假申请已拆分到独立页面，可从这里继续进入。</view>
+    <view class="ui-card ui-section ui-panel-card leave-box">
+      <view class="ui-card-head">
+        <view class="ui-title-md">请假申请</view>
+        <view class="ui-text-helper">请假申请已拆分到独立页面，可从这里继续进入。</view>
+      </view>
       <button type="primary" bindtap="goLeaveRequestPage">进入请假申请页</button>
     </view>
 
-    <view wx:if="{{currentSingleChoiceTest}}" class="leave-box">
-      <text class="tip">当前单选题：{{currentSingleChoiceTest.testContent}}</text>
+    <view wx:if="{{currentSingleChoiceTest}}" class="ui-card ui-section ui-panel-card leave-box">
+      <view class="ui-card-head">
+        <view class="ui-title-md">当前单选题</view>
+        <view class="ui-text-body">{{currentSingleChoiceTest.testContent}}</view>
+      </view>
       <view wx:if="{{currentSingleChoiceTest.testOptions.length > 0}}">
         <button
           wx:for="{{currentSingleChoiceTest.testOptions}}"
           wx:key="value"
+          class="ui-btn-pill answer-btn {{selectedSingleChoiceAnswer === item.value ? 'ui-btn-pill--active' : ''}}"
           data-answer="{{item.value}}"
           bindtap="onSelectSingleChoiceAnswer"
           disabled="{{hasSubmittedCurrentTest}}"
@@ -64,7 +120,7 @@
           {{item.text}}{{selectedSingleChoiceAnswer === item.value ? '（已选）' : ''}}
         </button>
       </view>
-      <view wx:if="{{hasSubmittedCurrentTest}}">
+      <view wx:if="{{hasSubmittedCurrentTest}}" class="ui-feedback ui-feedback--matched">
         已提交：{{currentTestRecord.payload.answer || selectedSingleChoiceAnswer || '-'}}
       </view>
       <button
@@ -76,13 +132,11 @@
       </button>
     </view>
   </view>
+  <button
+    class="logout-btn ui-btn-ghost"
+    wx:if="{{hasBoundStudentSession}}"
+    bindtap="logout"
+  >
+    退出登录
+  </button>
 </view>
-
-<button
-  class="logout-btn"
-  wx:if="{{hasBoundStudentSession}}"
-  bindtap="logout"
-  type="warn"
->
-  退出登录
-</button>

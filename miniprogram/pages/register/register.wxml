@@ -1,5 +1,5 @@
 <view class="register-page ui-page ui-page--stack">
-  <view class="ui-card ui-hero-card ui-section">
+  <view class="ui-card ui-hero-card ui-hero-card--primary ui-section">
     <view class="ui-card-head">
       <view class="ui-eyebrow">学生绑定</view>
       <view class="ui-title-lg">学生身份绑定</view>
@@ -7,7 +7,7 @@
     </view>
   </view>
 
-  <view class="ui-card ui-section ui-form-card">
+  <view class="ui-card ui-section ui-form-card ui-panel-card">
     <view class="ui-form-item">
       <view class="ui-form-label">姓名</view>
       <input class="ui-input" placeholder="请输入您的姓名" bindinput="inputName" />
@@ -23,6 +23,6 @@
       <input class="ui-input" placeholder="请再次输入您的学号" bindinput="inputPwd2" />
     </view>
 
-    <button class="btn-register" bindtap="doRegister" type="primary">绑定</button>
+    <button class="btn-register" bindtap="doRegister" hover-class="ui-btn-active" type="primary">绑定</button>
   </view>
 </view>
