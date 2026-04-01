@@ -1,3 +1,4 @@
+<import src="../../shared/genieLamp/genieLamp.wxml" />
 <view class="interaction-page ui-page ui-page--stack">
   <view class="interaction-hero ui-hero-section">
     <view class="ui-hero-section__content">
@@ -147,10 +148,7 @@
       </view>
 
       <view wx:else class="request-empty ui-empty-state">
-        <view class="request-empty__lamp">
-          <view class="request-empty__lamp-body"></view>
-          <view class="request-empty__lamp-glow"></view>
-        </view>
+        <template is="genieLamp" data="{{ shellClass: 'request-empty__lamp-shell', lampClass: 'request-empty__lamp' }}" />
         <view class="ui-empty-title">暂无提问请求</view>
         <view class="ui-empty-desc">学生发起提问后，会在这里按顺序展示。</view>
       </view>

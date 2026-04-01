@@ -1,3 +1,5 @@
+@import "../../shared/genieLamp/genieLamp.wxss";
+
 .interaction-page {
   align-items: stretch;
   padding-top: 0;
@@ -139,38 +141,27 @@
 }
 
 .request-empty {
-  padding-top: 56rpx;
-  padding-bottom: 56rpx;
+  padding-top: 24rpx;
+  padding-bottom: 24rpx;
+}
+
+.request-empty__lamp-shell {
+  position: relative;
+  width: 300rpx;
+  height: 238rpx;
+  margin: 0 auto 12rpx;
 }
 
 .request-empty__lamp {
-  position: relative;
-  width: 140rpx;
-  height: 96rpx;
-  margin: 0 auto 20rpx;
-}
-
-.request-empty__lamp-body {
   position: absolute;
-  left: 14rpx;
-  right: 14rpx;
-  bottom: 8rpx;
-  height: 44rpx;
-  border: 6rpx solid var(--ui-color-primary);
-  border-radius: 40rpx 48rpx 32rpx 40rpx;
-  background: rgba(255, 255, 255, 0.76);
-}
-
-.request-empty__lamp-glow {
-  position: absolute;
-  top: 0;
-  right: 26rpx;
-  width: 34rpx;
-  height: 52rpx;
-  border: 6rpx solid var(--ui-color-primary);
-  border-radius: 26rpx 26rpx 28rpx 28rpx / 34rpx 34rpx 20rpx 20rpx;
-  border-bottom: none;
-  transform: rotate(8deg);
+  left: 50%;
+  top: 50%;
+  width: 420rpx;
+  height: 334rpx;
+  margin-left: -210rpx;
+  margin-top: -167rpx;
+  transform: scale(0.76);
+  transform-origin: center center;
 }
 
 .ui-empty-desc {

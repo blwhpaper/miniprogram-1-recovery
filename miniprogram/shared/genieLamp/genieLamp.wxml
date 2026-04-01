@@ -1,0 +1,5 @@
+<template name="genieLamp">
+  <view class="genie-lamp-shell {{shellClass}}">
+    <image class="genie-lamp {{lampClass}}" src="/shared/genieLamp/genieLamp.png" mode="aspectFit" />
+  </view>
+</template>

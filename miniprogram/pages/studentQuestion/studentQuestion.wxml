@@ -1,3 +1,4 @@
+<import src="../../shared/genieLamp/genieLamp.wxml" />
 <view class="question-page ui-page ui-page--stack ui-page--with-bottom-bar">
   <view class="question-hero ui-hero-section">
     <view class="ui-hero-section__content">
@@ -17,14 +18,7 @@
   <view class="question-card ui-card ui-section ui-panel-card ui-panel-card--focus">
     <view class="lamp-stage ui-empty-panel">
       <view class="lamp-stage__crest"></view>
-      <view class="lamp-symbol">
-        <view class="lamp-symbol__flame"></view>
-        <view class="lamp-symbol__handle"></view>
-        <view class="lamp-symbol__top"></view>
-        <view class="lamp-symbol__body"></view>
-        <view class="lamp-symbol__spout"></view>
-        <view class="lamp-symbol__base"></view>
-      </view>
+      <template is="genieLamp" data="{{ shellClass: 'lamp-stage__symbol-shell', lampClass: 'lamp-stage__symbol' }}" />
       <view class="lamp-stage__title">神灯提示</view>
       <view class="lamp-stage__desc">智慧提问，开启精彩课堂</view>
     </view>

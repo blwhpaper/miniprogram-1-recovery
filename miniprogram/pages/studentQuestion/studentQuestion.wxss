@@ -1,3 +1,5 @@
+@import "../../shared/genieLamp/genieLamp.wxss";
+
 .question-page {
   align-items: stretch;
   padding-top: 0;
@@ -17,7 +19,7 @@
 }
 
 .lamp-stage {
-  padding: 20rpx 0 8rpx;
+  padding: 0 0 4rpx;
 }
 
 .lamp-stage__crest {
@@ -28,79 +30,15 @@
   background: linear-gradient(180deg, #ffffff 0%, var(--ui-color-primary-soft) 100%);
 }
 
-.lamp-symbol {
-  position: relative;
-  width: 280rpx;
-  height: 228rpx;
+.lamp-stage__symbol-shell {
+  width: 456rpx;
+  height: 356rpx;
+  margin-top: -12rpx;
 }
 
-.lamp-symbol__flame {
-  position: absolute;
-  top: 6rpx;
-  right: 88rpx;
-  width: 42rpx;
-  height: 74rpx;
-  border: 8rpx solid var(--ui-color-primary);
-  border-radius: 30rpx 30rpx 32rpx 32rpx / 44rpx 44rpx 28rpx 28rpx;
-  border-bottom: none;
-  transform: rotate(12deg);
-}
-
-.lamp-symbol__handle {
-  position: absolute;
-  left: 24rpx;
-  top: 92rpx;
-  width: 82rpx;
-  height: 70rpx;
-  border: 8rpx solid var(--ui-color-primary);
-  border-right: none;
-  border-bottom: none;
-  border-radius: 82rpx 0 0 18rpx;
-  transform: rotate(-16deg);
-}
-
-.lamp-symbol__top {
-  position: absolute;
-  left: 106rpx;
-  top: 78rpx;
-  width: 38rpx;
-  height: 38rpx;
-  border: 8rpx solid var(--ui-color-primary);
-  border-radius: 50%;
-  background: #ffffff;
-}
-
-.lamp-symbol__body {
-  position: absolute;
-  left: 52rpx;
-  top: 104rpx;
-  width: 150rpx;
-  height: 54rpx;
-  border: 8rpx solid var(--ui-color-primary);
-  border-radius: 50rpx 64rpx 40rpx 44rpx;
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.lamp-symbol__spout {
-  position: absolute;
-  right: 24rpx;
-  top: 116rpx;
-  width: 56rpx;
-  height: 18rpx;
-  border-top: 8rpx solid var(--ui-color-primary);
-  border-right: 8rpx solid var(--ui-color-primary);
-  border-radius: 0 18rpx 18rpx 0;
-  transform: skewX(24deg);
-}
-
-.lamp-symbol__base {
-  position: absolute;
-  left: 112rpx;
-  bottom: 24rpx;
-  width: 72rpx;
-  height: 16rpx;
-  border-top: 8rpx solid var(--ui-color-primary);
-  border-radius: 999rpx;
+.lamp-stage__symbol {
+  width: 456rpx;
+  height: 356rpx;
 }
 
 .lamp-stage__title {

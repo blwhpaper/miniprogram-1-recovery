@@ -1,0 +1,11 @@
+.genie-lamp-shell {
+  position: relative;
+  width: 420rpx;
+  height: 334rpx;
+}
+
+.genie-lamp {
+  display: block;
+  width: 420rpx;
+  height: 334rpx;
+}
