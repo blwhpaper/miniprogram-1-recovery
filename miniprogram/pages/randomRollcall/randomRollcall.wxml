@@ -34,45 +34,92 @@
   <view class="ui-card ui-section ui-panel-card--focus focus-card">
     <view class="rollcall-stage">
       <view class="rollcall-stage__summary">全班学生：{{signedStudents.length || 0}} 人</view>
-      <view class="dice-pair">
-        <view class="dice-face dice-face--left">
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
+      <view class="rollcall-stage__headline">
+        <view class="rollcall-stage__title">{{isRolling ? '正在投掷双骰子' : '点击开始进行骰子点名'}}</view>
+        <view class="rollcall-stage__desc">
+          <text wx:if="{{isRolling}}">系统正在生成本轮结果，请稍候片刻。</text>
+          <text wx:elif="{{currentCalledStudent}}">骰子结果：{{diceLeftValue}} + {{diceRightValue}}</text>
+          <text wx:elif="{{lastScoredStudentName}}">上一轮已完成，可继续下一轮点名。</text>
+          <text wx:else>当前页面只做表现增强，不改既有随机点名业务规则。</text>
         </view>
-        <view class="dice-face dice-face--right">
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
-          <view class="dice-dot"></view>
+      </view>
+      <view class="dice-stage {{isRolling ? 'dice-stage--rolling' : ''}}">
+        <view class="dice-stage__glow"></view>
+        <view class="dice-stage__shadow dice-stage__shadow--left"></view>
+        <view class="dice-stage__shadow dice-stage__shadow--right"></view>
+        <view class="dice-pair">
+          <view class="dice-face-card dice-face-card--left">
+            <view class="dice-face dice-face--left {{isRolling ? 'dice-face--rolling' : ''}}">
+              <view wx:for="{{leftDicePips}}" wx:key="key" class="dice-cell">
+                <view class="dice-dot {{item.active ? 'dice-dot--active' : 'dice-dot--inactive'}}"></view>
+              </view>
+            </view>
+            <view class="dice-face-card__value">左骰 {{diceLeftValue}}</view>
+          </view>
+          <view class="dice-pair__operator">+</view>
+          <view class="dice-face-card dice-face-card--right">
+            <view class="dice-face dice-face--right {{isRolling ? 'dice-face--rolling' : ''}}">
+              <view wx:for="{{rightDicePips}}" wx:key="key" class="dice-cell">
+                <view class="dice-dot {{item.active ? 'dice-dot--active' : 'dice-dot--inactive'}}"></view>
+              </view>
+            </view>
+            <view class="dice-face-card__value">右骰 {{diceRightValue}}</view>
+          </view>
         </view>
       </view>
 
-      <view class="rollcall-result-card ui-card ui-section">
-        <view wx:if="{{currentCalledStudent}}" class="ui-card-head">
-          <view class="ui-title-lg">{{currentCalledStudent.name}}</view>
-          <view class="ui-text-body">学号：{{currentCalledStudent.studentId || '-'}}</view>
+      <view class="rollcall-result-card ui-card ui-section ui-panel-card {{currentCalledStudent ? 'ui-panel-card--focus' : ''}}">
+        <view class="ui-card-head ui-card-head--row">
+          <view class="ui-card-head">
+            <view class="ui-eyebrow">点名结果</view>
+            <view class="ui-title-md">
+              <text wx:if="{{isRolling}}">正在抽取本轮学生</text>
+              <text wx:elif="{{currentCalledStudent}}">第{{currentCalledStudent.round || currentRound}}轮已抽中</text>
+              <text wx:elif="{{lastScoredStudentName}}">上一轮已完成</text>
+              <text wx:elif="{{selectedLessonId && signedStudents.length > 0}}">等待开始点名</text>
+              <text wx:elif="{{selectedLessonId}}">暂无可点名学生</text>
+              <text wx:else>暂无课次</text>
+            </view>
+          </view>
+          <view wx:if="{{currentCalledStudent}}" class="ui-tag ui-tag--active">待评分</view>
+          <view wx:elif="{{isRolling}}" class="ui-tag ui-tag--pending">点名中</view>
+          <view wx:elif="{{lastScoredStudentName}}" class="ui-tag ui-tag--approved">已完成</view>
         </view>
 
-        <view wx:elif="{{lastScoredStudentName}}" class="ui-card-head">
-          <view class="ui-title-md">{{lastScoredStudentName}} 已完成第{{lastScoredRound}}轮</view>
+        <view wx:if="{{currentCalledStudent}}" class="rollcall-result">
+          <view class="rollcall-result__math">骰子结果：{{diceLeftValue}} + {{diceRightValue}}</view>
+          <view class="rollcall-result__student">
+            <view class="rollcall-result__avatar">{{currentCalledStudent.avatarText || '学'}}</view>
+            <view class="rollcall-result__content">
+              <view class="rollcall-result__name">{{currentCalledStudent.name}}</view>
+              <view class="rollcall-result__meta">学号：{{currentCalledStudent.studentId || '-'}}</view>
+              <view class="rollcall-result__meta">当前轮次：第{{currentCalledStudent.round || currentRound}}轮</view>
+            </view>
+          </view>
+          <view class="rollcall-result__hint ui-feedback ui-feedback--warning">请在下方完成评分后再进入下一轮。</view>
         </view>
 
-        <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="ui-card-head">
-          <view class="ui-title-md">已签到 {{signedStudents.length}} 人</view>
+        <view wx:elif="{{isRolling}}" class="rollcall-result rollcall-result--pending">
+          <view class="rollcall-result__math">骰子正在滚动，请保持当前页面。</view>
+          <view class="rollcall-result__placeholder">结果即将落定</view>
         </view>
 
-        <view wx:elif="{{selectedLessonId}}" class="ui-card-head">
-          <view class="ui-title-md">暂无可点名学生</view>
+        <view wx:elif="{{lastScoredStudentName}}" class="rollcall-result">
+          <view class="rollcall-result__math">上一轮结果已记录</view>
+          <view class="rollcall-result__summary">{{lastScoredStudentName}} 已完成第{{lastScoredRound}}轮评分，可继续下一轮。</view>
         </view>
 
-        <view wx:else class="ui-card-head">
-          <view class="ui-title-md">暂无课次</view>
+        <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="rollcall-result">
+          <view class="rollcall-result__math">当前可点名 {{signedStudents.length}} 人</view>
+          <view class="rollcall-result__summary">点击下方按钮开始本轮随机点名，系统会自动记录抽中结果。</view>
+        </view>
+
+        <view wx:elif="{{selectedLessonId}}" class="rollcall-result">
+          <view class="rollcall-result__summary">当前课次还没有已签到学生，暂时无法进行随机点名。</view>
+        </view>
+
+        <view wx:else class="rollcall-result">
+          <view class="rollcall-result__summary">请先选择一个有数据的历史课次，再开始随机点名。</view>
         </view>
       </view>
     </view>
@@ -173,9 +220,9 @@
           class="primary-action {{pendingScoreLock ? 'primary-action--disabled' : ''}}"
           bindtap="onTapRandomRollcall"
           hover-class="ui-btn-active"
-          disabled="{{pendingScoreLock || !selectedLessonId || signedStudents.length === 0}}"
+          disabled="{{isRolling || pendingScoreLock || !selectedLessonId || signedStudents.length === 0}}"
         >
-          {{currentCalledStudent || pendingScoreLock ? '再抽一次' : '开始点名'}}
+          {{isRolling ? '点名中' : currentCalledStudent || pendingScoreLock || lastScoredStudentName ? '再抽一次' : '开始点名'}}
         </button>
       </view>
     </view>

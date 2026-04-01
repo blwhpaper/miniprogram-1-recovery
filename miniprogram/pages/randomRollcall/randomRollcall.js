@@ -21,7 +21,12 @@ Page({
     currentRoundCalledIds: [],
     pendingScoreLock: false,
     lastScoredStudentName: "",
-    lastScoredRound: 0
+    lastScoredRound: 0,
+    isRolling: false,
+    diceLeftValue: 2,
+    diceRightValue: 5,
+    leftDicePips: [],
+    rightDicePips: []
   },
 
   attendancePollingTimer: null,
@@ -32,6 +37,8 @@ Page({
   latestClassRollcallEvents: [],
   recentAnswerScoreKeys: new Set(),
   isInitializing: false,
+  rollAnimationTimer: null,
+  rollAnimationFinishTimer: null,
 
   async ensureTeacherPageAccess() {
     const currentTeacher = await ensureApprovedTeacherSession();
@@ -86,6 +93,110 @@ Page({
     return (this.data.baseRosterList || []).map((item) => ({ ...item }));
   },
 
+  getDicePips(value = 1) {
+    const normalizedValue = Math.min(6, Math.max(1, Number(value || 1)));
+    const pipMap = {
+      1: [0, 0, 0, 0, 1, 0, 0, 0, 0],
+      2: [1, 0, 0, 0, 0, 0, 0, 0, 1],
+      3: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+      4: [1, 0, 1, 0, 0, 0, 1, 0, 1],
+      5: [1, 0, 1, 0, 1, 0, 1, 0, 1],
+      6: [1, 0, 1, 1, 0, 1, 1, 0, 1]
+    };
+
+    return (pipMap[normalizedValue] || pipMap[1]).map((active, index) => ({
+      key: `${normalizedValue}-${index}`,
+      active: !!active
+    }));
+  },
+
+  setDiceDisplay(leftValue = 1, rightValue = 1) {
+    const nextLeftValue = Math.min(6, Math.max(1, Number(leftValue || 1)));
+    const nextRightValue = Math.min(6, Math.max(1, Number(rightValue || 1)));
+    this.setData({
+      diceLeftValue: nextLeftValue,
+      diceRightValue: nextRightValue,
+      leftDicePips: this.getDicePips(nextLeftValue),
+      rightDicePips: this.getDicePips(nextRightValue)
+    });
+  },
+
+  resetDiceDisplay() {
+    this.setDiceDisplay(2, 5);
+  },
+
+  getDiceValuesForStudent(student = {}, round = 1) {
+    const source = `${String(student.studentId || "").trim()}|${String(student.name || "").trim()}|${Number(round || 1)}`;
+    let hash = 0;
+
+    for (let i = 0; i < source.length; i += 1) {
+      hash = (hash * 31 + source.charCodeAt(i)) % 9973;
+    }
+
+    return {
+      leftValue: (hash % 6) + 1,
+      rightValue: (Math.floor(hash / 6) % 6) + 1
+    };
+  },
+
+  decorateCalledStudent(student = {}, round = 0) {
+    const name = String(student.name || student.studentName || "").trim();
+    const studentId = String(student.studentId || student.id || "").trim();
+    return {
+      ...student,
+      name,
+      studentId,
+      round: Number(round || student.round || 0),
+      avatarText: String(name || "学").slice(0, 1)
+    };
+  },
+
+  clearRollAnimationTimers(options = {}) {
+    if (this.rollAnimationTimer) {
+      clearInterval(this.rollAnimationTimer);
+    }
+    if (this.rollAnimationFinishTimer) {
+      clearTimeout(this.rollAnimationFinishTimer);
+    }
+    this.rollAnimationTimer = null;
+    this.rollAnimationFinishTimer = null;
+
+    if (!options.keepRollingState) {
+      this.setData({ isRolling: false });
+    }
+  },
+
+  playDiceRollAnimation(finalLeftValue = 1, finalRightValue = 1) {
+    this.clearRollAnimationTimers({ keepRollingState: true });
+    this.setData({ isRolling: true });
+
+    return new Promise((resolve) => {
+      let tickCount = 0;
+      const maxTicks = 8;
+
+      this.rollAnimationTimer = setInterval(() => {
+        tickCount += 1;
+        this.setDiceDisplay(
+          Math.floor(Math.random() * 6) + 1,
+          Math.floor(Math.random() * 6) + 1
+        );
+
+        if (tickCount < maxTicks) {
+          return;
+        }
+
+        clearInterval(this.rollAnimationTimer);
+        this.rollAnimationTimer = null;
+        this.rollAnimationFinishTimer = setTimeout(() => {
+          this.rollAnimationFinishTimer = null;
+          this.setDiceDisplay(finalLeftValue, finalRightValue);
+          this.setData({ isRolling: false });
+          resolve();
+        }, 120);
+      }, 90);
+    });
+  },
+
   mergeAttendanceIntoList(baseList, docs = []) {
     const attendanceByStudentId = new Map();
     const attendanceByName = new Map();
@@ -133,6 +244,7 @@ Page({
       classId,
       selectedLessonId: lessonId
     }, () => {
+      this.resetDiceDisplay();
       this.initData();
     });
   },
@@ -157,11 +269,13 @@ Page({
   onUnload() {
     this.clearAttendancePolling();
     this.clearLessonEventPolling();
+    this.clearRollAnimationTimers();
   },
 
   onHide() {
     this.clearAttendancePolling();
     this.clearLessonEventPolling();
+    this.clearRollAnimationTimers();
   },
 
   async onPullDownRefresh() {
@@ -728,16 +842,17 @@ Page({
       ? Number(latestPendingRollcall.round || activeRound || 1)
       : 0;
     const currentCalledStudent = hasPendingRollcall
-      ? {
+      ? this.decorateCalledStudent({
         studentId: String(latestPendingRollcall.studentId || "").trim(),
-        name: String(latestPendingRollcall.studentName || "").trim(),
-        round: pendingRollcallRound
-      }
+        name: String(latestPendingRollcall.studentName || "").trim()
+      }, pendingRollcallRound)
       : null;
     const pendingScoreLock = hasPendingRollcall;
     const roundComplete = this.isRoundComplete(activeRound, rollcallSource);
 
     if (hasPendingRollcall) {
+      const pendingDiceValues = this.getDiceValuesForStudent(currentCalledStudent, pendingRollcallRound || activeRound);
+      this.setDiceDisplay(pendingDiceValues.leftValue, pendingDiceValues.rightValue);
       this.setData({
         currentRound: pendingRollcallRound || activeRound,
         currentRoundCalledIds,
@@ -994,7 +1109,7 @@ Page({
       return;
     }
 
-    if (this.data.pendingScoreLock || this.data.currentCalledStudent) {
+    if (this.data.isRolling || this.data.pendingScoreLock || this.data.currentCalledStudent) {
       wx.showToast({
         title: "请先完成当前点名评分",
         icon: "none"
@@ -1060,11 +1175,11 @@ Page({
 
     const studentKey = this.getStudentUniqueId(student);
     const nextCalledIds = Array.from(new Set([...(this.data.currentRoundCalledIds || []), studentKey]));
+    const calledStudent = this.decorateCalledStudent(student, round);
+    const diceValues = this.getDiceValuesForStudent(calledStudent, round);
+    await this.playDiceRollAnimation(diceValues.leftValue, diceValues.rightValue);
     this.setData({
-      currentCalledStudent: {
-        ...student,
-        round
-      },
+      currentCalledStudent: calledStudent,
       currentRound: round,
       currentRoundCalledIds: nextCalledIds,
       pendingScoreLock: true,
@@ -1280,18 +1395,21 @@ Page({
     if (!nextLessonId) {
       this.clearAttendancePolling();
       this.clearLessonEventPolling();
+      this.clearRollAnimationTimers();
       const list = this.cloneBaseRosterList();
       this.setData({
         lessonId: "",
         selectedLessonId: "",
         list
       });
+      this.resetDiceDisplay();
       await this.refreshInteractionDataAfterLessonChange();
       return;
     }
 
     this.clearAttendancePolling();
     this.clearLessonEventPolling();
+    this.clearRollAnimationTimers();
 
     const baseList = this.cloneBaseRosterList();
     this.setData({
@@ -1299,6 +1417,7 @@ Page({
       selectedLessonId: nextLessonId,
       list: baseList
     });
+    this.resetDiceDisplay();
     await this.refreshInteractionDataAfterLessonChange();
 
     await this.fetchAttendanceOnce(nextLessonId);
