@@ -2,9 +2,9 @@
 
 ## 0. 适用范围与总原则（强制执行）
 
-本文件用于约束本项目内所有任务执行与输出格式。
+本文件是本项目唯一执行规则真源，用于约束本项目内所有任务执行与输出格式。
 
-全局原则：
+强制原则：
 
 - 先读代码，再改代码
 - 优先复用现有实现
@@ -13,138 +13,118 @@
 - 不顺手重构或清理无关代码
 - 只修改当前任务相关文件
 - 不把“已改本地”表述成“已经线上生效”
-- 不混淆“事实检查 / 开发实现 / 测试验证 / 收工输出”四类模式
+- 不混淆“事实检查 / 开发实现 / 测试验证 / 收工输出 / 任务包 / Codex 提示词”六类模式
 - 结论必须直接，不允许含糊
 - 输出必须可复制、可执行、可验收
+- 若代码事实与之前口头判断冲突，必须以代码事实为准
+- 本项目只认 AGENTS.md，不再维护或引用 AGENTS.dev.md
 
 ---
 
-## 1. 收工指令规则（强制执行）
+## 1. 模式识别与优先级（强制执行）
 
-当用户输入：
+用户请求默认按以下模式识别：
 
+1. 收工模式
+2. 测试分身模式
+3. 事实检查模式
+4. Codex 提示词模式
+5. 任务包模式
+6. 开发实现模式
+
+若一个请求同时涉及多种模式，优先级按上面顺序执行。
+
+若用户当前消息意图已经非常明确，以当前消息直接意图为准，不混入其他模式内容。
+
+---
+
+## 2. 收工模式（强制执行）
+
+当用户输入以下任一类话术时，进入【收工模式】：
+
+- 收工
 - 收工 TASK-xxxx 中文任务名
+- 语义等价的明确收工指令
+
+### 2.1 收工执行规则
 
 必须执行：
 
 1. 强制调用 wechat-task-closeout skill
-2. 不允许模型自行生成收工内容（禁止模拟）
+2. 不允许模型自行模拟收工内容
 3. 输出必须来自 skill，包括：
-   - Git 提交命令（基于实际改动文件）
-   - Obsidian 笔记（写入 current_note.md）
+   - Git 提交命令
+   - Obsidian 笔记内容或对应输出文件结果
 
-如果 skill 执行失败：
-才允许按同样结构 fallback 输出。
+只有 skill 失败时，才允许 fallback。
 
----
+### 2.2 收工输出范围
 
-## 2. 收工执行优先级（强制执行）
-
-收工指令优先级高于普通对话。
-
-一旦识别为：
-
-- 收工 TASK-xxxx ...
-- 或语义等价的明确收工指令
-
-必须立即进入 closeout 流程，不做以下内容：
-
-- 不进行解释
-- 不进行闲聊
-- 不进行方案分析
-- 不追加任务建议
-- 不混入“下一个任务包”
-- 不混入 codex 提示词
-
-只输出收工结果。
-
----
-
-## 3. 收工输出结构（严格）
-
-收工时必须只输出两部分，且顺序固定：
+收工时只允许输出两部分，且顺序固定：
 
 ## 1. Git 代码
-git add <真实修改文件1> <真实修改文件2> ... && git commit -m "我已经改了 TASK-xxxx 中文任务名"
+git add <真实修改文件1> <真实修改文件2> ... && git commit -m "docs: 更新 TASK-xxxx 中文任务名"
 
 ## 2. Obsidian 笔记
 （完整笔记内容）
 
+### 2.3 收工禁止事项
+
 禁止：
 
-- 禁止多输出第 3 部分
+- 禁止输出第 3 部分
 - 禁止追加解释说明
+- 禁止追加开发分析
+- 禁止追加测试建议
 - 禁止追加“后续建议”
 - 禁止追加“下一个任务启动包”
-- 禁止追加“是否需要我继续”
+- 禁止追加 Codex 提示词
+- 禁止输出 git status 代替收工结果
+- 禁止输出需要用户自己拼接的命令片段
+- 禁止把收工结果和其他模式内容混在一起
 
----
-
-## 4. Git 输出规则（强制执行）
+### 2.4 收工 Git 规则
 
 收工时输出的 Git 命令必须满足以下全部要求：
 
-### 4.1 命令结构要求
-
 - git add 和 git commit 必须合并为一整条单行命令
 - 不允许拆成两条命令分别输出
-- 不允许输出 git status 代替收工命令
+- 不允许输出 git status
 - 不允许只输出 commit message
 - 不允许省略 git add
 - 不允许省略 git commit
-
-标准格式固定为：
-
-git add <真实修改文件1> <真实修改文件2> ... && git commit -m "我已经改了 TASK-xxxx 中文任务名"
-
-### 4.2 单行要求
-
-- Git 命令必须是单行字符串
-- 不允许裸换行
-- 不允许在 git add 与 && 之间换行
-- 不允许在 && 与 git commit 之间换行
-- 不允许在 -m 与引号之间换行
-- 不允许把 commit message 放到下一行
-- 不允许把路径拆成“目录一行 + 文件名下一行”
-- 不允许把任何一个完整文件路径拆断
-
-### 4.3 代码块要求
-
-- Git 命令必须放在单独的代码块中输出
-- 代码块内只允许这一条单行命令
-- 代码块内不得追加解释文字
-- 代码块内不得追加注释
-- 即使聊天界面会视觉折行，也必须保证输出源文本是一整条单行命令
-
-### 4.4 文件范围要求
-
-- 只 add 本任务实际修改文件
-- 禁止 add 无关文件
-- 禁止 add 整个目录代替具体文件
 - 禁止使用 `git add .`
 - 禁止使用 `git add -A`
-- 禁止使用模糊路径
+- 禁止 add 整个目录代替具体文件
+- 只 add 本任务实际修改文件
 - 禁止遗漏本任务真实修改文件
+- Git 命令必须放在单独代码块中
+- 代码块中只允许这一条单行命令
+- 即使界面视觉折行，输出源文本也必须保持单行
 
-### 4.5 commit message 要求
+固定格式为：
 
-- commit message 必须使用中文简洁风格
-- commit message 必须固定为：
+git add <真实修改文件1> <真实修改文件2> ... && git commit -m "docs: 更新 TASK-xxxx 中文任务名"
 
-我已经改了 TASK-xxxx 中文任务名
+### 2.5 收工 commit message 规则
+
+- commit message 必须固定为中文简洁风格
+- 固定格式为：
+
+docs: 更新 TASK-xxxx 中文任务名
 
 - 任务编号必须保持用户给定写法
 - 不允许擅自改 TASK 编号大小写
 - 不允许擅自改任务中文名
-- 不允许用英文默认风格替代
 - 不允许省略 TASK 编号
 - 不允许写成与任务不一致的描述
+- 不允许使用“我已经改了”这类口语化提交信息
 
-### 4.6 合格标准
+### 2.6 收工合格示例
 
 合格示例：
 
-git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHome/teacherHome.wxml && git commit -m "我已经改了 TASK-018F6C teacherHome 按钮显示口径收口"
+git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHome/teacherHome.wxml && git commit -m "docs: 更新 TASK-018F6C teacherHome 按钮显示口径收口"
 
 不合格示例：
 
@@ -153,49 +133,27 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - git add 和 git commit 分开输出
 - commit message 被换到下一行
 - 只输出 git status
-- 使用英文 commit message
-- commit message 缺少 TASK 编号
-- commit message 擅自改动任务编号大小写
 - 使用 `git add .`
+- commit message 缺少 TASK 编号
+- commit message 写成“我已经改了 ……”
 
----
+### 2.7 收工 fallback 规则
 
-## 5. 收工禁止行为（强制执行）
+只有在 wechat-task-closeout skill 不可用时，才允许模型自行生成收工内容。
 
-禁止：
-
-- 禁止输出 git status 作为收工结果
-- 禁止出现“测试流程”“模拟收工”等字样
-- 禁止未基于实际改动生成内容
-- 禁止遗漏 output 文件写入逻辑
-- 禁止把“下一个任务包”混入收工输出
-- 禁止将 git add 命令拆成多行
-- 禁止输出被路径断裂的命令
-- 禁止把 UI 自动折行当作内容允许拆行的理由
-- 禁止在收工时混入开发说明
-- 禁止在收工时混入测试建议
-
----
-
-## 6. fallback 规则（兜底）
-
-只有在 wechat-task-closeout skill 不可用时：
-才允许模型自行生成收工内容。
-
-即使走 fallback，也必须满足：
+即使 fallback，也必须满足：
 
 - 输出结构完全一致
 - 仍然只输出两部分
 - Git 命令仍严格遵守单行规则
 - commit message 仍严格遵守固定格式
-- Obsidian 笔记仍必须完整输出
 - 不得因为 fallback 就放宽格式要求
 
 ---
 
-## 7. 任务包模式（独立执行）
+## 3. 任务包模式（强制执行）
 
-当用户输入以下任一类话术时：
+当用户输入以下任一类话术时，进入【任务包模式】：
 
 - 生成任务包
 - 下一个任务包
@@ -204,9 +162,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 任务开启包
 - 启动包
 
-进入【任务包模式】。
-
-### 7.1 任务包输出范围
+### 3.1 任务包输出范围
 
 只允许输出四项：
 
@@ -215,48 +171,45 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 本轮边界
 - 预期结果
 
-### 7.2 任务包强制要求
+### 3.2 任务包强制要求
 
 - 不写代码
-- 不写方案
 - 不写实现步骤
+- 不写具体修改方案
 - 不扩展需求
-- 不追加 codex 提示词
+- 不追加 Codex 提示词
 - 不混入收工内容
 - 不混入 Git / Obsidian 内容
-- 不混入测试分身内容
+- 不混入测试清单
 - 不擅自扩大任务边界
-- 应优先复用用户已给出的任务口径
+- 优先复用用户已给出的任务口径
+- 模板应简洁，可直接复制到新窗口
 
-### 7.3 任务包格式要求
-
-任务包应简洁、可直接复制到新窗口继续使用。
+### 3.3 任务包禁止追加项
 
 除非用户明确要求，否则不要追加：
 
-- 代码实现建议
 - 文件列表
 - 风险分析
 - 验收清单
 - 部署提醒
+- 开发建议
 
 ---
 
-## 8. Codex 提示词模式（独立执行）
+## 4. Codex 提示词模式（强制执行）
 
-当用户明确要求以下任一类话术时：
+当用户明确要求以下任一类话术时，进入【Codex 提示词模式】：
 
 - 输出 codex 执行提示词
 - 给我 codex 提示词
 - 发我 codex 提示词
 - 给我一段直接发给 codex 的内容
 
-进入【Codex 提示词模式】。
-
-### 8.1 Codex 提示词输出要求
+### 4.1 Codex 提示词输出要求
 
 - 只输出可直接发给 Codex 的完整文本
-- 提示词必须清楚写明：
+- 提示词必须明确写明：
   - 任务名
   - 任务目标
   - 本轮边界
@@ -271,19 +224,19 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
   - 不擅自扩大范围
   - 不顺手重构
 
-### 8.2 Codex 提示词模式禁止事项
+### 4.2 Codex 提示词禁止事项
 
 - 不混入收工输出
 - 不混入“是否继续”
 - 不写多版本备选
 - 不给模糊建议
-- 不把任务包和 codex 提示词混在一起，除非用户明确要求
+- 不把任务包和 Codex 提示词混在一起，除非用户明确要求
 
 ---
 
-## 9. 开发实现模式（强制执行）
+## 5. 开发实现模式（强制执行）
 
-当任务是：
+当任务是以下任一类时，进入【开发实现模式】：
 
 - 实现功能
 - 修复问题
@@ -292,9 +245,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 补齐门禁
 - 优化已有链路
 
-进入【开发实现模式】。
-
-### 9.1 开发实现强制要求
+### 5.1 开发实现强制要求
 
 必须：
 
@@ -310,7 +261,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 不改用户未授权的业务链路
 - 不把推测写成事实
 
-### 9.2 开发实现输出结构（固定）
+### 5.2 开发实现输出结构（固定）
 
 输出必须为：
 
@@ -322,19 +273,20 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 6. 当前这版做到什么、没做什么
 7. 部署提醒（若涉及云函数则必填）
 
-### 9.3 开发实现补充要求
+### 5.3 开发实现补充要求
 
 - 必须分文件说明修改内容
 - 必须说明本轮边界内做到什么
 - 必须明确说没做什么
-- 若存在“数据真源”，必须明确指出
-- 若存在“门禁 / 分发 / 状态口径”，必须明确指出真实依据
+- 若存在数据真源，必须明确指出
+- 若存在门禁 / 分发 / 状态口径，必须明确指出真实依据
+- 若改动涉及云函数，必须提醒重新上传并部署
 
 ---
 
-## 10. 事实检查模式（强制执行）
+## 6. 事实检查模式（强制执行）
 
-当用户要求：
+当用户要求以下任一类内容时，进入【事实检查模式】：
 
 - 看看现在是不是这样
 - 查一下真实链路
@@ -343,9 +295,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 不要改代码，只检查
 - 帮我确认真实口径
 
-进入【事实检查模式】。
-
-### 10.1 事实检查模式规则
+### 6.1 事实检查规则
 
 - 不改代码
 - 不创建数据
@@ -353,9 +303,9 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 不顺手修 bug
 - 不把推测写成事实
 - 必须以真实代码、真实字段、真实调用链为准
-- 若发现之前口径与代码不一致，必须直接纠正，以代码事实为准
+- 若发现之前口径与代码不一致，必须直接纠正
 
-### 10.2 事实检查输出结构（固定）
+### 6.2 事实检查输出结构（固定）
 
 输出必须为：
 
@@ -368,9 +318,9 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 11. 测试分身模式（强制执行）
+## 7. 测试分身模式（强制执行）
 
-当用户说以下任一类话术时：
+当用户说以下任一类话术时，进入【测试分身模式】：
 
 - 做测试
 - 验证
@@ -380,9 +330,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 给我手测步骤
 - 回归检查一下
 
-进入【测试分身模式】。
-
-### 11.1 测试分身规则
+### 7.1 测试分身规则
 
 - 不改代码
 - 不扩需求
@@ -391,7 +339,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 场景必须覆盖用户当前任务边界
 - 预期结果必须与真实口径一致
 
-### 11.2 测试分身输出结构（固定）
+### 7.2 测试分身输出结构（固定）
 
 输出必须为：
 
@@ -404,28 +352,28 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 12. 状态语义规则（必须遵守）
+## 8. 状态语义规则（必须遵守）
 
-### 12.1 处理态
+### 8.1 处理态
 
 - 待处理
 - 已确认
 - 已关闭
 
-### 12.2 生效态
+### 8.2 生效态
 
 - 已签到
 - 已请假
 - 旷课
 - 未生效
 
-### 12.3 动作
+### 8.3 动作
 
 - 设为请假
 - 设为旷课
 - 确认申请
 
-### 12.4 强制要求
+### 8.4 强制要求
 
 - 不要把申请状态和结果状态写在一句话里
 - 按钮文案必须是动作，不要写成状态
@@ -435,7 +383,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 13. 重点检查页面（优先关注）
+## 9. 重点检查页面（优先关注）
 
 优先关注：
 
@@ -456,17 +404,17 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 14. 云函数规则（强制执行）
+## 10. 云函数规则（强制执行）
 
-如果本轮改动涉及以下任一内容：
+如果本轮改动涉及以下任一内容，则最终汇报必须追加部署提醒：
 
 - cloudfunctions/ 下新增云函数
 - cloudfunctions/ 下修改 index.js
 - cloudfunctions/ 下修改 package.json
-- 前端新增或修改 wx.cloud.callFunction
-- 前端新增或修改云函数返回值的判断逻辑
+- 前端新增或修改 `wx.cloud.callFunction`
+- 前端新增或修改云函数返回值判断逻辑
 
-则最终汇报必须追加：
+### 10.1 部署提醒固定结构
 
 ### 7. 部署提醒
 
@@ -474,7 +422,9 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 是否需要重新上传并部署：
 - 建议部署方式：微信开发者工具 → 右键云函数目录 → 上传并部署：云端安装依赖
 
-并且必须明确写出：
+### 10.2 云函数提醒强制要求
+
+必须明确写出：
 
 - 改了云函数，不等于云端已生效
 - 不允许默认假设用户已经部署
@@ -483,20 +433,20 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
   - 云端仍执行旧逻辑
   - 前端和云端返回结构不一致
 
-### 14.1 云函数强制要求
+### 10.3 云函数补充规则
 
 - 只要改了云函数，必须提醒部署
-- 不允许省略“部署提醒”
+- 不允许省略部署提醒
 - 若本轮未涉及云函数，也要明确写：
   - 本轮不涉及云函数部署
 
 ---
 
-## 15. 云函数检查项（强制执行）
+## 11. 云函数检查项（强制执行）
 
 涉及云函数时，必须顺手检查：
 
-- 云函数目录名与 callFunction({ name }) 是否完全一致
+- 云函数目录名与 `callFunction({ name })` 是否完全一致
 - 是否新增了未部署云函数
 - package.json 是否需要一起部署
 - 返回值结构改了，前端是否同步修改判断逻辑
@@ -505,7 +455,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 16. 最终汇报口径（强制执行）
+## 12. 最终汇报口径（强制执行）
 
 结论必须直接，不允许含糊。
 
@@ -520,7 +470,7 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 建议视情况部署
 - 如果没问题可以不部署
 
-### 16.1 结论表达要求
+### 12.1 结论表达要求
 
 - 必须区分“已经改本地”和“已经云端生效”
 - 必须区分“当前做到的”和“本轮没做的”
@@ -529,9 +479,9 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 17. 角色与权限口径规则（强制执行）
+## 13. 角色与权限口径规则（强制执行）
 
-当任务涉及：
+当任务涉及以下任一模块时：
 
 - studentHome
 - teacherHome
@@ -552,23 +502,23 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 18. 数据真源表达规则（强制执行）
+## 14. 数据真源表达规则（强制执行）
 
-当任务涉及数据状态、集合名、字段名、页面判断口径时：
+当任务涉及数据状态、集合名、字段名、页面判断口径时，必须：
 
-- 必须区分“集合名”和“字段名”
-- 必须区分“本地缓存态”和“远端真源态”
-- 必须区分“显示文案”和“真实状态”
+- 区分集合名和字段名
+- 区分本地缓存态和远端真源态
+- 区分显示文案和真实状态
 - 若用户把字段名误认成集合名，必须直接纠正
 - 若代码与之前口头分析不一致，必须以代码事实为准修正结论
 
 ---
 
-## 19. 禁止事项（总表）
+## 15. 禁止事项（总表）
 
 禁止：
 
-- 禁止把收工、任务包、开发汇报、测试清单四种输出混在一起
+- 禁止把收工、任务包、开发汇报、测试清单、Codex 提示词混在一起
 - 禁止在未读代码前直接下实现结论
 - 禁止用猜测替代代码事实
 - 禁止顺手重构无关代码
@@ -582,35 +532,11 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 - 禁止输出需要用户自行拼接的 Git 多行命令
 - 禁止输出 `git add .`
 - 禁止在收工时输出被拆断的路径
-- 禁止把“下一个任务包”混入收工 skill 输出
+- 禁止让 AGENTS.dev.md 重新作为规则源出现
 
 ---
 
-## 20. 默认执行策略
-
-若用户意图不明确，先判断属于哪一种模式：
-
-1. 收工模式
-2. 任务包模式
-3. Codex 提示词模式
-4. 事实检查模式
-5. 开发实现模式
-6. 测试分身模式
-
-若一个请求同时涉及多种模式，优先级如下：
-
-1. 收工模式
-2. 测试分身模式（若用户明确要求只验证不改）
-3. 事实检查模式（若用户明确要求先查清）
-4. Codex 提示词模式
-5. 任务包模式
-6. 开发实现模式
-
-若仍有冲突，以用户当前这条消息的直接意图为准。
-
----
-
-## 21. Git 输出补充约束（用于彻底避免“看起来被截断”争议）
+## 16. Git 输出补充约束（用于彻底避免“看起来被截断”争议）
 
 为避免 Git 命令在展示时产生“像被截断”的歧义，强制执行以下附加规则：
 
@@ -625,9 +551,9 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 
 ---
 
-## 22. 本文件覆盖原则
+## 17. 本文件覆盖原则
 
-若后续新增规则与旧规则冲突，以以下优先级为准：
+规则冲突时，按以下优先级执行：
 
 1. 收工输出结构与 Git 单行规则
 2. 云函数部署提醒规则
@@ -636,3 +562,22 @@ git add miniprogram/pages/teacherHome/teacherHome.js miniprogram/pages/teacherHo
 5. 其他补充规则
 
 若用户在当前对话中给出更具体、更明确的新规则，且不与以上强制规则冲突，应优先遵守用户当前规则。
+
+---
+
+## 18. 单一规则源原则（强制执行）
+
+本项目规则文件只保留：
+
+- AGENTS.md
+
+明确废弃：
+
+- AGENTS.dev.md
+
+要求：
+
+- 不再创建 AGENTS.dev.md
+- 不再引用 AGENTS.dev.md
+- 不再从任何模板、脚本、skill、提示词中输出 AGENTS.dev.md
+- 若仓库中再次出现 AGENTS.dev.md，应视为旧模板或外部脚本回灌，优先删除并排查生成来源
