@@ -456,7 +456,7 @@ Page({
       ...nextState
     });
     if (shouldVibrateOnApproved) {
-      wx.vibrateShort({ type: "light" });
+      wx.vibrateLong();
     }
     this.hasHydratedQuestionStatus = true;
     this.syncQuestionPolling(nextState);
