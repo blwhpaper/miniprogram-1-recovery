@@ -1,11 +1,22 @@
 .page {
-  /* 页面顶部预留安全距离 */
-  padding-top: calc(var(--ui-space-5) + constant(safe-area-inset-top));
-  padding-top: calc(var(--ui-space-5) + env(safe-area-inset-top));
+  padding-top: 0;
+}
+
+.student-home-hero {
+  margin-bottom: 4rpx;
+}
+
+.student-home-kicker {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.student-home-pill {
+  align-self: flex-start;
 }
 
 .hero-block {
-  margin-top: var(--ui-space-2);
+  margin-top: 0;
+  box-shadow: none;
 }
 
 .hero-header {
@@ -25,6 +36,26 @@
 .hero-entry-btn {
   margin-top: var(--ui-space-4);
   width: 100% !important;
+}
+
+.action-card {
+  margin-top: 0;
+}
+
+.action-tile {
+  width: 100%;
+  margin: 0;
+  min-height: 156rpx;
+  height: auto !important;
+  padding: 24rpx !important;
+  background: var(--ui-color-card-subtle) !important;
+  border: 1rpx solid var(--ui-color-border) !important;
+  box-shadow: none !important;
+  align-items: flex-start !important;
+}
+
+.teacher-entry-tile {
+  background: #ffffff !important;
 }
 
 .summary-tip {

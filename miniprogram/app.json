@@ -17,9 +17,9 @@
     "pages/randomRollcall/randomRollcall"
   ],
   "window": {
-    "backgroundColor": "#F6F6F6",
+    "backgroundColor": "#F8FAFC",
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#F6F6F6",
+    "navigationBarBackgroundColor": "#F8FAFC",
     "navigationBarTitleText": "课堂签到",
     "navigationBarTextStyle": "black"
   },

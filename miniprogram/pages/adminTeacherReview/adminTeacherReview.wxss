@@ -11,24 +11,24 @@
 }
 
 .state-loading {
-  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
-  border-color: #cfe0ff;
+  background: linear-gradient(135deg, var(--ui-color-primary-soft) 0%, #ffffff 100%);
+  border-color: var(--ui-color-primary-border);
 }
 
 .state-unauthorized {
-  background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%);
-  border-color: #fecaca;
+  background: linear-gradient(135deg, var(--ui-color-danger-soft) 0%, #ffffff 100%);
+  border-color: var(--ui-color-danger-border);
 }
 
 .state-passwordRequired,
 .state-empty {
-  background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
-  border-color: #fde68a;
+  background: linear-gradient(135deg, var(--ui-color-warning-soft) 0%, #ffffff 100%);
+  border-color: var(--ui-color-warning-border);
 }
 
 .state-ready {
-  background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%);
-  border-color: #a7f3d0;
+  background: linear-gradient(135deg, var(--ui-color-success-soft) 0%, #ffffff 100%);
+  border-color: var(--ui-color-success-border);
 }
 
 .access-panel,

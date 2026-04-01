@@ -1,17 +1,20 @@
-<view class="rollcall-page ui-page ui-page--stack">
-  <view class="ui-card ui-hero-card ui-hero-card--teacher ui-section rollcall-hero">
-    <view class="ui-card-head ui-page-head">
-      <view class="ui-card-head hero-main ui-page-head-main">
-        <view class="ui-title-lg">随机点名</view>
-        <view class="ui-text-helper">第{{currentRound}}轮</view>
+<view class="rollcall-page ui-page ui-page--stack ui-page--with-bottom-bar">
+  <view class="rollcall-hero ui-hero-section">
+    <view class="ui-hero-section__content">
+      <view class="ui-hero-section__head">
+        <view class="ui-card-head ui-page-head-main">
+          <view class="ui-hero-section__desc">双骰子动态点名页</view>
+          <view class="ui-hero-section__title">随机点名</view>
+        </view>
+        <view class="ui-hero-pill">第{{currentRound}}轮</view>
       </view>
       <view
-        class="ui-tag {{pendingScoreLock ? 'ui-tag--pending' : ''}} {{!pendingScoreLock && currentCalledStudent ? 'ui-tag--active' : ''}} {{!pendingScoreLock && !currentCalledStudent && lastScoredStudentName ? 'ui-tag--approved' : ''}} {{!pendingScoreLock && !currentCalledStudent && !lastScoredStudentName ? 'ui-tag--inactive' : ''}}"
+        class="rollcall-hero-status ui-feedback {{pendingScoreLock ? 'ui-feedback--warning' : currentCalledStudent ? 'ui-feedback--success' : lastScoredStudentName ? 'ui-feedback--info' : 'ui-feedback--idle'}}"
       >
-        <text wx:if="{{pendingScoreLock}}">待评分</text>
-        <text wx:elif="{{currentCalledStudent}}">点名中</text>
-        <text wx:elif="{{lastScoredStudentName}}">可继续下一位</text>
-        <text wx:else>未开始</text>
+        <text wx:if="{{pendingScoreLock}}">当前结果待评分</text>
+        <text wx:elif="{{currentCalledStudent}}">已抽中学生，等待教师评分</text>
+        <text wx:elif="{{lastScoredStudentName}}">上一位已完成，可继续下一轮</text>
+        <text wx:else>点击按钮开始随机点名</text>
       </view>
     </view>
   </view>
@@ -28,26 +31,50 @@
     </view>
   </view>
 
-  <view class="ui-card ui-status-card ui-section ui-panel-card--focus focus-card">
-    <view wx:if="{{currentCalledStudent}}" class="ui-card-head">
-      <view class="ui-title-lg">{{currentCalledStudent.name}}</view>
-      <view class="ui-text-body">学号：{{currentCalledStudent.studentId || '-'}}</view>
-    </view>
+  <view class="ui-card ui-section ui-panel-card--focus focus-card">
+    <view class="rollcall-stage">
+      <view class="rollcall-stage__summary">全班学生：{{signedStudents.length || 0}} 人</view>
+      <view class="dice-pair">
+        <view class="dice-face dice-face--left">
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+        </view>
+        <view class="dice-face dice-face--right">
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+          <view class="dice-dot"></view>
+        </view>
+      </view>
 
-    <view wx:elif="{{lastScoredStudentName}}" class="ui-card-head">
-      <view class="ui-title-md">{{lastScoredStudentName}} 已完成第{{lastScoredRound}}轮</view>
-    </view>
+      <view class="rollcall-result-card ui-card ui-section">
+        <view wx:if="{{currentCalledStudent}}" class="ui-card-head">
+          <view class="ui-title-lg">{{currentCalledStudent.name}}</view>
+          <view class="ui-text-body">学号：{{currentCalledStudent.studentId || '-'}}</view>
+        </view>
 
-    <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="ui-card-head">
-      <view class="ui-title-md">已签到 {{signedStudents.length}} 人</view>
-    </view>
+        <view wx:elif="{{lastScoredStudentName}}" class="ui-card-head">
+          <view class="ui-title-md">{{lastScoredStudentName}} 已完成第{{lastScoredRound}}轮</view>
+        </view>
 
-    <view wx:elif="{{selectedLessonId}}" class="ui-card-head">
-      <view class="ui-title-md">暂无可点名学生</view>
-    </view>
+        <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="ui-card-head">
+          <view class="ui-title-md">已签到 {{signedStudents.length}} 人</view>
+        </view>
 
-    <view wx:else class="ui-card-head">
-      <view class="ui-title-md">暂无课次</view>
+        <view wx:elif="{{selectedLessonId}}" class="ui-card-head">
+          <view class="ui-title-md">暂无可点名学生</view>
+        </view>
+
+        <view wx:else class="ui-card-head">
+          <view class="ui-title-md">暂无课次</view>
+        </view>
+      </view>
     </view>
   </view>
 
@@ -55,15 +82,6 @@
     <view class="ui-card-head">
       <view class="ui-title-md">操作</view>
     </view>
-
-    <button
-      class="primary-action {{pendingScoreLock ? 'primary-action--disabled' : ''}}"
-      bindtap="onTapRandomRollcall"
-      hover-class="ui-btn-active"
-      disabled="{{pendingScoreLock || !selectedLessonId || signedStudents.length === 0}}"
-    >
-      {{currentCalledStudent || pendingScoreLock ? '继续' : '随机点名'}}
-    </button>
 
     <view wx:if="{{pendingScoreLock && currentCalledStudent}}" class="score-panel">
       <view class="score-panel-title">给 {{currentCalledStudent.name}} 评分</view>
@@ -140,6 +158,26 @@
 
     <view wx:else class="ui-empty-state">
       <view class="ui-empty-title">暂无记录</view>
+    </view>
+  </view>
+
+  <view class="ui-bottom-bar">
+    <view class="ui-bottom-bar__content">
+      <view class="ui-bottom-bar__hint">
+        <text wx:if="{{selectedLessonId && signedStudents.length > 0}}">点击开始进行本轮随机点名</text>
+        <text wx:elif="{{selectedLessonId}}">当前课次暂无已签到学生</text>
+        <text wx:else>请先选择有数据的历史课次</text>
+      </view>
+      <view class="ui-bottom-bar__actions">
+        <button
+          class="primary-action {{pendingScoreLock ? 'primary-action--disabled' : ''}}"
+          bindtap="onTapRandomRollcall"
+          hover-class="ui-btn-active"
+          disabled="{{pendingScoreLock || !selectedLessonId || signedStudents.length === 0}}"
+        >
+          {{currentCalledStudent || pendingScoreLock ? '再抽一次' : '开始点名'}}
+        </button>
+      </view>
     </view>
   </view>
 </view>

@@ -1,21 +1,24 @@
-<view class="page ui-page">
-  <view class="card hero-card ui-card ui-hero-card ui-hero-card--primary ui-section">
-    <view class="title-row ui-page-head">
-      <view class="title-wrap ui-card-head ui-page-head-main">
-        <view class="title ui-title-lg">学生</view>
+<view class="page ui-page ui-page--stack">
+  <view class="student-home-hero ui-hero-section">
+    <view class="ui-hero-section__content">
+      <view class="title-row ui-hero-section__head">
+        <view class="title-wrap ui-card-head ui-page-head-main">
+          <view class="student-home-kicker ui-hero-section__desc">学生主页</view>
+          <view class="title ui-hero-section__title">当前课堂</view>
+        </view>
+        <view class="student-home-pill ui-hero-pill">学生</view>
       </view>
-      <view class="page-badge ui-tag ui-tag--active ui-page-head-badge">当前课</view>
-    </view>
 
-    <view class="hero-block ui-card ui-card--info ui-section">
-      <view class="hero-header">
-        <view class="hero-label ui-eyebrow">{{pageLeadText}}</view>
-        <view class="hero-status ui-title-hero">{{statusText}}</view>
+      <view class="hero-block ui-card ui-section ui-panel-card">
+        <view class="hero-header">
+          <view class="hero-label ui-eyebrow">{{pageLeadText}}</view>
+          <view class="hero-status ui-title-hero">{{statusText}}</view>
+        </view>
+        <view class="hero-summary ui-text-body">{{summaryText}}</view>
+        <button wx:if="{{showLessonEntryButton}}" class="hero-entry-btn" type="primary" hover-class="ui-btn-active" bindtap="enterCurrentLesson">
+          {{lessonEntryText}}
+        </button>
       </view>
-      <view class="hero-summary ui-text-body">{{summaryText}}</view>
-      <button wx:if="{{showLessonEntryButton}}" class="hero-entry-btn" type="primary" hover-class="ui-btn-active" bindtap="enterCurrentLesson">
-        {{lessonEntryText}}
-      </button>
     </view>
   </view>
 
@@ -82,24 +85,21 @@
       <view class="ui-card-head">
         <view class="ui-title-md">操作</view>
       </view>
-      <view class="ui-button-group ui-button-group--compact">
-        <view wx:if="{{showQuestionEntryButton}}" class="action-block secondary-action">
-        <button class="ui-btn-secondary" hover-class="ui-btn-active" bindtap="enterQuestionEntry">
-          主动提问
+      <view class="ui-action-grid">
+        <button wx:if="{{showQuestionEntryButton}}" class="action-tile ui-action-tile" hover-class="ui-btn-active" bindtap="enterQuestionEntry">
+          <view class="ui-action-tile__title">主动提问</view>
+          <view class="ui-action-tile__desc">单次发起提问请求</view>
         </button>
-        </view>
 
-        <view wx:if="{{hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result'}}" class="action-block secondary-action">
-        <button class="ui-btn-secondary" hover-class="ui-btn-active" bindtap="enterLeaveRequestPage">
-          请假申请
+        <button wx:if="{{hasBoundStudentSession && lessonId && lessonEntryMode !== 'leave_result'}}" class="action-tile ui-action-tile" hover-class="ui-btn-active" bindtap="enterLeaveRequestPage">
+          <view class="ui-action-tile__title">请假申请</view>
+          <view class="ui-action-tile__desc">提交本课请假信息</view>
         </button>
-        </view>
 
-        <view wx:if="{{showTeacherHomeEntry}}" class="action-block secondary-action">
-        <button class="ui-btn-ghost" hover-class="ui-btn-active" bindtap="enterTeacherHome">
-          教师入口
+        <button wx:if="{{showTeacherHomeEntry}}" class="action-tile ui-action-tile teacher-entry-tile" hover-class="ui-btn-active" bindtap="enterTeacherHome">
+          <view class="ui-action-tile__title">教师入口</view>
+          <view class="ui-action-tile__desc">切换到教师工作区</view>
         </button>
-    </view>
       </view>
     </view>
 

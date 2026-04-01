@@ -9,6 +9,6 @@
 .test-score {
   font-size: 28rpx;
   font-weight: 600;
-  color: #16a34a;
+  color: var(--ui-color-success);
   align-self: flex-start;
 }

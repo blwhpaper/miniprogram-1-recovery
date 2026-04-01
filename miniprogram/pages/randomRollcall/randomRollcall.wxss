@@ -1,6 +1,19 @@
+.rollcall-page {
+  align-items: stretch;
+  padding-top: 0;
+}
+
+.rollcall-hero {
+  margin-bottom: 4rpx;
+}
+
+.rollcall-hero-status {
+  margin-top: 0;
+}
+
 .primary-action {
   margin: 0;
-  min-height: 108rpx;
+  min-height: var(--ui-button-height);
   font-size: 32rpx;
 }
 
@@ -8,18 +21,75 @@
   opacity: 1;
 }
 
+.focus-card {
+  margin-top: 0;
+}
+
+.rollcall-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ui-space-4);
+}
+
+.rollcall-stage__summary {
+  font-size: var(--ui-font-base);
+  font-weight: 600;
+  color: var(--ui-color-text);
+}
+
+.dice-pair {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24rpx;
+  padding: 8rpx 0;
+}
+
+.dice-face {
+  width: 140rpx;
+  height: 140rpx;
+  padding: 18rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(180deg, #ffffff 0%, #dbeafe 100%);
+  box-shadow: 0 10rpx 24rpx rgba(37, 99, 235, 0.12);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10rpx;
+  transform: rotate(-8deg);
+  box-sizing: border-box;
+}
+
+.dice-face--right {
+  transform: rotate(10deg);
+}
+
+.dice-dot {
+  width: 18rpx;
+  height: 18rpx;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--ui-color-primary);
+}
+
+.rollcall-result-card {
+  width: 100%;
+  box-shadow: none;
+  border: 1rpx solid var(--ui-color-border);
+}
+
 .score-panel {
   margin-top: 6rpx;
   padding: 24rpx;
   border-radius: 24rpx;
-  background: #fff8ed;
-  border: 1rpx solid #ffe0b3;
+  background: var(--ui-color-warning-soft);
+  border: 1rpx solid var(--ui-color-warning-border);
 }
 
 .score-panel-title {
   font-size: 26rpx;
   font-weight: 600;
-  color: #9a6700;
+  color: #b45309;
 }
 
 .score-btn {
@@ -29,17 +99,13 @@
   line-height: 1.6;
 }
 
-.rollcall-page {
-  align-items: stretch;
-}
-
 .event-score {
   font-size: 28rpx;
   font-weight: 600;
-  color: #16a34a;
+  color: var(--ui-color-success);
   align-self: flex-start;
 }
 
 .event-round {
-  color: #2563eb;
+  color: var(--ui-color-primary);
 }

@@ -1,47 +1,72 @@
-<view class="question-page ui-page ui-page--stack">
-  <view class="question-card ui-card ui-hero-card ui-hero-card--primary ui-section">
+<view class="question-page ui-page ui-page--stack ui-page--with-bottom-bar">
+  <view class="question-hero ui-hero-section">
+    <view class="ui-hero-section__content">
+      <view class="ui-hero-section__head">
+        <view class="ui-card-head ui-page-head-main">
+          <view class="ui-hero-section__desc">学生端提问请求页</view>
+          <view class="ui-hero-section__title">主动提问</view>
+        </view>
+        <view class="ui-hero-pill">神灯</view>
+      </view>
+      <view class="status ui-feedback ui-feedback--{{canSubmitQuestionRequest ? 'info' : 'disabled'}}">
+        {{pageStatusText}}
+      </view>
+    </view>
+  </view>
+
+  <view class="question-card ui-card ui-section ui-panel-card">
+    <view class="lamp-stage ui-empty-panel">
+      <view class="lamp-stage__crest"></view>
+      <view class="lamp-symbol">
+        <view class="lamp-symbol__flame"></view>
+        <view class="lamp-symbol__handle"></view>
+        <view class="lamp-symbol__top"></view>
+        <view class="lamp-symbol__body"></view>
+        <view class="lamp-symbol__spout"></view>
+        <view class="lamp-symbol__base"></view>
+      </view>
+      <view class="lamp-stage__title">神灯提示</view>
+      <view class="lamp-stage__desc">智慧提问，开启精彩课堂</view>
+    </view>
+
+    <view class="question-status ui-feedback ui-feedback--info">本课已提问 {{questionRequestCount}} / 3</view>
+
+    <view class="tip ui-feedback ui-feedback--{{latestQuestionStatusText ? 'matched' : !signSuccess ? 'warning' : canSubmitQuestionRequest ? 'success' : 'idle'}}" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
+    <view class="tip ui-feedback ui-feedback--warning" wx:elif="{{!signSuccess}}">
+      先签到后再发起提问
+    </view>
+  </view>
+
+  <view class="info-block ui-card ui-card--subtle ui-section ui-panel-card" wx:if="{{name}}">
     <view class="ui-card-head">
-      <view class="ui-title-lg">主动提问</view>
+      <view class="ui-title-md">当前学生</view>
     </view>
-    <view class="status ui-feedback ui-feedback--{{canSubmitQuestionRequest ? 'info' : 'disabled'}}">
-      {{pageStatusText}}
+    <view class="ui-info-list">
+      <view class="ui-info-item">
+        <view class="ui-info-label">姓名</view>
+        <view class="ui-info-value">{{name}}</view>
+      </view>
+      <view class="ui-info-item">
+        <view class="ui-info-label">学号</view>
+        <view class="ui-info-value">{{studentId}}</view>
+      </view>
     </view>
+  </view>
 
-    <view class="info-block ui-card ui-card--subtle ui-section ui-panel-card" wx:if="{{name}}">
-      <view class="ui-card-head">
-        <view class="ui-title-md">当前学生</view>
-      </view>
-      <view class="ui-info-list">
-        <view class="ui-info-item">
-          <view class="ui-info-label">当前学生</view>
-          <view class="ui-info-value">{{name}}</view>
-        </view>
-        <view class="ui-info-item">
-          <view class="ui-info-label">学号</view>
-          <view class="ui-info-value">{{studentId}}</view>
-        </view>
-      </view>
-    </view>
-
-    <view class="info-block ui-card ui-card--subtle ui-section ui-panel-card">
-      <view class="ui-card-head">
-        <view class="ui-title-md">提问状态</view>
-      </view>
-      <view class="ui-feedback ui-feedback--info">本课已提问 {{questionRequestCount}} / 3</view>
-      <view class="tip ui-feedback ui-feedback--{{latestQuestionStatusText ? 'matched' : !signSuccess ? 'warning' : canSubmitQuestionRequest ? 'success' : 'idle'}}" wx:if="{{latestQuestionStatusText}}">{{latestQuestionStatusText}}</view>
-      <view class="tip ui-feedback ui-feedback--warning" wx:elif="{{!signSuccess}}">
-        先签到
+  <view class="ui-bottom-bar">
+    <view class="ui-bottom-bar__content">
+      <view class="ui-bottom-bar__hint">{{pageStatusText}}</view>
+      <view class="ui-bottom-bar__actions">
+        <button
+          class="submit-btn"
+          type="primary"
+          hover-class="ui-btn-active"
+          bindtap="submitQuestionRequest"
+          disabled="{{!canSubmitQuestionRequest}}"
+        >
+          发起提问
+        </button>
       </view>
     </view>
-
-    <button
-      class="submit-btn"
-      type="primary"
-      hover-class="ui-btn-active"
-      bindtap="submitQuestionRequest"
-      disabled="{{!canSubmitQuestionRequest}}"
-    >
-      提交申请
-    </button>
   </view>
 </view>

@@ -37,8 +37,8 @@
   max-height: 440rpx;
   padding: 28rpx;
   border-radius: 32rpx;
-  background: #ffffff;
-  box-shadow: 0 16rpx 36rpx rgba(37, 99, 235, 0.1);
+  background: var(--ui-color-card-bg);
+  box-shadow: var(--ui-shadow-card);
   box-sizing: border-box;
 }
 
