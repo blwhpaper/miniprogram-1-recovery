@@ -46,6 +46,16 @@
       <view class="overview-card__status ui-feedback ui-feedback--{{currentQuestionRequest ? 'success' : pendingQuestionRequests.length > 0 ? 'info' : 'idle'}}">
         {{currentQuestionRequest ? '当前正在处理 1 位学生的提问请求。' : pendingQuestionRequests.length > 0 ? '当前有待处理提问请求，请尽快处理。' : '当前暂无新的提问请求。'}}
       </view>
+      <view class="ui-button-group">
+        <button
+          wx:if="{{selectedLessonId}}"
+          class="ui-btn-secondary"
+          hover-class="ui-btn-active"
+          bindtap="goToRandomRollcall"
+        >
+          随机点名
+        </button>
+      </view>
     </view>
 
     <view class="lesson-switch-card ui-card ui-section ui-panel-card">
