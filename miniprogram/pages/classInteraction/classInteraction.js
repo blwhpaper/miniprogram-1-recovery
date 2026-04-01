@@ -236,7 +236,6 @@ Page({
         this.refreshSignedStudents();
         this.refreshExportDisabledState();
         this.refreshStats();
-        void this.loadStats();
       }
     } catch (err) {
       console.error("[classInteraction] initData failed", err);
@@ -1531,7 +1530,6 @@ Page({
     ]);
     this.startAttendancePolling(nextLessonId);
     this.startLessonEventPolling(nextLessonId);
-    void this.loadStats();
   },
 
   onSelectLesson(e) {

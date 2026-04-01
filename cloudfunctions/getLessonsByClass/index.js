@@ -21,6 +21,13 @@ async function listLessonsByClass(classId = '') {
   while (hasMore) {
     const res = await db.collection('lessons')
       .where({ classId: normalizedClassId })
+      .field({
+        _id: true,
+        classId: true,
+        status: true,
+        startTime: true,
+        createdAt: true
+      })
       .orderBy('startTime', 'desc')
       .skip(skip)
       .limit(pageSize)

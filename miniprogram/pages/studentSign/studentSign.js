@@ -436,15 +436,12 @@ Page({
       const res = await db.collection("lessonEvent")
         .where({
           lessonId,
-          type: "leave_request"
+          type: "leave_request",
+          "payload.applicantStudentId": applicantStudentId
         })
         .limit(100)
         .get();
       const matched = (res.data || [])
-        .filter((item) => {
-          const payload = item?.payload || {};
-          return String(payload.applicantStudentId || "").trim() === applicantStudentId;
-        })
         .sort((left, right) => this.getLeaveRequestEventTimestamp(right) - this.getLeaveRequestEventTimestamp(left))[0] || null;
 
       if (!matched) {
@@ -503,15 +500,12 @@ Page({
       const res = await db.collection("lessonEvent")
         .where({
           lessonId,
-          type: "leave_request"
+          type: "leave_request",
+          "payload.applicantStudentId": applicantStudentId
         })
         .limit(100)
         .get();
       const matched = (res.data || [])
-        .filter((item) => {
-          const payload = item?.payload || {};
-          return String(payload.applicantStudentId || "").trim() === applicantStudentId;
-        })
         .sort((left, right) => this.getLeaveRequestEventTimestamp(right) - this.getLeaveRequestEventTimestamp(left))[0] || null;
 
       if (!matched) {

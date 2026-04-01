@@ -21,6 +21,7 @@ Page({
   lessonEndPromptTimer: null,
   lessonAutoEndTimer: null,
   currentLifecycleLessonId: "",
+  skipNextOnShowRestore: false,
 
   async ensureTeacherPageAccess() {
     const currentTeacher = await ensureApprovedTeacherSession()
@@ -69,11 +70,16 @@ Page({
       debugAppEnv: String(app?.globalData?.env || "").trim()
     })
 
+    this.skipNextOnShowRestore = true
     this.restoreCurrentLessonQr()
   },
 
   async onShow() {
     if (!(await this.ensureTeacherPageAccess())) return
+    if (this.skipNextOnShowRestore) {
+      this.skipNextOnShowRestore = false
+      return
+    }
     this.restoreCurrentLessonQr()
   },
 

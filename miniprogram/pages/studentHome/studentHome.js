@@ -10,6 +10,7 @@ Page({
   lastEntrySyncMeta: null,
   lastPendingClearReason: "",
   stateLoadToken: 0,
+  skipNextOnShowRefresh: false,
 
   data: {
     pageLoading: false,
@@ -619,15 +620,12 @@ Page({
     try {
       const res = await db.collection("lessonEvent")
         .where({
-          type: "leave_request"
+          type: "leave_request",
+          "payload.applicantStudentId": applicantStudentId
         })
         .limit(100)
         .get();
       const candidates = (res.data || [])
-        .filter((item) => {
-          const payload = item?.payload || {};
-          return String(payload.applicantStudentId || "").trim() === applicantStudentId;
-        })
         .filter((item) => String(item.lessonId || "").trim())
         .filter((item) => !excludedLessonIds.includes(String(item.lessonId || "").trim()))
         .sort((left, right) => this.getLeaveRequestEventTimestamp(right) - this.getLeaveRequestEventTimestamp(left));
@@ -684,15 +682,12 @@ Page({
       const res = await db.collection("lessonEvent")
         .where({
           lessonId: targetLessonId,
-          type: "leave_request"
+          type: "leave_request",
+          "payload.applicantStudentId": applicantStudentId
         })
         .limit(100)
         .get();
       const matched = (res.data || [])
-        .filter((item) => {
-          const payload = item?.payload || {};
-          return String(payload.applicantStudentId || "").trim() === applicantStudentId;
-        })
         .sort((left, right) => this.getLeaveRequestEventTimestamp(right) - this.getLeaveRequestEventTimestamp(left))[0] || null;
 
       if (!matched) {
@@ -994,10 +989,15 @@ Page({
   },
 
   async onLoad(options = {}) {
+    this.skipNextOnShowRefresh = true;
     await this.refreshHomeState(options);
   },
 
   async onShow() {
+    if (this.skipNextOnShowRefresh) {
+      this.skipNextOnShowRefresh = false;
+      return;
+    }
     await this.refreshHomeState();
   },
 

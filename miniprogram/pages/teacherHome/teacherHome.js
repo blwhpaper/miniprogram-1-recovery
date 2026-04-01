@@ -10,6 +10,7 @@ const TEACHER_HOME_RETURN_KEY = "TEACHER_HOME_RETURN_ONCE";
 
 Page({
   stateLoadToken: 0,
+  skipNextOnShowRefresh: false,
 
   data: {
     pageLoading: false,
@@ -32,11 +33,16 @@ Page({
 
   onLoad() {
     this.markTeacherHomeReturn();
+    this.skipNextOnShowRefresh = true;
     this.loadTeacherHomeState();
   },
 
   onShow() {
     this.markTeacherHomeReturn();
+    if (this.skipNextOnShowRefresh) {
+      this.skipNextOnShowRefresh = false;
+      return;
+    }
     this.loadTeacherHomeState();
   },
 
