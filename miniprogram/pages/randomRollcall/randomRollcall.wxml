@@ -1,11 +1,26 @@
 <view class="rollcall-page ui-page ui-page--stack">
   <view class="rollcall-hero ui-hero-section">
     <view class="ui-hero-section__content">
-      <view class="rollcall-hero-status ui-feedback ui-feedback--info">
-        <text> {{lessonCalledCount || 0}} /  {{lessonSignedCount || 0}}</text>
+      <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll ui-scroll-x rollcall-lesson-scroll" scroll-x="true" show-scrollbar="false">
+        <view class="ui-chip-list rollcall-lesson-list">
+          <view
+            wx:for="{{lessons}}"
+            wx:key="_id"
+            class="ui-chip-card rollcall-lesson-card {{selectedLessonId === item._id ? 'ui-chip-card--active' : ''}}"
+            bindtap="onSelectLesson"
+            hover-class="ui-btn-active"
+            data-lesson-id="{{item._id}}"
+          >
+            <text class="ui-chip-title">{{item.orderLabel}}</text>
+          </view>
+        </view>
+      </scroll-view>
+      <view wx:else class="ui-empty-state rollcall-lesson-empty">
+        <view class="ui-empty-title">暂无课次</view>
       </view>
     </view>
   </view>
+  <view class="rollcall-hero-placeholder"></view>
 
   <view wx:if="{{pageLoading}}" class="ui-state-block ui-loading-state">
     <view class="ui-state-title">加载中</view>
@@ -21,171 +36,151 @@
 
   <view class="ui-card ui-section ui-panel-card--focus focus-card">
     <view class="rollcall-stage">
-      <view class="rollcall-stage__summary">第{{currentRound}}轮 ·  {{lessonCalledCount || 0}}/{{lessonSignedCount || 0}}</view>
-      <view class="rollcall-stage__action">
-        <view class="rollcall-trigger-shell">
+      <view class="rollcall-stage__deck">
+        <view class="number-card-stage {{displayPhase === 'rolling' ? 'number-card-stage--rolling' : ''}}">
+          <view class="number-card-stage__glow"></view>
+          <view class="number-card-stage__halo"></view>
+          <view class="number-card-pair">
+            <view class="number-card-face number-card-face--left number-card-face--{{displayPhase === 'verify' ? 'verify' : ((displayPhase === 'countdown') ? 'countdown' : ((displayPhase === 'warning' || displayPhase === 'finished') ? 'danger' : 'idle'))}} {{displayPhase === 'rolling' ? 'number-card-face--rolling' : ''}}">
+              <view class="number-card-face__corner">
+                <text class="number-card-face__corner-text">{{displayPhase === 'rolling' ? (diceLeftText || '0') : (displayLeftText || '0')}}</text>
+                <text class="number-card-face__corner-mark">{{displayPhase === 'countdown' || displayPhase === 'warning' || displayPhase === 'finished' ? '⏱' : '♠'}}</text>
+              </view>
+              <view class="number-card-face__digit">{{displayPhase === 'rolling' ? (diceLeftText || '0') : (displayLeftText || '0')}}</view>
+              <view class="number-card-face__corner number-card-face__corner--bottom">
+                <text class="number-card-face__corner-text">{{displayPhase === 'rolling' ? (diceLeftText || '0') : (displayLeftText || '0')}}</text>
+                <text class="number-card-face__corner-mark">{{displayPhase === 'countdown' || displayPhase === 'warning' || displayPhase === 'finished' ? '⏱' : '♠'}}</text>
+              </view>
+              <view wx:if="{{displayPhase === 'verify'}}" class="number-card-face__footer">ID-1</view>
+            </view>
+            <view class="number-card-face number-card-face--right number-card-face--{{displayPhase === 'verify' ? 'verify' : ((displayPhase === 'countdown') ? 'countdown' : ((displayPhase === 'warning' || displayPhase === 'finished') ? 'danger' : 'idle'))}} {{displayPhase === 'rolling' ? 'number-card-face--rolling' : ''}}">
+              <view class="number-card-face__corner">
+                <text class="number-card-face__corner-text">{{displayPhase === 'rolling' ? (diceRightText || '0') : (displayRightText || '0')}}</text>
+                <text class="number-card-face__corner-mark">{{displayPhase === 'countdown' || displayPhase === 'warning' || displayPhase === 'finished' ? '⏱' : '♥'}}</text>
+              </view>
+              <view class="number-card-face__digit">{{displayPhase === 'rolling' ? (diceRightText || '0') : (displayRightText || '0')}}</view>
+              <view class="number-card-face__corner number-card-face__corner--bottom">
+                <text class="number-card-face__corner-text">{{displayPhase === 'rolling' ? (diceRightText || '0') : (displayRightText || '0')}}</text>
+                <text class="number-card-face__corner-mark">{{displayPhase === 'countdown' || displayPhase === 'warning' || displayPhase === 'finished' ? '⏱' : '♥'}}</text>
+              </view>
+              <view wx:if="{{displayPhase === 'verify'}}" class="number-card-face__footer">ID-2</view>
+              <view wx:if="{{displayPhase === 'countdown' || displayPhase === 'warning' || displayPhase === 'finished'}}" class="number-card-face__footer">SEC</view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="rollcall-result-card ui-card ui-section ui-panel-card {{displayPhase !== 'idle' ? 'ui-panel-card--focus' : ''}}">
+        <view class="rollcall-result-card__shine"></view>
+
+        <block wx:if="{{displayPhase !== 'idle'}}">
+          <view wx:if="{{displayPhase === 'rolling'}}" class="rollcall-result rollcall-result--rolling">
+            <view class="rollcall-result__student">
+              <view class="rollcall-result__content rollcall-result__content--full">
+                <view class="rollcall-result__name rollcall-result__name--rolling">幸运锁定中…</view>
+              </view>
+            </view>
+          </view>
+
+          <view wx:else class="rollcall-result">
+            <view class="rollcall-result__student">
+              <view class="rollcall-result__content rollcall-result__content--full">
+                <view class="rollcall-result__name">{{(currentCalledStudent && currentCalledStudent.name) || ''}}</view>
+
+                <view wx:if="{{displayPhase === 'verify'}}" class="rollcall-result__verify">
+                  <view class="rollcall-result__verify-bar">
+                    <view class="rollcall-result__verify-fill" style="width: {{verifyProgressPercent}}%;"></view>
+                    <view class="rollcall-result__verify-label">学号核对中 {{verifySecondsLeft}}S</view>
+                  </view>
+                </view>
+
+                <view wx:elif="{{displayPhase === 'countdown' || displayPhase === 'warning'}}" class="rollcall-result__status-pill rollcall-result__status-pill--{{displayPhase === 'warning' ? 'danger' : 'countdown'}}">
+                  🕙 正在倒计时
+                </view>
+
+                <view wx:elif="{{displayPhase === 'finished'}}" class="rollcall-result__status-pill rollcall-result__status-pill--danger">
+                  思考时间结束
+                </view>
+              </view>
+            </view>
+          </view>
+        </block>
+
+        <view wx:else class="rollcall-result rollcall-result--idle">
+          <view class="rollcall-result__idle-title">READY FOR SELECTION</view>
+          <view class="rollcall-result__idle-desc">选中后学号展示 10s 后自动开启倒计时</view>
+        </view>
+      </view>
+
+      <view wx:if="{{displayPhase !== 'idle'}}" class="score-panel {{selectedLessonId === currentManagedLessonId ? '' : 'score-panel--disabled'}}">
+        <view class="score-panel__shine"></view>
+        <view class="score-panel-title">{{displayPhase === 'rolling' || displayPhase === 'verify' ? '预备评分' : '课堂表现评分（计时中）'}}</view>
+        <view class="ui-record-actions">
           <button
-            class="rollcall-trigger {{pendingScoreLock || currentCalledStudent || isRolling || !selectedLessonId || signedStudents.length === 0 || selectedLessonId !== currentManagedLessonId ? 'rollcall-trigger--disabled' : ''}}"
-            bindtap="onTapRandomRollcall"
+            wx:for="{{interactionScoreOptions}}"
+            wx:key="*this"
+            class="score-chip {{selectedScore === item ? 'score-chip--active' : ''}}"
+            size="mini"
+            bindtap="onTapScoreAnswer"
             hover-class="ui-btn-active"
+            data-score="{{item}}"
           >
-            <image class="rollcall-trigger__image" src="/images/random-rollcall-trigger.png" mode="aspectFit"></image>
+            {{item}}分
           </button>
         </view>
       </view>
-      <view class="number-card-stage {{isRolling ? 'number-card-stage--rolling' : ''}}">
-        <view class="number-card-stage__glow"></view>
-        <view class="number-card-pair">
-          <view class="number-card-face number-card-face--left {{isRolling ? 'number-card-face--rolling' : ''}}">
-            <view class="number-card-face__digit">{{diceLeftText || '0'}}</view>
-          </view>
-          <view class="number-card-face number-card-face--right {{isRolling ? 'number-card-face--rolling' : ''}}">
-            <view class="number-card-face__digit">{{diceRightText || '0'}}</view>
-          </view>
-        </view>
-      </view>
 
-      <view class="rollcall-result-card ui-card ui-section ui-panel-card {{currentCalledStudent ? 'ui-panel-card--focus' : ''}}">
-        <view class="ui-card-head ui-card-head--row">
-          <view class="ui-card-head">
-            <view class="ui-eyebrow">随机结果</view>
-            <view class="ui-title-md">
-              <text wx:if="{{isRolling}}">正在生成学号结果</text>
-              <text wx:elif="{{currentCalledStudent}}">第{{currentCalledStudent.round || currentRound}}轮已抽中</text>
-              <text wx:elif="{{selectedLessonId && signedStudents.length > 0}}">等待开始点名</text>
-              <text wx:elif="{{selectedLessonId}}">暂无可点名学生</text>
-              <text wx:else>暂无课次</text>
-            </view>
-          </view>
-          <view wx:if="{{currentCalledStudent}}" class="ui-tag ui-tag--active">待评分</view>
-          <view wx:elif="{{isRolling}}" class="ui-tag ui-tag--pending">点名中</view>
-        </view>
-
-        <view wx:if="{{currentCalledStudent}}" class="rollcall-result">
-          <view class="rollcall-result__math">学号结果：{{currentCalledStudent.studentIdDisplay || '--'}}</view>
-          <view class="rollcall-result__student">
-            <view class="rollcall-result__avatar">{{currentCalledStudent.avatarText || '学'}}</view>
-            <view class="rollcall-result__content">
-              <view class="rollcall-result__name">{{currentCalledStudent.name}}</view>
-              <view class="rollcall-result__meta">学号：{{currentCalledStudent.studentId || '-'}}</view>
-              <view class="rollcall-result__meta">当前轮次：第{{currentCalledStudent.round || currentRound}}轮</view>
-            </view>
-          </view>
-        </view>
-
-        <view wx:elif="{{isRolling}}" class="rollcall-result rollcall-result--pending">
-          <view class="rollcall-result__math">数字卡片正在翻动，请保持当前页面。</view>
-          <view class="rollcall-result__placeholder">结果即将落定</view>
-        </view>
-
-        <view wx:elif="{{selectedLessonId && !currentManagedLessonId}}" class="rollcall-result">
-          <view class="rollcall-result__math">当前无进行中的课次</view>
-          <view class="rollcall-result__summary">可查看已有课次结果，但当前不能继续产生新的随机点名记录。</view>
-        </view>
-
-        <view wx:elif="{{selectedLessonId && selectedLessonId !== currentManagedLessonId}}" class="rollcall-result">
-          <view class="rollcall-result__math">当前为历史课次</view>
-          <view class="rollcall-result__summary">历史课次仅支持查看结果，不能继续产生新的随机点名记录。</view>
-        </view>
-
-        <view wx:elif="{{selectedLessonId && signedStudents.length > 0}}" class="rollcall-result">
-          <view class="rollcall-result__summary">点击上方按钮开始点名</view>
-        </view>
-
-        <view wx:elif="{{selectedLessonId}}" class="rollcall-result">
-          <view class="rollcall-result__summary">当前课次还没有已签到学生，暂时无法进行随机点名。</view>
-        </view>
-
-        <view wx:else class="rollcall-result">
-          <view class="rollcall-result__summary">请先选择一个有数据的历史课次，再开始随机点名。</view>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <view class="ui-card ui-section ui-panel-card action-card">
-    <view class="ui-card-head">
-      <view class="ui-title-md">操作</view>
-    </view>
-
-    <view wx:if="{{pendingScoreLock && currentCalledStudent && selectedLessonId === currentManagedLessonId}}" class="score-panel">
-      <view class="score-panel-title">给 {{currentCalledStudent.name}} 评分</view>
-      <view class="ui-record-actions">
+      <view wx:if="{{displayPhase === 'idle'}}" class="rollcall-action-bar">
         <button
-          wx:for="{{interactionScoreOptions}}"
-          wx:key="*this"
-          class="ui-btn-pill ui-btn-pill--warning score-btn"
-          size="mini"
-          bindtap="onTapScoreAnswer"
+          class="rollcall-action-btn rollcall-action-btn--primary {{displayPhase !== 'idle' || !selectedLessonId || signedStudents.length === 0 || selectedLessonId !== currentManagedLessonId ? 'rollcall-action-btn--disabled' : ''}}"
+          bindtap="onTapRandomRollcall"
+          disabled="{{displayPhase !== 'idle' || !selectedLessonId || signedStudents.length === 0 || selectedLessonId !== currentManagedLessonId}}"
           hover-class="ui-btn-active"
-          data-score="{{item}}"
         >
-          {{item}}分
+          READY? | GO!
         </button>
       </view>
-    </view>
 
-    <view wx:else class="ui-text-muted">
-      <text wx:if="{{selectedLessonId && !currentManagedLessonId}}">当前无进行中的课次</text>
-      <text wx:elif="{{selectedLessonId && selectedLessonId !== currentManagedLessonId}}">历史课次仅支持查看</text>
-      <text wx:elif="{{selectedLessonId && signedStudents.length > 0}}">请点击上方圆形按钮开始点名</text>
-      <text wx:elif="{{selectedLessonId}}">暂无已签到学生</text>
-      <text wx:else>暂无课次</text>
-    </view>
-  </view>
-
-  <view class="ui-card ui-section ui-panel-card lesson-switch-card">
-    <view class="ui-card-head">
-      <view class="ui-title-md">历史课次</view>
-    </view>
-    <scroll-view wx:if="{{lessons.length > 0}}" class="lesson-scroll ui-scroll-x" scroll-x="true" show-scrollbar="false">
-      <view class="ui-chip-list">
-        <view
-          wx:for="{{lessons}}"
-          wx:key="_id"
-          class="ui-chip-card {{selectedLessonId === item._id ? 'ui-chip-card--active' : ''}}"
-          bindtap="onSelectLesson"
+      <view wx:elif="{{displayPhase !== 'idle'}}" class="rollcall-action-row">
+        <button class="rollcall-action-btn rollcall-action-btn--ghost" bindtap="onTapReplaceStudent" hover-class="ui-btn-active">
+          <text class="rollcall-action-btn__icon">↺</text>
+          <text>换一个</text>
+        </button>
+        <button
+          class="rollcall-action-btn rollcall-action-btn--primary {{(!selectedScore || recordSubmitting) ? 'rollcall-action-btn--disabled' : ''}}"
+          bindtap="onTapRecordResult"
+          disabled="{{!selectedScore || recordSubmitting}}"
           hover-class="ui-btn-active"
-          data-lesson-id="{{item._id}}"
         >
-          <text class="ui-chip-title">课次 {{lessons.length - index}}</text>
-          <text wx:if="{{item._id === currentManagedLessonId}}" class="lesson-chip-current">当前</text>
-          <text class="ui-chip-meta">{{item._id}}</text>
-        </view>
+          记录结果
+        </button>
       </view>
-    </scroll-view>
-    <view wx:else class="ui-empty-state">
-      <view class="ui-empty-title">暂无历史课次</view>
-    </view>
-  </view>
 
-  <view class="ui-card ui-section ui-panel-card history-card">
-    <view class="ui-card-head">
-      <view class="ui-title-md">本节互动记录</view>
-    </view>
+      <view class="history-card ui-card ui-section ui-panel-card">
+        <view class="ui-card-head">
+          <view class="ui-title-md">历史记录</view>
+        </view>
 
-    <view wx:if="{{lessonEventsLoading}}" class="ui-state-block ui-loading-state">
-      <view class="ui-state-title">加载中</view>
-    </view>
+        <view wx:if="{{lessonEventsLoading}}" class="ui-state-block ui-loading-state">
+          <view class="ui-state-title">加载中</view>
+        </view>
 
-    <view wx:elif="{{lessonEvents.length > 0}}" class="ui-record-list">
-      <view class="ui-record-card ui-record-card--muted history-record-card" wx:for="{{lessonEvents}}" wx:key="_id">
-        <view class="ui-record-head">
-          <view class="ui-card-head">
-            <view class="ui-title-md">{{item.studentName || '未命名学生'}}</view>
-            <view class="ui-text-helper">{{item.displayType}}</view>
+        <scroll-view wx:elif="{{displayLessonEvents.length > 0}}" class="history-scroll ui-scroll-x" scroll-x="true" show-scrollbar="false">
+          <view class="history-record-list history-record-list--x">
+            <view class="ui-record-card ui-record-card--muted history-record-card" wx:for="{{displayLessonEvents}}" wx:key="_id">
+              <view class="history-record-card__bar"></view>
+              <view class="ui-record-head history-record-card__head">
+                <view class="history-record-card__name">{{item.studentName || '未命名学生'}}</view>
+                <view class="event-score">{{item.score}}分</view>
+              </view>
+            </view>
           </view>
-          <view class="event-score" wx:if="{{item.score}}">+{{item.score}}</view>
-        </view>
-        <view class="ui-text-muted">
-          <text wx:if="{{item.round}}" class="event-round">第{{item.round}}轮</text>
-        </view>
-        <view class="ui-text-helper">{{item.displayTime}}</view>
-      </view>
-    </view>
+        </scroll-view>
 
-    <view wx:else class="ui-empty-state">
-      <view class="ui-empty-title">暂无记录</view>
+        <view wx:else class="ui-empty-state">
+          <view class="ui-empty-title">暂无记录</view>
+        </view>
+      </view>
     </view>
   </view>
 </view>

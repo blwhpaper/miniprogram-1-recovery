@@ -11,14 +11,26 @@ Page({
     pageErrorText: "",
     lessons: [],
     selectedLessonId: "",
+    currentLessonLabel: "",
     currentManagedLessonId: "",
     baseRosterList: [],
     list: [], // 最终展示的混合列表
     signedStudents: [],
     currentCalledStudent: null,
     lessonEvents: [],
+    displayLessonEvents: [],
     lessonEventsLoading: false,
     interactionScoreOptions: [60, 80, 95],
+    selectedScore: 0,
+    recordSubmitting: false,
+    displayPhase: "idle",
+    displayLeftText: "0",
+    displayRightText: "0",
+    verifyStartedAt: 0,
+    verifyEndsAt: 0,
+    verifySecondsLeft: 10,
+    verifyProgressPercent: 100,
+    countdownSecondsLeft: 60,
     currentRound: 1,
     currentRoundCalledIds: [],
     currentRoundProgressCount: 0,
@@ -48,7 +60,13 @@ Page({
   isInitializing: false,
   rollAnimationTimer: null,
   rollAnimationFinishTimer: null,
+  verifyDisplayTimer: null,
+  countdownDisplayTimer: null,
   continuationContextCache: {},
+  rollingDurationSeconds: 6,
+  verifyDurationSeconds: 10,
+  verifyDurationMs: 10000,
+  thinkingDurationSeconds: 60,
 
   async ensureTeacherPageAccess() {
     const currentTeacher = await ensureApprovedTeacherSession();
@@ -68,6 +86,7 @@ Page({
       return {
         studentId: "",
         name: student,
+        gender: "",
         status: "unsigned",
         statusLabel: "未签到",
         answerScoreText: "",
@@ -85,6 +104,7 @@ Page({
     return {
       studentId: String(student?.studentId || student?.id || "").trim(),
       name: String(student?.name || "").trim(),
+      gender: String(student?.gender || student?.sex || student?.studentGender || "").trim(),
       status: "unsigned",
       statusLabel: "未签到",
       answerScoreText: "",
@@ -97,6 +117,17 @@ Page({
       lessonScoreText: "",
       lessonScoreBreakdownText: ""
     };
+  },
+
+  getAvatarTypeByGender(gender = "") {
+    const normalizedGender = String(gender || "").trim().toLowerCase();
+    if (["male", "m", "boy", "man", "男", "1"].includes(normalizedGender)) {
+      return "male";
+    }
+    if (["female", "f", "girl", "woman", "女", "0", "2"].includes(normalizedGender)) {
+      return "female";
+    }
+    return "default";
   },
 
   cloneBaseRosterList() {
@@ -206,12 +237,13 @@ Page({
   decorateCalledStudent(student = {}, round = 0) {
     const name = String(student.name || student.studentName || "").trim();
     const studentId = String(student.studentId || student.id || "").trim();
-    const studentIdDisplay = this.getStudentIdLastTwoDigits(studentId).displayText;
+    const gender = String(student.gender || student.sex || student.studentGender || "").trim();
     return {
       ...student,
       name,
       studentId,
-      studentIdDisplay,
+      gender,
+      avatarType: this.getAvatarTypeByGender(gender),
       round: Number(round || student.round || 0),
       avatarText: String(name || "学").slice(0, 1)
     };
@@ -232,13 +264,230 @@ Page({
     }
   },
 
+  clearDisplayTimers() {
+    if (this.verifyDisplayTimer) {
+      clearInterval(this.verifyDisplayTimer);
+    }
+    if (this.countdownDisplayTimer) {
+      clearInterval(this.countdownDisplayTimer);
+    }
+    this.verifyDisplayTimer = null;
+    this.countdownDisplayTimer = null;
+  },
+
+  formatTwoDigits(value = 0) {
+    return String(Math.max(0, Number(value || 0))).padStart(2, "0").slice(-2);
+  },
+
+  getVerifyEndsAt(verifyStartedAt = 0) {
+    const safeVerifyStartedAt = Number(verifyStartedAt || 0);
+    return safeVerifyStartedAt > 0 ? safeVerifyStartedAt + this.verifyDurationMs : 0;
+  },
+
+  getVerifyProgressState(verifyStartedAt = 0, verifyEndsAt = 0) {
+    const now = Date.now();
+    const safeVerifyStartedAt = Number(verifyStartedAt || 0);
+    const verifyDurationMs = this.verifyDurationMs;
+    const safeVerifyEndsAt = Number(verifyEndsAt || 0) || this.getVerifyEndsAt(safeVerifyStartedAt);
+    if (!safeVerifyStartedAt) {
+      return {
+        verifyStartedAt: 0,
+        verifyEndsAt: 0,
+        secondsLeft: this.verifyDurationSeconds,
+        progressPercent: 100,
+        elapsedMs: 0,
+        finished: false
+      };
+    }
+
+    const timelineNow = Math.max(now, safeVerifyStartedAt);
+    const elapsedMs = Math.max(0, timelineNow - safeVerifyStartedAt);
+    const remainingMs = Math.max(0, safeVerifyEndsAt - timelineNow);
+    return {
+      verifyStartedAt: safeVerifyStartedAt,
+      verifyEndsAt: safeVerifyEndsAt,
+      secondsLeft: remainingMs > 0
+        ? Math.min(this.verifyDurationSeconds, Math.ceil(remainingMs / 1000))
+        : 0,
+      progressPercent: Math.max(0, Math.min(100, (1 - (elapsedMs / verifyDurationMs)) * 100)),
+      elapsedMs,
+      finished: timelineNow >= safeVerifyEndsAt
+    };
+  },
+
+  resolveVerifyTimeline(student = {}, options = {}) {
+    const explicitVerifyStartedAt = Number(options.verifyStartedAt || 0);
+    const explicitVerifyEndsAt = Number(options.verifyEndsAt || 0);
+    if (explicitVerifyStartedAt > 0) {
+      return {
+        verifyStartedAt: explicitVerifyStartedAt,
+        verifyEndsAt: explicitVerifyEndsAt > 0 ? explicitVerifyEndsAt : this.getVerifyEndsAt(explicitVerifyStartedAt)
+      };
+    }
+
+    const currentStudentKey = this.getStudentUniqueId(this.data.currentCalledStudent);
+    const targetStudentKey = this.getStudentUniqueId(student);
+    if (
+      targetStudentKey &&
+      currentStudentKey &&
+      targetStudentKey === currentStudentKey &&
+      Number(this.data.verifyStartedAt || 0) > 0
+    ) {
+      const currentVerifyStartedAt = Number(this.data.verifyStartedAt || 0);
+      return {
+        verifyStartedAt: currentVerifyStartedAt,
+        verifyEndsAt: Number(this.data.verifyEndsAt || 0) || this.getVerifyEndsAt(currentVerifyStartedAt)
+      };
+    }
+
+    const rollcallStartedAt = Number(options.rollcallStartedAt || options.startedAt || 0);
+    if (rollcallStartedAt > 0) {
+      const nextVerifyStartedAt = rollcallStartedAt + this.rollingDurationSeconds * 1000;
+      return {
+        verifyStartedAt: nextVerifyStartedAt,
+        verifyEndsAt: this.getVerifyEndsAt(nextVerifyStartedAt)
+      };
+    }
+
+    const fallbackVerifyStartedAt = Date.now();
+    return {
+      verifyStartedAt: fallbackVerifyStartedAt,
+      verifyEndsAt: this.getVerifyEndsAt(fallbackVerifyStartedAt)
+    };
+  },
+
+  setIdleDisplayState() {
+    this.clearDisplayTimers();
+    this.setData({
+      displayPhase: "idle",
+      displayLeftText: "0",
+      displayRightText: "0",
+      verifyStartedAt: 0,
+      verifyEndsAt: 0,
+      verifySecondsLeft: this.verifyDurationSeconds,
+      verifyProgressPercent: 100,
+      countdownSecondsLeft: this.thinkingDurationSeconds,
+      recordSubmitting: false
+    });
+  },
+
+  shouldRestoreLocalPendingVisual() {
+    if (this.data.displayPhase === "idle") {
+      return false;
+    }
+
+    return !!(
+      this.data.pendingScoreLock &&
+      this.data.currentCalledStudent &&
+      this.getStudentUniqueId(this.data.currentCalledStudent)
+    );
+  },
+
+  setRollingDisplayState() {
+    this.clearDisplayTimers();
+    this.setData({
+      displayPhase: "rolling",
+      displayLeftText: "0",
+      displayRightText: "0",
+      verifyStartedAt: 0,
+      verifyEndsAt: 0,
+      verifySecondsLeft: this.verifyDurationSeconds,
+      verifyProgressPercent: 100,
+      countdownSecondsLeft: this.thinkingDurationSeconds,
+      recordSubmitting: false
+    });
+  },
+
+  setVerifyDisplayState(student = {}, verifyStartedAt = 0, verifyEndsAt = 0) {
+    const studentIdText = this.getStudentIdLastTwoDigits(student.studentId || "").displayText;
+    const verifyState = this.getVerifyProgressState(verifyStartedAt, verifyEndsAt);
+    this.setData({
+      displayPhase: "verify",
+      displayLeftText: studentIdText.slice(0, 1) || "0",
+      displayRightText: studentIdText.slice(1) || "0",
+      verifyStartedAt: verifyState.verifyStartedAt,
+      verifyEndsAt: verifyState.verifyEndsAt,
+      verifySecondsLeft: verifyState.secondsLeft,
+      verifyProgressPercent: verifyState.progressPercent
+    });
+  },
+
+  setCountdownDisplayState(secondsLeft = this.thinkingDurationSeconds) {
+    const safeSeconds = Math.max(0, Number(secondsLeft || 0));
+    const countdownText = this.formatTwoDigits(safeSeconds);
+    const isWarning = safeSeconds > 0 && safeSeconds <= 10;
+    const nextPhase = safeSeconds === 0 ? "finished" : (isWarning ? "warning" : "countdown");
+    this.setData({
+      displayPhase: nextPhase,
+      displayLeftText: countdownText.slice(0, 1),
+      displayRightText: countdownText.slice(1),
+      countdownSecondsLeft: safeSeconds
+    });
+  },
+
+  startCountdownFlow(verifyEndsAt = 0) {
+    const safeVerifyEndsAt = Number(verifyEndsAt || 0);
+    const countdownElapsed = Math.max(0, Math.floor((Date.now() - safeVerifyEndsAt) / 1000));
+    const countdownSecondsLeft = Math.max(0, this.thinkingDurationSeconds - countdownElapsed);
+    this.setCountdownDisplayState(countdownSecondsLeft);
+
+    if (countdownSecondsLeft <= 0) {
+      return;
+    }
+
+    let runningSecondsLeft = countdownSecondsLeft;
+    this.countdownDisplayTimer = setInterval(() => {
+      runningSecondsLeft -= 1;
+      this.setCountdownDisplayState(runningSecondsLeft);
+      if (runningSecondsLeft <= 0) {
+        this.clearDisplayTimers();
+      }
+    }, 1000);
+  },
+
+  startDisplayFlow(student = {}, options = {}) {
+    if (!student || !student.studentId) {
+      this.setIdleDisplayState();
+      return;
+    }
+
+    this.clearDisplayTimers();
+    const normalizedOptions = typeof options === "object" && options !== null
+      ? options
+      : { rollcallStartedAt: Number(options || 0) };
+    const verifyTimeline = this.resolveVerifyTimeline(student, normalizedOptions);
+    const verifyState = this.getVerifyProgressState(
+      verifyTimeline.verifyStartedAt,
+      verifyTimeline.verifyEndsAt
+    );
+
+    if (!verifyState.finished) {
+      this.setVerifyDisplayState(student, verifyTimeline.verifyStartedAt, verifyTimeline.verifyEndsAt);
+      this.verifyDisplayTimer = setInterval(() => {
+        const runningVerifyState = this.getVerifyProgressState(
+          verifyTimeline.verifyStartedAt,
+          verifyTimeline.verifyEndsAt
+        );
+        if (!runningVerifyState.finished) {
+          this.setVerifyDisplayState(student, verifyTimeline.verifyStartedAt, verifyTimeline.verifyEndsAt);
+          return;
+        }
+        this.clearDisplayTimers();
+        this.startCountdownFlow(verifyTimeline.verifyEndsAt);
+      }, 200);
+      return;
+    }
+
+    this.startCountdownFlow(verifyTimeline.verifyEndsAt);
+  },
+
   playDiceRollAnimation(finalLeftValue = 1, finalRightValue = 1, studentId = "") {
     this.clearRollAnimationTimers({ keepRollingState: true });
     this.setData({ isRolling: true });
 
     return new Promise((resolve) => {
       let tickCount = 0;
-      const maxTicks = 8;
+      const maxTicks = Math.max(1, Math.round((this.rollingDurationSeconds * 1000) / 90));
 
       this.rollAnimationTimer = setInterval(() => {
         tickCount += 1;
@@ -344,12 +593,14 @@ Page({
     this.clearAttendancePolling();
     this.clearLessonEventPolling();
     this.clearRollAnimationTimers();
+    this.clearDisplayTimers();
   },
 
   onHide() {
     this.clearAttendancePolling();
     this.clearLessonEventPolling();
     this.clearRollAnimationTimers();
+    this.clearDisplayTimers();
   },
 
   async onPullDownRefresh() {
@@ -387,12 +638,16 @@ Page({
         this.setData({
           lessonId: "",
           selectedLessonId: "",
+          currentLessonLabel: "",
           list,
           currentCalledStudent: null,
           lessonEvents: [],
+          displayLessonEvents: [],
+          selectedScore: 0,
           lastScoredStudentName: "",
           lastScoredRound: 0
         });
+        this.setIdleDisplayState();
         this.refreshSignedStudents();
       }
     } catch (err) {
@@ -419,7 +674,8 @@ Page({
       .filter((item) => item.status === "signed")
       .map((item) => ({
         studentId: String(item.studentId || item.id || "").trim(),
-        name: String(item.name || item.studentName || "").trim()
+        name: String(item.name || item.studentName || "").trim(),
+        gender: String(item.gender || item.sex || item.studentGender || "").trim()
       }))
       .filter((item) => item.name);
 
@@ -441,6 +697,10 @@ Page({
   },
 
   getStudentUniqueId(student = {}) {
+    if (!student || typeof student !== "object") {
+      return "";
+    }
+
     const studentId = String(student.studentId || student.id || "").trim();
     const studentName = String(student.name || student.studentName || "").trim();
     const openid = String(student.openid || student._openid || "").trim();
@@ -475,7 +735,7 @@ Page({
 
     return new Set(
       (lessonEvents || [])
-        .filter((item) => item.type === "rollcall" && Number(item.round || 0) === targetRound)
+        .filter((item) => item && item.type === "rollcall" && Number(item.round || 0) === targetRound)
         .map((item) => this.getStudentUniqueId(item))
         .filter(Boolean)
     );
@@ -498,7 +758,7 @@ Page({
   getLessonCalledStudentKeySet(lessonEvents = [], options = {}) {
     const lessonCalledStudentKeySet = new Set(
       (lessonEvents || [])
-        .filter((item) => item.type === "rollcall")
+        .filter((item) => item && item.type === "rollcall")
         .map((item) => this.getStudentUniqueId(item))
         .filter(Boolean)
     );
@@ -560,6 +820,7 @@ Page({
   },
 
   isRollcallRelatedLessonEvent(item = {}) {
+    if (!item || typeof item !== "object") return false;
     const type = String(item.type || "").trim();
     return type === "rollcall" || type === "answer_score";
   },
@@ -586,6 +847,34 @@ Page({
     return String(
       (lessons || []).find((item) => String(item?.status || "").trim() === "active")?._id || ""
     ).trim();
+  },
+
+  normalizeLessons(lessons = []) {
+    const total = Array.isArray(lessons) ? lessons.length : 0;
+    return (lessons || []).map((item, index) => ({
+      ...item,
+      orderLabel: `第${total - index}次课`
+    }));
+  },
+
+  getLessonOrderLabel(lessonId = "", lessons = this.data.lessons) {
+    const targetLessonId = String(lessonId || "").trim();
+    if (!targetLessonId) return "";
+
+    const matchedLesson = (lessons || []).find(
+      (item) => String(item?._id || item?.lessonId || "").trim() === targetLessonId
+    );
+
+    return String(matchedLesson?.orderLabel || "").trim();
+  },
+
+  getDisplayLessonEvents(lessonEvents = []) {
+    return (lessonEvents || []).filter(
+      (item) => String(item.type || "").trim() === "answer_score"
+        && item.score !== ""
+        && item.score !== null
+        && item.score !== undefined
+    );
   },
 
   isWritableCurrentLesson(lessonId = "", activeLessonId = this.getActiveLessonId()) {
@@ -862,6 +1151,22 @@ Page({
   },
 
   normalizeLessonEvent(item = {}) {
+    if (!item || typeof item !== "object") {
+      return {
+        _id: "",
+        lessonId: "",
+        classId: "",
+        studentId: "",
+        studentName: "",
+        type: "",
+        score: "",
+        round: 0,
+        payload: {},
+        displayType: "",
+        displayTime: ""
+      };
+    }
+
     const payload = item.payload || {};
     const testType = String(payload.testType || "").trim();
     const testSubType = String(payload.testSubType || "").trim();
@@ -1169,10 +1474,10 @@ Page({
       ? lessonEvents
       : this.latestClassRollcallEvents;
     const rollcallEvents = (rollcallSource || [])
-      .filter((item) => item.type === "rollcall")
+      .filter((item) => item && item.type === "rollcall")
       .sort((a, b) => this.getEventTimestamp(a) - this.getEventTimestamp(b));
     const scoreEventKeys = (rollcallSource || [])
-      .filter((item) => item.type === "answer_score")
+      .filter((item) => item && item.type === "answer_score")
       .map((item) => this.getRollcallScoreKey(item))
       .filter(Boolean);
     const recentAnswerScoreKeys = this.recentAnswerScoreKeys instanceof Set
@@ -1218,8 +1523,10 @@ Page({
       : 0;
     const currentCalledStudent = hasPendingRollcall
       ? this.decorateCalledStudent({
+        _id: String(latestPendingRollcall._id || "").trim(),
         studentId: String(latestPendingRollcall.studentId || "").trim(),
-        name: String(latestPendingRollcall.studentName || "").trim()
+        name: String(latestPendingRollcall.studentName || "").trim(),
+        createdAt: latestPendingRollcall.createdAt
       }, pendingRollcallRound)
       : null;
     const pendingScoreLock = hasPendingRollcall;
@@ -1228,21 +1535,56 @@ Page({
       hasPendingRollcall ? (pendingRollcallRound || activeRound) : activeRound,
       rollcallSource
     );
-    const localPendingStudent = this.data.pendingScoreLock && this.data.currentCalledStudent
+    const localPendingStudent = this.shouldRestoreLocalPendingVisual()
       ? this.decorateCalledStudent(this.data.currentCalledStudent, this.data.currentCalledStudent.round || this.data.currentRound || activeRound || 1)
       : null;
     const shouldKeepLocalPending = !hasPendingRollcall && !!localPendingStudent;
+    const isSamePendingStudentAsCurrent = !!(
+      currentCalledStudent &&
+      this.data.currentCalledStudent &&
+      this.getStudentUniqueId(currentCalledStudent) === this.getStudentUniqueId(this.data.currentCalledStudent)
+    );
+    const preservedSelectedScore = isSamePendingStudentAsCurrent
+      ? Number(this.data.selectedScore || 0)
+      : 0;
 
     if (hasPendingRollcall) {
-      this.setNumberCardFinalDisplay(currentCalledStudent.studentId);
+      const pendingVerifyTimeline = this.resolveVerifyTimeline(currentCalledStudent, {
+        rollcallStartedAt: this.getEventTimestamp(latestPendingRollcall) || Date.now()
+      });
+      if (
+        this.data.isRolling &&
+        this.data.currentCalledStudent &&
+        this.getStudentUniqueId(this.data.currentCalledStudent) === this.getStudentUniqueId(currentCalledStudent)
+      ) {
+        this.setData({
+          currentRound: pendingRollcallRound || activeRound,
+          currentRoundCalledIds,
+          currentRoundProgressCount: roundProgress.progressCount,
+          currentRoundTotalCount: roundProgress.totalCount,
+          pendingScoreLock,
+          currentCalledStudent,
+          displayPhase: "rolling",
+          selectedScore: preservedSelectedScore
+        });
+        return;
+      }
+
       this.setData({
         currentRound: pendingRollcallRound || activeRound,
         currentRoundCalledIds,
         currentRoundProgressCount: roundProgress.progressCount,
         currentRoundTotalCount: roundProgress.totalCount,
         pendingScoreLock,
-        currentCalledStudent
+        currentCalledStudent,
+        selectedScore: preservedSelectedScore
       });
+      this.startDisplayFlow(currentCalledStudent, isSamePendingStudentAsCurrent
+        ? {
+          verifyStartedAt: Number(this.data.verifyStartedAt || 0) || pendingVerifyTimeline.verifyStartedAt,
+          verifyEndsAt: Number(this.data.verifyEndsAt || 0) || pendingVerifyTimeline.verifyEndsAt
+        }
+        : pendingVerifyTimeline);
       return;
     }
 
@@ -1265,31 +1607,41 @@ Page({
         currentRoundProgressCount: localRoundProgress.progressCount,
         currentRoundTotalCount: localRoundProgress.totalCount,
         pendingScoreLock: true,
-        currentCalledStudent: localPendingStudent
+        currentCalledStudent: localPendingStudent,
+        selectedScore: Number(this.data.selectedScore || 0)
+      });
+      this.startDisplayFlow(localPendingStudent, {
+        verifyStartedAt: Number(this.data.verifyStartedAt || 0),
+        verifyEndsAt: Number(this.data.verifyEndsAt || 0)
       });
       return;
     }
 
     if (roundComplete) {
+      this.resetDiceDisplay();
+      this.setIdleDisplayState();
       this.setData({
         currentRound: activeRound + 1,
         currentRoundCalledIds: [],
         currentRoundProgressCount: 0,
         currentRoundTotalCount: roundProgress.totalCount,
         pendingScoreLock,
-        currentCalledStudent
+        currentCalledStudent,
+        selectedScore: 0
       });
       return;
     }
 
     this.resetDiceDisplay();
+    this.setIdleDisplayState();
     this.setData({
       currentRound: activeRound,
       currentRoundCalledIds,
       currentRoundProgressCount: roundProgress.progressCount,
       currentRoundTotalCount: roundProgress.totalCount,
       pendingScoreLock,
-      currentCalledStudent
+      currentCalledStudent,
+      selectedScore: 0
     });
   },
 
@@ -1325,6 +1677,9 @@ Page({
         classId,
         err
       });
+      if (this.data.pendingScoreLock && this.data.currentCalledStudent) {
+        return this.latestClassRollcallEvents;
+      }
       this.latestClassRollcallEvents = [];
       this.rebuildRollcallState([]);
       return [];
@@ -1337,6 +1692,7 @@ Page({
     if (!lessonId) {
       this.setData({
         lessonEvents: [],
+        displayLessonEvents: [],
         lessonEventsLoading: false
       });
       this.rebuildLessonStats({ lessonEvents: [] });
@@ -1359,6 +1715,7 @@ Page({
       const lessonEvents = (rawEvents || [])
         .map((item) => this.normalizeLessonEvent(item))
         .filter((item) => this.isRollcallRelatedLessonEvent(item));
+      const displayLessonEvents = this.getDisplayLessonEvents(lessonEvents);
       const nextSignature = this.getLessonEventsSignature(lessonEvents);
       const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
       if (nextSignature === currentSignature) {
@@ -1370,7 +1727,10 @@ Page({
         }
         return this.data.lessonEvents;
       }
-      this.setData({ lessonEvents });
+      this.setData({
+        lessonEvents,
+        displayLessonEvents
+      });
       this.rebuildStudentDisplayList({ lessonEvents });
       this.rebuildLessonStats({ lessonEvents });
       if (deferClassProgress) {
@@ -1382,7 +1742,10 @@ Page({
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
       if (this.data.lessonEvents.length > 0) {
-        this.setData({ lessonEvents: [] });
+        this.setData({
+          lessonEvents: [],
+          displayLessonEvents: []
+        });
       }
       this.rebuildStudentDisplayList({ lessonEvents: [] });
       this.rebuildLessonStats({ lessonEvents: [] });
@@ -1405,10 +1768,12 @@ Page({
     this.clearRecentAnswerScoreKeys();
     this.latestAttendanceDocs = [];
     this.continuationContextCache = {};
+    this.setIdleDisplayState();
     this.setData({
       currentCalledStudent: null,
       lessonEvents: [],
       pendingScoreLock: false,
+      selectedScore: 0,
       currentRoundProgressCount: 0,
       currentRoundTotalCount: this.getRosterStudentKeySet().size || 0,
       lessonCalledCount: 0,
@@ -1434,7 +1799,7 @@ Page({
     }
 
     try {
-      await db.collection("lessonEvent").add({
+      const res = await db.collection("lessonEvent").add({
         data: {
           lessonId,
           classId,
@@ -1448,7 +1813,7 @@ Page({
           createdBy: "teacher"
         }
       });
-      return true;
+      return String(res?._id || "").trim() || true;
     } catch (err) {
       console.error("[signRecord] createLessonEvent failed", err);
       wx.showToast({
@@ -1537,6 +1902,15 @@ Page({
   },
 
   async onTapRandomRollcall() {
+    return this.startRandomRollcall();
+  },
+
+  async startRandomRollcall(options = {}) {
+    const excludeStudentKeys = new Set(
+      (Array.isArray(options.excludeStudentKeys) ? options.excludeStudentKeys : [])
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    );
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
     const currentManagedLessonId = this.getActiveLessonId();
     if (!lessonId) {
@@ -1584,20 +1958,23 @@ Page({
       (this.data.currentRoundCalledIds || []).map((item) => String(item || "").trim()).filter(Boolean)
     );
     let round = Number(this.data.currentRound || 1);
-    let candidateList = signedStudents.filter((item) => !calledIdSet.has(this.getStudentUniqueId(item)));
+    let candidateList = signedStudents.filter((item) => {
+      const studentKey = this.getStudentUniqueId(item);
+      return !calledIdSet.has(studentKey) && !excludeStudentKeys.has(studentKey);
+    });
 
     if (candidateList.length === 0) {
       const roundComplete = this.isRoundComplete(round, this.latestClassRollcallEvents);
       if (roundComplete) {
         round += 1;
-        candidateList = signedStudents.slice();
+        candidateList = signedStudents.filter((item) => !excludeStudentKeys.has(this.getStudentUniqueId(item)));
         this.setData({
           currentRound: round,
           currentRoundCalledIds: [],
           currentRoundProgressCount: 0
         });
       } else {
-        candidateList = signedStudents.slice();
+        candidateList = signedStudents.filter((item) => !excludeStudentKeys.has(this.getStudentUniqueId(item)));
       }
     }
 
@@ -1613,7 +1990,7 @@ Page({
       return;
     }
 
-    const success = await this.createLessonEvent({
+    const rollcallEventId = await this.createLessonEvent({
       studentId: student.studentId,
       studentName: student.name,
       type: "rollcall",
@@ -1622,11 +1999,14 @@ Page({
       payload: { source: "signed_random" }
     });
 
-    if (!success) return;
+    if (!rollcallEventId) return;
 
     const studentKey = this.getStudentUniqueId(student);
     const nextCalledIds = Array.from(new Set([...(this.data.currentRoundCalledIds || []), studentKey]));
-    const calledStudent = this.decorateCalledStudent(student, round);
+    const calledStudent = this.decorateCalledStudent({
+      ...student,
+      _id: String(rollcallEventId === true ? "" : rollcallEventId || "").trim()
+    }, round);
     const diceValues = this.getDiceValuesForStudent(calledStudent, round);
     const nextRoundCalledSet = this.getRoundCalledStudentKeySet(round, this.latestClassRollcallEvents);
     nextRoundCalledSet.add(studentKey);
@@ -1634,7 +2014,10 @@ Page({
     const nextProgressCount = rosterStudentKeySet.size > 0
       ? Array.from(rosterStudentKeySet).filter((key) => nextRoundCalledSet.has(key)).length
       : nextRoundCalledSet.size;
-    await this.playDiceRollAnimation(diceValues.leftValue, diceValues.rightValue, calledStudent.studentId);
+    const rollingStartedAt = Date.now();
+    const verifyStartedAt = rollingStartedAt + this.rollingDurationSeconds * 1000;
+    const verifyEndsAt = this.getVerifyEndsAt(verifyStartedAt);
+    this.setRollingDisplayState();
     this.setData({
       currentCalledStudent: calledStudent,
       currentRound: round,
@@ -1642,8 +2025,19 @@ Page({
       currentRoundProgressCount: nextProgressCount,
       currentRoundTotalCount: this.getRosterStudentKeySet().size || signedStudents.length,
       pendingScoreLock: true,
+      selectedScore: 0,
       lastScoredStudentName: "",
-      lastScoredRound: 0
+      lastScoredRound: 0,
+      recordSubmitting: false
+    });
+    await this.playDiceRollAnimation(diceValues.leftValue, diceValues.rightValue, calledStudent.studentId);
+    this.setData({
+      verifyStartedAt,
+      verifyEndsAt
+    });
+    this.startDisplayFlow(calledStudent, {
+      verifyStartedAt,
+      verifyEndsAt
     });
     this.rebuildLessonStats({
       lessonEvents: this.data.lessonEvents,
@@ -1657,7 +2051,7 @@ Page({
     });
   },
 
-  async onTapScoreAnswer(e) {
+  onTapScoreAnswer(e) {
     const score = Number(e.currentTarget.dataset.score || 0);
     const student = this.data.currentCalledStudent;
 
@@ -1677,6 +2071,40 @@ Page({
       return;
     }
 
+    this.setData({
+      selectedScore: score,
+      recordSubmitting: false
+    });
+  },
+
+  async onTapRecordResult() {
+    const student = this.data.currentCalledStudent;
+    const score = Number(this.data.selectedScore || 0);
+
+    if (!student || !student.name) {
+      wx.showToast({
+        title: "请先随机点名",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (!score) {
+      wx.showToast({
+        title: "请先选择分数",
+        icon: "none"
+      });
+      return;
+    }
+
+    if (this.data.recordSubmitting) {
+      return;
+    }
+
+    this.setData({
+      recordSubmitting: true
+    });
+
     const success = await this.saveAnswerScoreEvent({
       studentId: student.studentId,
       studentName: student.name,
@@ -1686,23 +2114,121 @@ Page({
       payload: { basedOn: "rollcall" }
     });
 
-    if (!success) return;
+    if (!success) {
+      this.setData({
+        recordSubmitting: false
+      });
+      return;
+    }
 
     this.rememberRecentAnswerScore({
       studentId: student.studentId,
       studentName: student.name,
       round: Number(student.round || this.data.currentRound || 0)
     });
+    this.clearDisplayTimers();
     this.setData({
       currentCalledStudent: null,
       pendingScoreLock: false,
+      selectedScore: 0,
+      recordSubmitting: false,
       lastScoredStudentName: String(student.name || "").trim(),
       lastScoredRound: Number(student.round || this.data.currentRound || 0)
     });
+    this.setIdleDisplayState();
     await this.loadLessonEvents();
     wx.showToast({
       title: "回答得分已记录",
       icon: "none"
+    });
+  },
+
+  async removeCurrentPendingRollcall() {
+    const student = this.data.currentCalledStudent;
+    const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
+    const classId = String(this.data.classId || "").trim();
+    const round = Number(student?.round || this.data.currentRound || 0);
+    const currentEventId = String(student?._id || "").trim();
+
+    if (!student || !lessonId || !classId || !round) {
+      return false;
+    }
+
+    try {
+      if (currentEventId) {
+        try {
+          await db.collection("lessonEvent").doc(currentEventId).remove();
+        } catch (err) {
+          const errText = String(err?.errMsg || err?.message || "");
+          if (!errText.includes("cannot remove document")) {
+            throw err;
+          }
+        }
+        return true;
+      }
+
+      const res = await db.collection("lessonEvent")
+        .where({
+          classId,
+          lessonId,
+          type: "rollcall",
+          round
+        })
+        .get();
+
+      const target = (res.data || []).find(
+        (item) => this.getStudentUniqueId(item) === this.getStudentUniqueId(student)
+      );
+
+      if (!target?._id) {
+        return true;
+      }
+
+      try {
+        await db.collection("lessonEvent").doc(target._id).remove();
+      } catch (err) {
+        const errText = String(err?.errMsg || err?.message || "");
+        if (!errText.includes("cannot remove document")) {
+          throw err;
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error("[randomRollcall] removeCurrentPendingRollcall failed", err);
+      wx.showToast({
+        title: "换一个失败，请稍后重试",
+        icon: "none"
+      });
+      return false;
+    }
+  },
+
+  async onTapReplaceStudent() {
+    const student = this.data.currentCalledStudent;
+    if (!student || !student.name) {
+      wx.showToast({
+        title: "请先随机点名",
+        icon: "none"
+      });
+      return;
+    }
+
+    const removed = await this.removeCurrentPendingRollcall();
+    if (!removed) {
+      return;
+    }
+
+    const excludedStudentKey = this.getStudentUniqueId(student);
+    this.clearDisplayTimers();
+    this.setRollingDisplayState();
+    this.setData({
+      currentCalledStudent: null,
+      pendingScoreLock: false,
+      selectedScore: 0,
+      recordSubmitting: false
+    });
+    await this.startRandomRollcall({
+      excludeStudentKeys: excludedStudentKey ? [excludedStudentKey] : []
     });
   },
 
@@ -1762,9 +2288,13 @@ Page({
         name: "getLessonsByClass",
         data: { classId }
       });
-      const lessons = res.result?.success ? (res.result.lessons || []) : [];
+      const lessons = this.normalizeLessons(
+        res.result?.success ? (res.result.lessons || []) : []
+      );
+      const currentLessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
       this.setData({
         lessons,
+        currentLessonLabel: this.getLessonOrderLabel(currentLessonId, lessons),
         currentManagedLessonId: this.getActiveLessonId(lessons)
       });
       return lessons;
@@ -1865,6 +2395,7 @@ Page({
       this.setData({
         lessonId: "",
         selectedLessonId: "",
+        currentLessonLabel: "",
         currentManagedLessonId,
         list
       });
@@ -1881,6 +2412,7 @@ Page({
     this.setData({
       lessonId: nextLessonId,
       selectedLessonId: nextLessonId,
+      currentLessonLabel: this.getLessonOrderLabel(nextLessonId),
       currentManagedLessonId,
       list: baseList
     });
