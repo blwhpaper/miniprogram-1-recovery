@@ -31,35 +31,67 @@
   color: var(--ui-color-text);
 }
 
-.rollcall-stage__headline {
+.rollcall-stage__action {
+  position: relative;
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+}
+
+.rollcall-trigger-shell {
+  position: relative;
+  width: 180rpx;
+  height: 180rpx;
+  display: flex;
   align-items: center;
-  gap: 10rpx;
-  text-align: center;
+  justify-content: center;
 }
 
-.rollcall-stage__title {
-  font-size: 42rpx;
-  font-weight: 700;
-  line-height: 1.4;
-  color: var(--ui-color-text);
+.rollcall-trigger {
+  position: relative;
+  width: 168rpx !important;
+  height: 168rpx !important;
+  min-height: 168rpx !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transform: translateY(0) scale(1);
+  transition: transform 0.16s ease, opacity 0.16s ease, filter 0.16s ease;
 }
 
-.rollcall-stage__desc {
-  font-size: var(--ui-font-sm);
-  line-height: 1.7;
-  color: var(--ui-color-text-muted);
+.rollcall-trigger::after {
+  border: none !important;
 }
 
-.dice-stage {
+.rollcall-trigger:active {
+  transform: translateY(4rpx) scale(0.97);
+}
+
+.rollcall-trigger--disabled {
+  opacity: 0.52;
+  filter: saturate(0.82);
+}
+
+.rollcall-trigger__image {
+  width: 168rpx;
+  height: 168rpx;
+  display: block;
+}
+
+.number-card-stage {
   position: relative;
   width: 100%;
   padding: 12rpx 0 20rpx;
   overflow: hidden;
 }
 
-.dice-stage__glow {
+.number-card-stage__glow {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -73,123 +105,57 @@
   pointer-events: none;
 }
 
-.dice-stage__shadow {
-  position: absolute;
-  bottom: 12rpx;
-  width: 162rpx;
-  height: 28rpx;
-  border-radius: 50%;
-  background: rgba(15, 23, 42, 0.09);
-  filter: blur(8rpx);
-  transform: translateX(-50%);
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.dice-stage__shadow--left {
-  left: calc(50% - 98rpx);
-}
-
-.dice-stage__shadow--right {
-  left: calc(50% + 98rpx);
-}
-
-.dice-stage--rolling .dice-stage__shadow--left {
-  transform: translateX(-50%) scale(0.82);
-  opacity: 0.7;
-}
-
-.dice-stage--rolling .dice-stage__shadow--right {
-  transform: translateX(-50%) scale(0.86);
-  opacity: 0.75;
-}
-
-.dice-pair {
+.number-card-pair {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 22rpx;
+  gap: 28rpx;
   min-height: 300rpx;
   z-index: 1;
 }
 
-.dice-pair__operator {
-  width: 44rpx;
-  text-align: center;
-  font-size: 40rpx;
-  font-weight: 700;
-  color: rgba(37, 99, 235, 0.72);
-}
-
-.dice-face-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16rpx;
-}
-
-.dice-face {
+.number-card-face {
   width: 184rpx;
   height: 184rpx;
-  padding: 22rpx;
+  padding: 18rpx;
   border-radius: 40rpx;
-  background: linear-gradient(180deg, #ffffff 0%, #eef5ff 100%);
-  border: 1rpx solid rgba(37, 99, 235, 0.16);
-  box-shadow: 0 14rpx 32rpx rgba(37, 99, 235, 0.12);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12rpx;
+  background: linear-gradient(180deg, #ffffff 0%, #eef4ff 62%, #dbeafe 100%);
+  border: 1rpx solid rgba(37, 99, 235, 0.12);
+  box-shadow: 0 18rpx 32rpx rgba(37, 99, 235, 0.12);
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transform-origin: center center;
   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
-.dice-face--left {
-  transform: rotate(-10deg);
-}
-
-.dice-face--right {
-  transform: rotate(12deg);
-}
-
-.dice-face--rolling {
-  animation: dice-roll 0.72s ease-in-out;
-  box-shadow: 0 18rpx 38rpx rgba(37, 99, 235, 0.18);
-  filter: saturate(1.02);
-}
-
-.dice-cell {
+.number-card-face__digit {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.dice-dot {
-  width: 22rpx;
-  height: 22rpx;
-  border-radius: 50%;
-  transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
-}
-
-.dice-dot--active {
-  background: var(--ui-color-primary);
-  box-shadow: 0 4rpx 10rpx rgba(37, 99, 235, 0.18);
-}
-
-.dice-dot--inactive {
-  opacity: 0;
-  transform: scale(0.6);
-}
-
-.dice-face-card__value {
-  min-width: 104rpx;
-  padding: 10rpx 18rpx;
-  border-radius: var(--ui-radius-pill);
-  background: var(--ui-color-primary-soft);
-  color: var(--ui-color-primary-strong);
-  font-size: var(--ui-font-xs);
-  font-weight: 600;
+  font-size: 88rpx;
+  line-height: 1;
+  font-weight: 800;
+  color: #1d4ed8;
   text-align: center;
+  letter-spacing: 2rpx;
+  text-shadow: 0 4rpx 10rpx rgba(37, 99, 235, 0.12);
+}
+
+.number-card-face--left {
+  transform: rotate(-6deg);
+}
+
+.number-card-face--right {
+  transform: rotate(6deg);
+}
+
+.number-card-face--rolling {
+  animation: dice-roll 0.72s ease-in-out;
+  box-shadow: 0 18rpx 38rpx rgba(37, 99, 235, 0.18);
+  filter: saturate(1.02);
 }
 
 .rollcall-result-card {
@@ -309,15 +275,9 @@
   color: var(--ui-color-primary);
 }
 
-.primary-action {
-  margin: 0;
-  min-height: var(--ui-button-height);
-  font-size: 32rpx;
-  border-radius: 999rpx !important;
-}
-
-.primary-action--disabled {
-  opacity: 1;
+.lesson-chip-current {
+  margin-left: 10rpx;
+  color: var(--ui-color-primary);
 }
 
 @keyframes dice-roll {
