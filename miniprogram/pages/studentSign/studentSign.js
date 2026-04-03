@@ -1145,24 +1145,23 @@ Page({
     const studentId = String(this.data.studentId || "").trim();
     if (!lessonId) return "";
 
-    const shouldValidateLesson = this.data.isLeaveResultView || !this.data.classId;
-    let lessonClassId = "";
-
-    if (shouldValidateLesson) {
-      const lesson = await this.getReadableLesson(lessonId, "ensureLessonClassId");
-      lessonClassId = String(lesson?.classId || "").trim();
-      if (!lesson) {
-        return "";
-      }
-    }
-
-    const nextClassId = lessonClassId || String(this.data.classId || "").trim();
-    if (nextClassId) {
+    const lesson = await this.getReadableLesson(lessonId, "ensureLessonClassId");
+    const lessonClassId = String(lesson?.classId || "").trim();
+    if (lessonClassId) {
       this.setData({
         lessonId,
-        classId: nextClassId
+        classId: lessonClassId
       });
-      return nextClassId;
+      return lessonClassId;
+    }
+
+    const currentClassId = String(this.data.classId || "").trim();
+    if (currentClassId) {
+      this.setData({
+        lessonId,
+        classId: currentClassId
+      });
+      return currentClassId;
     }
 
     if (!studentId) return "";

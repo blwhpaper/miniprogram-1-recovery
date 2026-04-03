@@ -423,6 +423,51 @@ Page({
     return map[normalizedStatus || "unsigned"] || "未签到";
   },
 
+  getBlockedLessonFeedback(cloudLessonEntry = {}, hasBoundStudentSession = false) {
+    const statusHint = String(cloudLessonEntry?.statusHint || "").trim();
+    const message = String(cloudLessonEntry?.msg || "").trim();
+    const defaultFeedback = {
+      pageLeadText: "当前课入口",
+      statusText: "暂无当前课",
+      summaryText: hasBoundStudentSession ? "等待老师开课" : "请重新扫码"
+    };
+
+    const feedbackMap = {
+      not_found: {
+        pageLeadText: "当前课入口",
+        statusText: "无效签到码",
+        summaryText: message || "当前签到课不存在，请重新扫码老师二维码"
+      },
+      inactive: {
+        pageLeadText: "当前状态",
+        statusText: "当前课已失效",
+        summaryText: message || "当前课已结束，请重新扫码老师二维码"
+      },
+      class_mismatch: {
+        pageLeadText: "当前状态",
+        statusText: "不可进入",
+        summaryText: message || "当前签到课与学生班级不匹配，不能进入"
+      },
+      not_in_class: {
+        pageLeadText: "当前状态",
+        statusText: "不可进入",
+        summaryText: message || "当前绑定学生不在本班级名单中"
+      },
+      invalid_class: {
+        pageLeadText: "当前状态",
+        statusText: "不可进入",
+        summaryText: message || "当前课缺少班级信息，暂不可进入"
+      },
+      class_not_found: {
+        pageLeadText: "当前状态",
+        statusText: "不可进入",
+        summaryText: message || "当前班级名单不存在，暂不可进入"
+      }
+    };
+
+    return feedbackMap[statusHint] || defaultFeedback;
+  },
+
   parseScore(value) {
     if (value === "" || value === null || typeof value === "undefined") {
       return null;
@@ -793,6 +838,12 @@ Page({
     let showLessonEntryButton = false;
     let showQuestionEntryButton = false;
 
+    const hasBlockedLessonEntry = Boolean(
+      cloudLessonEntry?.exists &&
+      !cloudLessonEntry?.canEnterCurrentLesson &&
+      !resolvedLessonId
+    );
+
     if (hasBoundStudentSession && resolvedLessonId) {
       const shouldShowLeaveResultEntry = (
         currentLessonAttendanceStatus === "leave_agree" ||
@@ -848,6 +899,11 @@ Page({
       summaryText = "进入后可签到";
       lessonEntryText = "进入当前课";
       showLessonEntryButton = true;
+    } else if (hasBlockedLessonEntry) {
+      const blockedFeedback = this.getBlockedLessonFeedback(cloudLessonEntry, hasBoundStudentSession);
+      pageLeadText = blockedFeedback.pageLeadText;
+      statusText = blockedFeedback.statusText;
+      summaryText = blockedFeedback.summaryText;
     } else if (hasBoundStudentSession) {
       pageLeadText = "当前课入口";
       statusText = "暂无当前课";

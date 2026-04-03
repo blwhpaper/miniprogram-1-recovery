@@ -47,8 +47,7 @@ Page({
       const roster = Array.isArray(res.data?.roster) ? res.data.roster : []
       this.setData({ studentCount: roster.length })
     } catch (err) {
-      const list = wx.getStorageSync("students_" + classId) || []
-      this.setData({ studentCount: list.length })
+      this.setData({ studentCount: 0 })
       console.error("[studentList] refresh cloud count failed", err)
     }
   },

@@ -56,6 +56,56 @@ async function getAttendanceStatus(lessonId = '', studentId = '') {
   ).trim() || 'unsigned'
 }
 
+async function getClassRoster(classId = '') {
+  const normalizedClassId = String(classId || '').trim()
+  if (!normalizedClassId) {
+    return {
+      classDoc: null,
+      roster: [],
+      exists: false
+    }
+  }
+
+  try {
+    const classRes = await db.collection('classes').doc(normalizedClassId).get()
+    return {
+      classDoc: classRes.data || null,
+      roster: Array.isArray(classRes.data?.roster) ? classRes.data.roster : [],
+      exists: !!classRes.data
+    }
+  } catch (err) {
+    const message = String(err?.errMsg || err?.message || err || '').toLowerCase()
+    const isNotFound = (
+      message.includes('cannot find document') ||
+      message.includes('document not exist') ||
+      message.includes('document not exists')
+    )
+
+    if (isNotFound) {
+      return {
+        classDoc: null,
+        roster: [],
+        exists: false
+      }
+    }
+
+    throw err
+  }
+}
+
+function isStudentInRoster(user = null, roster = []) {
+  if (!user || !Array.isArray(roster) || roster.length === 0) return false
+
+  const normalizedStudentId = String(user.studentId || '').trim()
+  const normalizedName = String(user.name || '').trim()
+  if (!normalizedStudentId || !normalizedName) return false
+
+  return roster.some((student = {}) => (
+    String(student.studentId || student.id || '').trim() === normalizedStudentId &&
+    String(student.name || '').trim() === normalizedName
+  ))
+}
+
 async function resolveLessonDoc({ lessonId = '', classId = '' } = {}) {
   const normalizedLessonId = String(lessonId || '').trim()
   if (normalizedLessonId) {
@@ -114,11 +164,11 @@ exports.main = async (event = {}) => {
   const wxContext = cloud.getWXContext()
   const env = getSafeEnv(wxContext)
   const lessonId = String(event.lessonId || '').trim()
-  const classId = String(event.classId || '').trim()
+  const requestedClassId = String(event.classId || '').trim()
   const user = await getBoundStudentUser(String(wxContext.OPENID || '').trim())
   const studentId = String(user?.studentId || '').trim()
   const userClassId = String(user?.classId || '').trim()
-  const fallbackClassId = classId || userClassId
+  const fallbackClassId = requestedClassId || userClassId
 
   try {
     const { lesson, notFound, resolvedBy } = await resolveLessonDoc({
@@ -135,25 +185,55 @@ exports.main = async (event = {}) => {
         lessonStatus: '',
         exists: false,
         readable: true,
+        bound: !!studentId,
+        classMatched: false,
+        memberMatched: false,
         attendanceStatus: studentId ? 'unsigned' : '',
         attendanceStatusText: studentId ? getAttendanceStatusLabel('unsigned') : '',
         canEnterCurrentLesson: false,
         statusHint: 'not_found',
         resolvedBy,
-        notFound
+        notFound,
+        msg: notFound ? '当前签到课不存在，请重新扫码老师二维码' : '当前没有可进入的签到课'
       }
     }
 
     const resolvedLessonId = String(lesson._id || lessonId || '').trim()
     const resolvedClassId = String(lesson.classId || fallbackClassId || '').trim()
     const lessonStatus = String(lesson.status || '').trim()
-    const attendanceStatus = studentId
+    const { roster, exists: classExists } = await getClassRoster(resolvedClassId)
+    const classMatched = !requestedClassId || requestedClassId === resolvedClassId
+    const memberMatched = studentId ? isStudentInRoster(user, roster) : false
+    const attendanceStatus = studentId && classMatched && memberMatched
       ? await getAttendanceStatus(resolvedLessonId, studentId)
-      : 'unsigned'
-    const canEnterCurrentLesson = (
-      lessonStatus === 'active' ||
-      ['signed', 'leave_wait', 'leave_agree', 'absent'].includes(attendanceStatus)
+      : (studentId ? 'unsigned' : '')
+    const lessonActive = lessonStatus === 'active'
+    const canEnterCurrentLesson = Boolean(
+      lessonActive &&
+      resolvedClassId &&
+      classExists &&
+      classMatched &&
+      (!studentId || memberMatched)
     )
+    let statusHint = 'enterable'
+    let msg = ''
+
+    if (!resolvedClassId) {
+      statusHint = 'invalid_class'
+      msg = '当前课缺少班级信息，暂不可进入'
+    } else if (!classExists) {
+      statusHint = 'class_not_found'
+      msg = '当前班级名单不存在，暂不可进入'
+    } else if (!classMatched) {
+      statusHint = 'class_mismatch'
+      msg = '当前签到课与学生班级不匹配，不能进入'
+    } else if (studentId && !memberMatched) {
+      statusHint = 'not_in_class'
+      msg = '当前绑定学生不在本班级名单中'
+    } else if (!lessonActive) {
+      statusHint = 'inactive'
+      msg = '当前课已失效，请重新扫码老师二维码'
+    }
 
     return {
       success: true,
@@ -163,12 +243,16 @@ exports.main = async (event = {}) => {
       lessonStatus,
       exists: true,
       readable: true,
+      bound: !!studentId,
+      classMatched,
+      memberMatched,
       attendanceStatus,
       attendanceStatusText: getAttendanceStatusLabel(attendanceStatus),
       canEnterCurrentLesson,
-      statusHint: canEnterCurrentLesson ? 'enterable' : 'inactive',
+      statusHint,
       resolvedBy,
-      notFound: false
+      notFound: false,
+      msg
     }
   } catch (err) {
     return {
@@ -179,6 +263,9 @@ exports.main = async (event = {}) => {
       lessonStatus: '',
       exists: false,
       readable: false,
+      bound: !!studentId,
+      classMatched: false,
+      memberMatched: false,
       attendanceStatus: '',
       attendanceStatusText: '',
       canEnterCurrentLesson: false,
