@@ -1,6 +1,7 @@
 const db = wx.cloud.database()
 const _ = db.command
 const { ensureApprovedTeacherSession } = require("../../utils/teacherSession");
+const ROLLCALL_EVENT_TYPES = ["rollcall", "answer_score"];
 
 Page({
   data: {
@@ -47,6 +48,7 @@ Page({
   isInitializing: false,
   rollAnimationTimer: null,
   rollAnimationFinishTimer: null,
+  continuationContextCache: {},
 
   async ensureTeacherPageAccess() {
     const currentTeacher = await ensureApprovedTeacherSession();
@@ -998,8 +1000,9 @@ Page({
       return null;
     }
 
-    try {
-      const previousAttendanceDocs = await this.queryAttendanceList({ lessonId: previousLessonId });
+    const continuationContextCache = this.continuationContextCache || {};
+    const cachedContext = continuationContextCache[previousLessonId];
+    if (cachedContext) {
       return {
         previousLessonId,
         previousCalledSet: new Set(
@@ -1007,7 +1010,27 @@ Page({
             .map((item) => this.getStudentUniqueId(item))
             .filter(Boolean)
         ),
-        previousAttendanceStatusMap: this.buildAttendanceStatusMap(previousAttendanceDocs)
+        previousAttendanceStatusMap: cachedContext.previousAttendanceStatusMap || new Map()
+      };
+    }
+
+    try {
+      const previousAttendanceDocs = await this.queryAttendanceList({ lessonId: previousLessonId });
+      const previousAttendanceStatusMap = this.buildAttendanceStatusMap(previousAttendanceDocs);
+      this.continuationContextCache = {
+        ...continuationContextCache,
+        [previousLessonId]: {
+          previousAttendanceStatusMap
+        }
+      };
+      return {
+        previousLessonId,
+        previousCalledSet: new Set(
+          previousRoundEvents
+            .map((item) => this.getStudentUniqueId(item))
+            .filter(Boolean)
+        ),
+        previousAttendanceStatusMap
       };
     } catch (err) {
       console.error("[randomRollcall] buildContinuationContext failed", {
@@ -1281,7 +1304,7 @@ Page({
     try {
       const rawEvents = await this.queryLessonEventList({
         classId,
-        type: _.in(["rollcall", "answer_score"])
+        type: _.in(ROLLCALL_EVENT_TYPES)
       });
       const classRollcallEvents = (rawEvents || [])
         .map((item) => this.normalizeLessonEvent(item))
@@ -1309,7 +1332,7 @@ Page({
   },
 
   async loadLessonEvents(options = {}) {
-    const { silent = false } = options;
+    const { silent = false, deferClassProgress = false } = options;
     const lessonId = String(this.data.selectedLessonId || this.data.lessonId || "").trim();
     if (!lessonId) {
       this.setData({
@@ -1317,7 +1340,11 @@ Page({
         lessonEventsLoading: false
       });
       this.rebuildLessonStats({ lessonEvents: [] });
-      await this.loadClassRollcallProgressEvents();
+      if (deferClassProgress) {
+        this.loadClassRollcallProgressEvents();
+      } else {
+        await this.loadClassRollcallProgressEvents();
+      }
       return [];
     }
 
@@ -1325,7 +1352,10 @@ Page({
       this.setData({ lessonEventsLoading: true });
     }
     try {
-      const rawEvents = await this.queryLessonEventList({ lessonId });
+      const rawEvents = await this.queryLessonEventList({
+        lessonId,
+        type: _.in(ROLLCALL_EVENT_TYPES)
+      });
       const lessonEvents = (rawEvents || [])
         .map((item) => this.normalizeLessonEvent(item))
         .filter((item) => this.isRollcallRelatedLessonEvent(item));
@@ -1333,13 +1363,21 @@ Page({
       const currentSignature = this.getLessonEventsSignature(this.data.lessonEvents);
       if (nextSignature === currentSignature) {
         this.rebuildLessonStats({ lessonEvents: this.data.lessonEvents });
-        await this.loadClassRollcallProgressEvents();
+        if (deferClassProgress) {
+          this.loadClassRollcallProgressEvents();
+        } else {
+          await this.loadClassRollcallProgressEvents();
+        }
         return this.data.lessonEvents;
       }
       this.setData({ lessonEvents });
       this.rebuildStudentDisplayList({ lessonEvents });
       this.rebuildLessonStats({ lessonEvents });
-      await this.loadClassRollcallProgressEvents();
+      if (deferClassProgress) {
+        this.loadClassRollcallProgressEvents();
+      } else {
+        await this.loadClassRollcallProgressEvents();
+      }
       return lessonEvents;
     } catch (err) {
       console.error("[signRecord] loadLessonEvents failed", err);
@@ -1348,7 +1386,11 @@ Page({
       }
       this.rebuildStudentDisplayList({ lessonEvents: [] });
       this.rebuildLessonStats({ lessonEvents: [] });
-      await this.loadClassRollcallProgressEvents();
+      if (deferClassProgress) {
+        this.loadClassRollcallProgressEvents();
+      } else {
+        await this.loadClassRollcallProgressEvents();
+      }
       return [];
     } finally {
       if (!silent) {
@@ -1357,10 +1399,12 @@ Page({
     }
   },
 
-  async refreshInteractionDataAfterLessonChange() {
+  async refreshInteractionDataAfterLessonChange(options = {}) {
+    const { shouldLoadLessonEvents = true } = options;
     this.refreshSignedStudents();
     this.clearRecentAnswerScoreKeys();
     this.latestAttendanceDocs = [];
+    this.continuationContextCache = {};
     this.setData({
       currentCalledStudent: null,
       lessonEvents: [],
@@ -1371,7 +1415,9 @@ Page({
       lastScoredStudentName: "",
       lastScoredRound: 0
     });
-    await this.loadLessonEvents();
+    if (shouldLoadLessonEvents) {
+      await this.loadLessonEvents();
+    }
   },
 
   async createLessonEvent(eventData = {}) {
@@ -1839,9 +1885,11 @@ Page({
       list: baseList
     });
     this.resetDiceDisplay();
-    await this.refreshInteractionDataAfterLessonChange();
-
-    await this.fetchAttendanceOnce(nextLessonId);
+    await Promise.all([
+      this.fetchAttendanceOnce(nextLessonId),
+      this.refreshInteractionDataAfterLessonChange({ shouldLoadLessonEvents: false }),
+      this.loadLessonEvents({ silent: true, deferClassProgress: true })
+    ]);
     if (this.isWritableCurrentLesson(nextLessonId, currentManagedLessonId)) {
       this.startAttendancePolling(nextLessonId);
       this.startLessonEventPolling(nextLessonId);

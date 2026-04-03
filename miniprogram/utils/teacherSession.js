@@ -1,5 +1,12 @@
 const TEACHER_SESSION_KEY = "CURRENT_TEACHER";
 const TEACHER_LOGOUT_GATE_KEY = "TEACHER_SESSION_EXITED";
+const TEACHER_SESSION_CACHE_TTL = 10000;
+
+let approvedTeacherSessionPromise = null;
+let approvedTeacherSessionCache = {
+  value: "",
+  expiresAt: 0
+};
 
 function getStoredTeacherSession() {
   return String(wx.getStorageSync(TEACHER_SESSION_KEY) || "").trim();
@@ -31,7 +38,19 @@ async function ensureApprovedTeacherSession() {
     return "";
   }
 
-  try {
+  const now = Date.now();
+  if (
+    approvedTeacherSessionCache.expiresAt > now &&
+    approvedTeacherSessionCache.value === currentTeacher
+  ) {
+    return approvedTeacherSessionCache.value;
+  }
+
+  if (approvedTeacherSessionPromise) {
+    return approvedTeacherSessionPromise;
+  }
+
+  approvedTeacherSessionPromise = (async () => {
     const res = await wx.cloud.callFunction({
       name: "teacherApply",
       data: {
@@ -44,6 +63,10 @@ async function ensureApprovedTeacherSession() {
       if (currentTeacher) {
         wx.removeStorageSync(TEACHER_SESSION_KEY);
       }
+      approvedTeacherSessionCache = {
+        value: "",
+        expiresAt: 0
+      };
       return "";
     }
 
@@ -53,14 +76,35 @@ async function ensureApprovedTeacherSession() {
 
     if (currentTeacher === approvedTeacherId) {
       wx.removeStorageSync(TEACHER_LOGOUT_GATE_KEY);
+      approvedTeacherSessionCache = {
+        value: currentTeacher,
+        expiresAt: Date.now() + TEACHER_SESSION_CACHE_TTL
+      };
       return currentTeacher;
     }
 
-    return cacheApprovedTeacherSession(approvedTeacherId);
-  } catch (err) {
+    const cachedTeacherId = cacheApprovedTeacherSession(approvedTeacherId);
+    approvedTeacherSessionCache = {
+      value: cachedTeacherId,
+      expiresAt: Date.now() + TEACHER_SESSION_CACHE_TTL
+    };
+    return cachedTeacherId;
+  })().catch((err) => {
     if (currentTeacher) {
       wx.removeStorageSync(TEACHER_SESSION_KEY);
     }
+    approvedTeacherSessionCache = {
+      value: "",
+      expiresAt: 0
+    };
+    return "";
+  }).finally(() => {
+    approvedTeacherSessionPromise = null;
+  });
+
+  try {
+    return await approvedTeacherSessionPromise;
+  } catch (err) {
     return "";
   }
 }

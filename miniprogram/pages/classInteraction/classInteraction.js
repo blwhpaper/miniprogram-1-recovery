@@ -1,6 +1,15 @@
 const db = wx.cloud.database()
 const _ = db.command
 const { ensureApprovedTeacherSession } = require("../../utils/teacherSession");
+const CLASS_INTERACTION_EVENT_TYPES = [
+  "answer_score",
+  "student_question",
+  "question_request",
+  "question_approved",
+  "question_score",
+  "test_publish",
+  "test_record"
+];
 
 Page({
   data: {
@@ -849,7 +858,10 @@ Page({
     }
     try {
       const res = await db.collection("lessonEvent")
-        .where({ lessonId })
+        .where({
+          lessonId,
+          type: _.in(CLASS_INTERACTION_EVENT_TYPES)
+        })
         .orderBy("createdAt", "desc")
         .get();
       const lessonEvents = (res.data || []).map((item) => this.normalizeLessonEvent(item));
